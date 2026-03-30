@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous Trading Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- HEADER -->
+        <header class="dashboard-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1>⚡ Autonomous Trading System</h1>
+                    <p class="tagline">Real-time Market Monitoring & Execution</p>
+                </div>
+                <div class="header-right">
+                    <div class="status-badge" id="status-badge">
+                        <span class="status-dot"></span>
+                        <span id="status-text">LOADING...</span>
+                    </div>
+                    <div class="time-display">
+                        <div class="current-time" id="current-time">--:-- --</div>
+                        <div class="next-trade" id="next-trade">Next: --:-- AM</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT -->
+        <main class="dashboard-main">
+
+            <!-- ROW 1: KEY METRICS -->
+            <section class="metrics-row">
+                <div class="metric-card">
+                    <div class="metric-label">Total Capital</div>
+                    <div class="metric-value" id="total-capital">$100,000</div>
+                    <div class="metric-sub">Starting Balance</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Allocated</div>
+                    <div class="metric-value" id="allocated-capital">$0</div>
+                    <div class="metric-sub">Active Deployment</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Reserve</div>
+                    <div class="metric-value" id="reserve-capital">$100,000</div>
+                    <div class="metric-sub">Available Cash</div>
+                </div>
+                <div class="metric-card highlight">
+                    <div class="metric-label">Monthly Return</div>
+                    <div class="metric-value" id="monthly-return">+0.0%</div>
+                    <div class="metric-sub">YTD Performance</div>
+                </div>
+            </section>
+
+            <!-- ROW 2: MARKET SCAN & POSITIONS -->
+            <section class="content-row">
+                <!-- LEFT: MARKET RANKINGS -->
+                <div class="content-card markets-card">
+                    <div class="card-header">
+                        <h2>📊 Market Rankings</h2>
+                        <span class="refresh-indicator" id="refresh-indicator">●</span>
+                    </div>
+                    <div class="market-table" id="markets-container">
+                        <div class="market-row loading">
+                            <span>Scanning markets...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: OPEN POSITIONS -->
+                <div class="content-card positions-card">
+                    <div class="card-header">
+                        <h2>📈 Open Positions</h2>
+                        <span class="position-count" id="position-count">0</span>
+                    </div>
+                    <div class="positions-container" id="positions-container">
+                        <div class="no-positions">
+                            <p>No open positions</p>
+                            <span>Waiting for trading signals...</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ROW 3: PERFORMANCE METRICS -->
+            <section class="content-row">
+                <div class="content-card performance-card">
+                    <div class="card-header">
+                        <h2>📉 Performance Metrics</h2>
+                    </div>
+                    <div class="metrics-grid">
+                        <div class="metric-box">
+                            <div class="metric-name">Total Trades</div>
+                            <div class="metric-number" id="total-trades">0</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-name">Win Rate</div>
+                            <div class="metric-number" id="win-rate">0%</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-name">Sharpe Ratio</div>
+                            <div class="metric-number" id="sharpe-ratio">0.0</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-name">Max Drawdown</div>
+                            <div class="metric-number negative" id="max-drawdown">0%</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-name">Wins / Losses</div>
+                            <div class="metric-number" id="win-loss-ratio">0 / 0</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-name">Monthly PnL</div>
+                            <div class="metric-number" id="monthly-pnl">$0</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ROW 4: CHARTS SECTION -->
+            <section class="charts-section">
+                <div class="section-title">📊 Analytics & Visualizations</div>
+
+                <div class="charts-grid">
+                    <!-- Chart 1: Market Quality -->
+                    <div class="content-card chart-card">
+                        <div class="card-header">
+                            <h2>Market Quality Scores</h2>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="qualityChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 2: Capital Allocation -->
+                    <div class="content-card chart-card">
+                        <div class="card-header">
+                            <h2>Capital Allocation</h2>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="allocationChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 3: Performance -->
+                    <div class="content-card chart-card">
+                        <div class="card-header">
+                            <h2>Monthly Performance</h2>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="performanceChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 4: Win Rate -->
+                    <div class="content-card chart-card">
+                        <div class="card-header">
+                            <h2>Win Rate</h2>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="winRateChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 5: Regime Distribution -->
+                    <div class="content-card chart-card">
+                        <div class="card-header">
+                            <h2>Market Regimes</h2>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="regimeChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 6: Trade PnL Distribution -->
+                    <div class="content-card chart-card">
+                        <div class="card-header">
+                            <h2>Trade Results</h2>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="tradeResultsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ROW 5: ALERTS -->
+            <section class="content-row">
+                <div class="content-card">
+                    <div class="card-header">
+                        <h2>🔔 Recent Alerts</h2>
+                    </div>
+                    <div class="alerts-container" id="alerts-container">
+                        <div class="alert-item info">
+                            <span class="alert-time">System initialized</span>
+                            <span class="alert-message">Dashboard connected and monitoring</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ROW 5: DETAILED TRADE LOG -->
+            <section class="content-row full-width">
+                <div class="content-card">
+                    <div class="card-header">
+                        <h2>📋 Trade History</h2>
+                    </div>
+                    <div class="trade-table-container">
+                        <table class="trade-table" id="trade-table">
+                            <thead>
+                                <tr>
+                                    <th>Date/Time</th>
+                                    <th>Market</th>
+                                    <th>Signal</th>
+                                    <th>Entry</th>
+                                    <th>Exit</th>
+                                    <th>PnL</th>
+                                    <th>Return</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="no-trades">
+                                    <td colspan="8">No trades yet. Waiting for first signal...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="dashboard-footer">
+            <div class="footer-content">
+                <p>Last updated: <span id="last-update">--:-- --</span></p>
+                <p>Data auto-refreshes every 5 seconds</p>
+            </div>
+        </footer>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

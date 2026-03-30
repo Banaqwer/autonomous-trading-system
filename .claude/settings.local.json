@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip list:*)",
+      "Bash(python -c \"import PIL; print\\(PIL.__version__\\)\")",
+      "Bash(python -c \"from PIL import Image; img = Image.open\\(r''C:\\\\Users\\\\hugoh\\\\Downloads\\\\New foldery\\\\GrosFichiers - Hugo\\\\IMG_4653.HEIC''\\); print\\(img.size, img.format\\)\")",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(xargs tail:*)",
+      "Bash(find /c/Users/hugoh/Downloads/data -name *BTCUSD*.csv -type f)",
+      "Bash(xargs cat:*)",
+      "Bash(\"/c/Users/hugoh/Downloads/New foldery/GrosFichiers:*)",
+      "Bash(ls -lh C:UsershugohDownloadsEUR-USD_Day*.csv)",
+      "Bash(python3:*)",
+      "Bash(find 'C:\\\\Users\\\\hugoh\\\\Downloads\\\\New foldery\\\\GrosFichiers - Hugo' -name *.csv -type f)",
+      "Bash(find C:UsershugohDownloads -name EUR_USD* -type f)",
+      "Bash(find C:Usershugoh -name *EUR* -type f)",
+      "Bash(ls -1 C:UsershugohDownloadsEUR-USD_Day*)"
+    ]
+  }
+}
