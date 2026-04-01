@@ -5,5 +5,5 @@ services:
     plan: starter
     pythonVersion: "3.11.5"
     buildCommand: pip install -r requirements.txt
-    startCommand: python dashboard.py
+    startCommand: python app.py
  

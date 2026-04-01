@@ -1,2 +1,1 @@
-web: python dashboard.py
-scheduler: python scheduler.py
+web: python app.py
