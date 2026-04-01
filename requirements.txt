@@ -6,6 +6,5 @@ schedule==1.2.0
 requests==2.31.0
 python-kraken-sdk==3.1.1
 krakenex==2.2.2
-alpaca-trade-api==3.2.0
 alpaca-py==0.43.2
 PyYAML==6.0.1
