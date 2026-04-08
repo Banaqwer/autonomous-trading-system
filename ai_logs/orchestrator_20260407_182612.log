@@ -1,0 +1,19 @@
+2026-04-07 18:26:12,120 - AISingularity - INFO - ====================================================================================================
+2026-04-07 18:26:12,121 - AISingularity - INFO - AI SINGULARITY ORCHESTRATOR INITIALIZED
+2026-04-07 18:26:12,121 - AISingularity - INFO - ====================================================================================================
+2026-04-07 18:26:12,121 - AISingularity - INFO - INITIATING STARTUP SEQUENCE
+2026-04-07 18:26:12,121 - AISingularity - INFO - Phase 1: Verifying subsystems...
+2026-04-07 18:26:12,121 - AISingularity - INFO -   HealthMonitor: OK
+2026-04-07 18:26:12,122 - AISingularity - INFO -   PerformanceAnalyzer: OK
+2026-04-07 18:26:12,122 - AISingularity - INFO -   RiskOverseer: OK
+2026-04-07 18:26:12,122 - AISingularity - INFO -   ScalingEngine: OK
+2026-04-07 18:26:12,122 - AISingularity - INFO -   AnomalyDetector: OK
+2026-04-07 18:26:12,122 - AISingularity - INFO -   SelfHealer: OK
+2026-04-07 18:26:12,122 - AISingularity - INFO -   DecisionEngine: OK
+2026-04-07 18:26:12,122 - AISingularity - INFO -   ComprehensiveReporter: OK
+2026-04-07 18:26:12,122 - AISingularity - INFO - Phase 2: Starting trading bot...
+2026-04-07 18:26:12,122 - AISingularity - INFO - Trading bot started successfully
+2026-04-07 18:26:12,122 - AISingularity - INFO - Phase 3: Starting continuous monitoring...
+2026-04-07 18:26:12,129 - AISingularity - ERROR - Error writing metrics to JSON: sequence index must be integer, not 'slice'
+2026-04-07 18:26:12,129 - AISingularity - INFO - Monitoring thread started
+2026-04-07 18:26:12,130 - AISingularity - INFO - STARTUP SEQUENCE COMPLETE - SYSTEM OPERATIONAL

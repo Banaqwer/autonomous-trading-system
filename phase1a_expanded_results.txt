@@ -1,0 +1,119 @@
+
+====================================================================================================
+PHASE 1A EXPANDED: 10-ASSET PORTFOLIO
+Data Download & Hurst Validation
+====================================================================================================
+
+Downloading 2-year data (2024-2026)...
+Period: 2024-04-06 to 2026-04-06
+
+FXC    Canadian Dollar           [OK] 500 bars
+VXUS   International Stocks      [OK] 500 bars
+XME    Metals & Mining           [OK] 500 bars
+SPY    S&P 500                   [OK] 500 bars
+IVV    Large Cap                 [OK] 500 bars
+XLV    Healthcare                [OK] 500 bars
+VTI    Total Market              [OK] 500 bars
+EWG    Germany                   [OK] 500 bars
+IJH    Mid Cap                   [OK] 500 bars
+QQQ    Nasdaq 100                [OK] 500 bars
+
+====================================================================================================
+RUNNING HURST ALGORITHM ON 10 ASSETS
+====================================================================================================
+
+FXC    Canadian Dollar           [[?]]  7.0/yr @ [OK] 64% WR
+VXUS   International Stocks      [SKIP] No report
+XME    Metals & Mining           [SKIP] No report
+SPY    S&P 500                   [SKIP] No report
+IVV    Large Cap                 [SKIP] No report
+XLV    Healthcare                [[OK]]  2.0/yr @ [?] 75% WR
+VTI    Total Market              [SKIP] No report
+EWG    Germany                   [[?]]  6.5/yr @ [?] 92% WR
+IJH    Mid Cap                   [[?]]  6.5/yr @ [OK] 62% WR
+QQQ    Nasdaq 100                [[OK]]  1.5/yr @ [OK] 67% WR
+
+====================================================================================================
+PORTFOLIO ANALYSIS
+====================================================================================================
+
+Assets Successfully Analyzed: 5/10
+
+TOTAL PORTFOLIO METRICS (2-year period):
+  Total trades across portfolio:    47
+  Average per asset:                4.7/year
+  Total annual (if sustained):      23.5/year
+  Daily trading frequency:          0.1 signals/day
+
+BLENDED METRICS (weighted by frequency):
+  Win rate:                         72.3%
+  Return (blended):                 +2546.66%
+  Sharpe ratio (avg):               6.47
+
+OPERATIONAL CRITERIA:
+  [OK] Annual signals 24 >= 15: True
+  [FAIL] Daily signals 0.1 >= 0.5: False
+  [OK] Win rate 72% >= 60%: True
+  [OK] Assets with 65%+ WR: 3 >= 3: True
+
+OVERALL ASSESSMENT: 3/4 criteria met
+
+[READY FOR PHASE 1A DEPLOYMENT]
+Portfolio validated for Week 1 paper trading
+Expected daily signals: 0.1/day
+Expected monthly signals: 2 signals
+Blended win rate: 72%
+
+====================================================================================================
+INDIVIDUAL ASSET PERFORMANCE
+====================================================================================================
+
+FXC    Canadian Dollar          
+  Signals: 14 trades (7.0/yr) [?]
+  Win Rate: 64% [LOW]  |  Sharpe: 11.16
+  Return: +5085.00%
+
+EWG    Germany                  
+  Signals: 13 trades (6.5/yr) [?]
+  Win Rate: 92% [OK]  |  Sharpe: 10.28
+  Return: +2232.00%
+
+IJH    Mid Cap                  
+  Signals: 13 trades (6.5/yr) [?]
+  Win Rate: 62% [LOW]  |  Sharpe:  6.32
+  Return: +1427.00%
+
+XLV    Healthcare               
+  Signals:  4 trades (2.0/yr) [OK]
+  Win Rate: 75% [OK]  |  Sharpe:  0.00
+  Return: +nan%
+
+QQQ    Nasdaq 100               
+  Signals:  3 trades (1.5/yr) [OK]
+  Win Rate: 67% [OK]  |  Sharpe:  4.60
+  Return: +312.00%
+
+====================================================================================================
+PHASE 1A EXPANDED: WEEK 1 EXECUTION PLAN
+====================================================================================================
+Traceback (most recent call last):
+  File "C:\Users\hugoh\Downloads\New foldery\GrosFichiers - Hugo\phase1a_expanded_10asset.py", line 428, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\hugoh\Downloads\New foldery\GrosFichiers - Hugo\phase1a_expanded_10asset.py", line 418, in main
+    trader.generate_deployment_plan()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\hugoh\Downloads\New foldery\GrosFichiers - Hugo\phase1a_expanded_10asset.py", line 260, in generate_deployment_plan
+            print("""
+            ~~~~~^^^^
+    WEEK 1: APRIL 8-12 (PAPER TRADING VALIDATION)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<46 lines>...
+      [x] Ready for real capital
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    """)
+    ^^^^
+  File "C:\Users\hugoh\AppData\Local\Programs\Python\Python314\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 49-93: character maps to <undefined>

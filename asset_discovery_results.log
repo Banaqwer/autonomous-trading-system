@@ -1,0 +1,83 @@
+
+========================================================================================================================
+COMPREHENSIVE ASSET DISCOVERY: DOWNLOADING DATA FOR 50+ CANDIDATES
+========================================================================================================================
+
+Downloading 5-year data (2021-04-07 to 2026-04-06)...
+Candidates to test: 51
+
+AGG    Aggregate Bond                 [OK] 1254 bars
+ARKF   Ark Finance                    [OK] 1254 bars
+ARKK   Ark Innovation                 [OK] 1254 bars
+ARKQ   Ark Autonomous Tech            [OK] 1254 bars
+BND    Broad Bond                     [OK] 1254 bars
+CRB    Commodity Index                $CRB: possibly delisted; no price data found  (1d 2021-04-07 23:30:21.582822 -> 2026-04-06 23:30:21.582822)
+
+1 Failed download:
+['CRB']: possibly delisted; no price data found  (1d 2021-04-07 23:30:21.582822 -> 2026-04-06 23:30:21.582822)
+[SKIP] Insufficient data
+DGRO   Dividend Growth                [OK] 1254 bars
+DVY    High Dividend Yield            [OK] 1254 bars
+EMQQ   Emerging Market Tech           [OK] 1254 bars
+EWA    Australia                      [OK] 1254 bars
+EWH    Hong Kong                      [OK] 1254 bars
+EWJ    Japan                          [OK] 1254 bars
+EWU    UK                             [OK] 1254 bars
+EWW    Mexico                         [OK] 1254 bars
+FXA    Australian Dollar              [OK] 1254 bars
+FXG    British Pound                  [OK] 1254 bars
+FXV    Swiss Franc                    $FXV: possibly delisted; no price data found  (1d 2021-04-07 23:30:21.582822 -> 2026-04-06 23:30:21.582822)
+
+1 Failed download:
+['FXV']: possibly delisted; no price data found  (1d 2021-04-07 23:30:21.582822 -> 2026-04-06 23:30:21.582822)
+[SKIP] Insufficient data
+FXY    Japanese Yen                   [OK] 1254 bars
+GDX    Gold Miners                    [OK] 1254 bars
+GLD    Gold                           [OK] 1254 bars
+HYG    High Yield Bond                [OK] 1254 bars
+IEF    Treasury 7-10yr                [OK] 1254 bars
+IEMG   Emerging Markets               [OK] 1254 bars
+IVV    iShares Core S&P 500           [OK] 1254 bars
+IWM    Russell 2000                   [OK] 1254 bars
+LQD    Investment Grade               [OK] 1254 bars
+PDBC   Commodities Diversified        [OK] 1254 bars
+SCHP   TIPS                           [OK] 1254 bars
+SHV    Short Treasury                 [OK] 1254 bars
+SILV   Silver Miners                  $SILV: possibly delisted; no timezone found
+
+1 Failed download:
+['SILV']: possibly delisted; no timezone found
+[SKIP] Insufficient data
+SKYY   Cloud Computing                [OK] 1254 bars
+SLV    Silver                         [OK] 1254 bars
+SPY    S&P 500                        [OK] 1254 bars
+SVXY   VIX Inverse                    [OK] 1254 bars
+UCO    Oil 2x                         [OK] 1254 bars
+UNG    Natural Gas                    [OK] 1254 bars
+UVXY   VIX 2x                         [OK] 1254 bars
+VCIT   Intermediate Corp              [OK] 1254 bars
+VOO    Vanguard S&P 500               [OK] 1254 bars
+VTI    Total US Market                [OK] 1254 bars
+VTV    Value                          [OK] 1254 bars
+VUG    Growth                         [OK] 1254 bars
+VXUS   Total International            [OK] 1254 bars
+XLE    Energy                         [OK] 1254 bars
+XLF    Financials                     [OK] 1254 bars
+XLI    Industrials                    [OK] 1254 bars
+XLK    Technology                     [OK] 1254 bars
+XLP    Consumer Staples               [OK] 1254 bars
+XLRE   Real Estate Alt                [OK] 1254 bars
+XLU    Utilities                      [OK] 1254 bars
+XLY    Consumer Discretionary         [OK] 1254 bars
+
+48 assets downloaded, 3 skipped/failed
+Ready to backtest: 48 assets
+
+========================================================================================================================
+5-YEAR BACKTEST ON ALL CANDIDATES (2021-2026)
+========================================================================================================================
+
+AGG    Aggregate Bond                 [SKIP] No report
+ARKF   Ark Finance                    [SKIP] No report
+ARKK   Ark Innovation                 [SKIP] No report
+ARKQ   Ark Autonomous Tech            

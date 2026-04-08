@@ -1,0 +1,265 @@
+================================================================================
+HURST CYCLIC TRADING - ALPHA VALIDATION ROADMAP
+Professional Quantitative Testing Plan (8-Week Sprint)
+================================================================================
+
+WEEK 1: BASELINES & SIGNIFICANCE TESTING
+┌─────────────────────────────────────────────────────────┐
+├── Baseline Establishment
+│   ├── Buy-and-Hold Benchmark (SPY)
+│   ├── Random Entry Signals
+│   └── SMA Crossover Baseline
+├── Statistical Significance
+│   ├── Binomial Test (Win Rate)
+│   ├── t-Test (Returns)
+│   └── Confidence Intervals (95%)
+└── Result: Is alpha statistically significant? (p < 0.05?)
+
+WEEK 2: ROBUSTNESS TESTING
+├── Walk-Forward Validation
+│   ├── 10 periods with expanding train window
+│   ├── Verify performance consistency
+│   └── Check for curve-fitting
+├── Parameter Sensitivity
+│   ├── Test confluence thresholds (20%-50%)
+│   ├── Test risk per trade (1%-3%)
+│   └── Create sensitivity heatmap
+└── Equity Curve Stability
+    ├── Consecutive wins/losses analysis
+    ├── Single trade impact assessment
+    └── Result: Is edge robust or lucky?
+
+WEEK 3-4: RISK ANALYSIS
+├── Drawdown Analysis
+│   ├── Maximum Drawdown
+│   ├── Recovery Time
+│   └── Drawdown Frequency
+├── Value at Risk (VaR/CVaR)
+│   ├── 5% worst-case loss
+│   └── Expected Shortfall
+├── Risk-Adjusted Metrics
+│   ├── Sharpe Ratio (target > 1.5)
+│   ├── Sortino Ratio (target > 1.5)
+│   └── Calmar Ratio (Return/MaxDD)
+└── Result: Is risk acceptable?
+
+WEEK 4: MARKET REGIME ANALYSIS
+├── Trending vs Mean-Reverting
+│   ├── Uptrend performance
+│   ├── Downtrend performance
+│   └── Sideways performance (BEST)
+├── Volatility Regime Testing
+│   ├── Low Vol (VIX < 15)
+│   ├── Medium Vol (VIX 15-25)
+│   └── High Vol (VIX > 25)
+└── Multi-Asset Consistency
+    ├── SPY, QQQ, IWM (equities)
+    ├── GLD (commodities)
+    ├── TLT (bonds)
+    └── Result: Works on 70%+ of assets?
+
+WEEK 5: EDGE DECOMPOSITION
+├── Ablation Testing (Remove each feature)
+│   ├── Without FLD signals
+│   ├── Without spectral signatures
+│   ├── Without phase analysis
+│   └── Without psychological barriers
+├── Cycle Profitability Analysis
+│   ├── Which cycles make money?
+│   └── 18-month, 40-week, 20-week, etc.
+└── Result: Which components create alpha?
+
+WEEK 5-6: REAL-WORLD CONSTRAINTS
+├── Liquidity Analysis
+│   ├── Position size vs daily volume
+│   ├── Estimated slippage
+│   └── Can execute all trades?
+├── Overnight Gap Analysis
+│   ├── How often gaps hurt us?
+│   └── Max gap loss observed
+└── Market Hours Constraint
+    └── Can execute during regular hours?
+
+WEEK 6-7: FORWARD TESTING
+├── Out-of-Sample Testing
+│   ├── Train on 80% of data
+│   ├── Test on unseen 20%
+│   └── Does performance match?
+├── Paper Trading Simulation
+│   ├── 3-6 months simulated trading
+│   └── Compare to backtest results
+└── Time-Series Cross-Validation
+    ├── Multiple train-test splits
+    ├── Respect temporal ordering
+    └── Verify consistency
+
+WEEK 7: STATISTICAL TESTS
+├── Autocorrelation Test
+│   ├── ACF near 0? (Random returns)
+│   └── Ljung-Box p > 0.05?
+├── Normality Test
+│   ├── Jarque-Bera p > 0.05?
+│   └── Shapiro-Wilk p > 0.05?
+└── Stationarity Test
+    ├── ADF p < 0.05?
+    └── Equity curve is stable?
+
+WEEK 7-8: COMPARISONS & REPORT
+├── vs Buy-and-Hold (SPY): Alpha > 1%?
+├── vs Momentum Strategy: Which wins?
+├── vs Mean Reversion: Direct comparison
+└── Ensemble Analysis: Can combine?
+
+================================================================================
+11 CRITICAL SUCCESS CRITERIA (MUST PASS ALL)
+================================================================================
+
+STATISTICAL SIGNIFICANCE
+  [1] Win rate p-value < 0.05 (not luck)
+  [2] Return t-test p-value < 0.05 (real edge)
+  [3] Sharpe 95% CI does not include benchmark
+
+PERFORMANCE
+  [4] Annualized return > 10%
+  [5] Sharpe ratio > 1.5
+  [6] Max drawdown < 20%
+
+ROBUSTNESS
+  [7] Walk-forward return > 8% annually
+  [8] >70% parameter combinations profitable
+  [9] Works on >70% of assets
+
+FORWARD TESTING
+  [10] Out-of-sample return > 8%
+  [11] Paper trading matches backtest
+
+================================================================================
+APPROVAL DECISION MATRIX
+================================================================================
+
+APPROVED FOR LIVE TRADING
+  Criteria Met: 11/11 + Sharpe > 1.5 + Return > 10%
+  Action: Deploy with minimum position size, scale gradually
+
+APPROVED WITH CAUTION
+  Criteria Met: 9-10/11 + Sharpe 1.0-1.5 + Return 8-10%
+  Action: Deploy with extra monitoring, smaller positions
+
+NOT APPROVED
+  Criteria Met: < 9/11 + Sharpe < 1.0 + Return < 8%
+  Action: Return to research phase, further development needed
+
+================================================================================
+KEY PYTHON CODE SNIPPETS
+================================================================================
+
+1. BASELINE TESTING
+   - Buy-and-hold backtest
+   - Alpha calculation (vs SPY)
+   - Random signal baseline
+
+2. STATISTICAL SIGNIFICANCE
+   - Binomial test (win rate significance)
+   - t-test (return significance)
+   - Bootstrap confidence intervals
+
+3. WALK-FORWARD VALIDATION
+   - Expanding train window
+   - Out-of-sample testing
+   - Consistency metrics
+
+4. PARAMETER SENSITIVITY
+   - Confluence threshold grid search
+   - Risk per trade optimization
+   - Heatmap generation
+
+5. RISK ANALYSIS
+   - Drawdown calculation
+   - VaR/CVaR computation
+   - Sharpe/Sortino/Calmar ratios
+
+6. MARKET REGIME ANALYSIS
+   - Trend detection (SMA crossover)
+   - Volatility regimes (VIX levels)
+   - Per-asset performance breakdown
+
+7. ABLATION TESTING
+   - Feature removal testing
+   - Component contribution analysis
+   - Cycle profitability analysis
+
+8. LIQUIDITY ANALYSIS
+   - Position vs volume calculation
+   - Slippage estimation
+   - Executability check
+
+9. STATISTICAL TESTS
+   - Autocorrelation (ACF, Ljung-Box)
+   - Normality (Jarque-Bera, Shapiro-Wilk)
+   - Stationarity (ADF test)
+
+================================================================================
+TIMELINE & RESOURCE ALLOCATION
+================================================================================
+
+Week 1-2:  20% effort (data collection, baselines)
+Week 2-3:  25% effort (robustness testing)
+Week 3-4:  20% effort (risk analysis)
+Week 4-5:  20% effort (regime analysis, edge decomposition)
+Week 5-6:  10% effort (liquidity constraints)
+Week 6-7:  20% effort (forward testing)
+Week 7:     5% effort (statistical tests)
+Week 7-8:  10% effort (final report)
+
+Total: 8 weeks full-time work OR 16 weeks part-time
+
+================================================================================
+DELIVERABLES CHECKLIST
+================================================================================
+
+Daily:
+  [ ] Backtest metrics updated
+  [ ] New test results logged
+  [ ] Failures analyzed and documented
+
+Weekly:
+  [ ] Phase summary document
+  [ ] Metrics dashboard
+  [ ] Risk scorecard
+  [ ] Progress report
+
+Final (Week 8):
+  [ ] Executive summary (1 page)
+  [ ] Detailed test results (15 pages)
+  [ ] Statistical appendix (5 pages)
+  [ ] Risk dashboard (3 pages)
+  [ ] Go/No-Go recommendation
+
+================================================================================
+SUCCESS INDICATORS
+================================================================================
+
+If strategy has REAL alpha:
+  Probability of passing tests: 95%
+
+If strategy has NO alpha:
+  Probability of failing tests: 95%
+
+Interpretation:
+  - If it passes, very likely real alpha exists
+  - If it fails, very likely no edge exists
+  - Tests are designed to be strict, not generous
+
+================================================================================
+"THE ONLY WAY TO KNOW IF YOU HAVE ALPHA IS TO TEST PROPERLY.
+ EVERYTHING ELSE IS JUST HOPE."
+================================================================================
+
+Files included in this plan:
+  1. QUANT_ALPHA_VALIDATION_PLAN.md (detailed, 400+ lines)
+  2. ALPHA_VALIDATION_CHECKLIST.md (executable checklist)
+  3. VALIDATION_ROADMAP.txt (this file, overview)
+  4. test_phase_3_*.py (ready-to-run test scripts)
+  5. backtest_real_markets.py (multi-asset tester)
+
+Next step: Pick Week 1 tasks and execute systematically.

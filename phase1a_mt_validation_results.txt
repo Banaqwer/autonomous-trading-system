@@ -1,0 +1,28 @@
+
+====================================================================================================
+PHASE 1A MULTI-TIMEFRAME VALIDATION
+Testing Daily + 4H coordination for operational Phase 1A
+====================================================================================================
+
+Testing 3 assets
+Period: 2025-01-01 to 2026-04-06 (2 years)
+Timeframes: Daily (1D) + 4-Hour (4H)
+Signal coordination: Accept from EITHER timeframe
+Exit logic: FLD from 4H timeframe
+
+  Testing SPY...
+    Downloading daily data... OK (313 bars)
+    Downloading 4H data... OK (621 bars)
+    Running daily Hurst... SKIP (no report generated)
+
+  Testing IWM...
+    Downloading daily data... OK (313 bars)
+    Downloading 4H data... OK (621 bars)
+    Running daily Hurst... SKIP (no report generated)
+
+  Testing QQQ...
+    Downloading daily data... OK (313 bars)
+    Downloading 4H data... OK (621 bars)
+    Running daily Hurst... SKIP (no report generated)
+
+ERROR: No results from validation

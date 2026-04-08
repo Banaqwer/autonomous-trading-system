@@ -1,0 +1,43 @@
+
+========================================================================================================================
+COMPREHENSIVE 5-YEAR BACKTEST VALIDATION (2021-2026)
+========================================================================================================================
+
+Downloading 5-year data (2021-04-07 to 2026-04-06)...
+Assets: 15
+
+USO    Oil                       [OK] 1254 bars
+TLT    Long Bonds                [OK] 1254 bars
+MUB    Muni Bonds                [OK] 1254 bars
+FXC    Canadian Dollar           [OK] 1254 bars
+EWG    Germany                   [OK] 1254 bars
+IJH    Mid Cap                   [OK] 1254 bars
+VNQ    Real Estate               [OK] 1254 bars
+DBC    Commodities               [OK] 1254 bars
+GSG    Commodity ETF             [OK] 1254 bars
+XLV    Healthcare                [OK] 1254 bars
+VXX    VIX ETN                   [OK] 1254 bars
+QQQ    Nasdaq                    [OK] 1254 bars
+EWC    Canada ETF                [OK] 1254 bars
+WEAT   Wheat                     [OK] 1254 bars
+FXE    Euro                      [OK] 1254 bars
+
+========================================================================================================================
+5-YEAR FULL BACKTEST (2021-2026)
+========================================================================================================================
+
+USO    Oil                       [SKIP] No report
+TLT    Long Bonds                [SKIP] No report
+MUB    Muni Bonds                [SKIP] No report
+FXC    Canadian Dollar           [SKIP] No report
+EWG    Germany                   [SKIP] No report
+IJH    Mid Cap                   [SKIP] No report
+VNQ    Real Estate               [SKIP] No report
+DBC    Commodities               [SKIP] No report
+GSG    Commodity ETF             [SKIP] No report
+XLV    Healthcare                [SKIP] No report
+VXX    VIX ETN                   [SKIP] No report
+QQQ    Nasdaq                    [SKIP] No report
+EWC    Canada ETF                [SKIP] No report
+WEAT   Wheat                     [SKIP] No report
+FXE    Euro                      

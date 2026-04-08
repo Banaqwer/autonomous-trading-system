@@ -1,0 +1,115 @@
+
+========================================================================================================================
+COMPREHENSIVE ASSET EXPANSION - FINDING 40+ SIGNALS/YEAR
+========================================================================================================================
+
+Testing 42 assets...
+Period: 2024-04-06 to 2026-04-06 (2 years)
+Minimum Win Rate: 50% (filter for 65%+)
+Target: 40+ signals/year combined
+
+[ 1/42] FXC    Canadian Dollar (4.5/yr expected)   [HI]   7.0/yr [OK] 64%
+[ 2/42] VXUS   International Stocks (4.0/yr)       [SKIP]
+[ 3/42] XME    Metals & Mining (4.0/yr)            [SKIP]
+[ 4/42] SPY    S&P 500 (3.0/yr)                    [SKIP]
+[ 5/42] IVV    Large Cap (3.0/yr)                  [SKIP]
+[ 6/42] XLV    Healthcare (3.0/yr)                 [LO]   2.0/yr [EDGE] 75%
+[ 7/42] VTI    Total Market (3.0/yr)               [SKIP]
+[ 8/42] EWG    Germany (3.0/yr)                    [HI]   6.5/yr [EDGE] 92%
+[ 9/42] IJH    Mid Cap (2.0/yr)                    [HI]   6.5/yr [OK] 62%
+[10/42] QQQ    Nasdaq 100 (2.0/yr)                 [LO]   1.5/yr [EDGE] 67%
+[11/42] LQD    Corp Bonds (2.5/yr)                 [SKIP]
+[12/42] MUB    Muni Bonds (2.5/yr)                 [HI]   7.0/yr [EDGE] 79%
+[13/42] AAPL   Apple (1.0/yr)                      [SKIP]
+[14/42] TSLA   Tesla (1.5/yr)                      [SKIP]
+[15/42] JNJ    J&J (1.0/yr)                        [SKIP]
+[16/42] XLI    Industrial (1.0/yr)                 [LO]   1.0/yr [LOW] 50%
+[17/42] FXA    Aus Dollar (0.5/yr)                 [SKIP]
+[18/42] EEM    Emerging Markets                    [SKIP]
+[19/42] EWJ    Japan ETF                           [SKIP]
+[20/42] EWU    UK ETF                              [SKIP]
+[21/42] EWC    Canada ETF                          [LO]   1.5/yr [EDGE] 67%
+[22/42] EWZ    Brazil ETF                          [SKIP]
+[23/42] FXI    China ETF                           [SKIP]
+[24/42] GLD    Gold                                [SKIP]
+[25/42] SLV    Silver                              [SKIP]
+[26/42] TLT    Long Bonds                          [HI]   9.0/yr [EDGE] 72%
+[27/42] IEF    Mid Bonds                           [SKIP]
+[28/42] HYG    High Yield                          [SKIP]
+[29/42] DBB    Industrial Metals                   [SKIP]
+[30/42] GSG    Commodity ETF                       [LO]   2.5/yr [OK] 60%
+[31/42] USO    Oil                                 [HI]  11.5/yr [EDGE] 65%
+[32/42] UNG    Natural Gas                         [HI]  13.5/yr [OK] 59%
+[33/42] DBC    Commodities                         [LO]   2.5/yr [EDGE] 80%
+[34/42] FXE    Euro                                [LO]   1.5/yr [EDGE] 67%
+[35/42] FXB    British Pound                       [SKIP]
+[36/42] VXX    VIX ETN                             [LO]   2.0/yr [EDGE] 100%
+[37/42] VNQ    Real Estate                         [HI]   6.0/yr [OK] 58%
+[38/42] AGG    Bond Aggregate                      [LO]   1.0/yr [LOW] 50%
+[39/42] BND    Total Bond                          [LO]   1.0/yr [LOW] 50%
+[40/42] JPIE   Japan Growth                        [SKIP]
+[41/42] ASHR   CSH China                           [HI]   5.0/yr [LOW] 50%
+[42/42] IYM    Materials                           [SKIP]
+
+
+========================================================================================================================
+EXPANSION RESULTS ANALYSIS
+========================================================================================================================
+
+[ASSET COUNTS]
+  Total assets with any edge (50%+):    19
+  Assets with acceptable WR (60%+):    13
+  Assets with GOOD WR (65%+):          10
+
+[SIGNAL FREQUENCY ANALYSIS]
+
+  ALL 19 assets (50%+ WR):
+    Total: 88.6/year
+    Daily: 0.35 signals/day
+    Weekly: 1.7 signals/week
+
+  ACCEPTABLE 13 assets (60%+ WR):
+    Total: 61.0/year
+    Daily: 0.24 signals/day
+    Blended WR: 72%
+
+  EDGE 10 assets (65%+ WR):
+    Total: 45.0/year
+    Daily: 0.18 signals/day
+    Blended WR: 76%
+
+[OPTIMAL PORTFOLIO FOR 40+ SIGNALS/YEAR]
+
+  [10 assets with 65%+ WR] = 45.0/year (TARGET ACHIEVED)
+    Blended WR: 76%
+    Daily signals: 0.18/day
+    Assets:
+       1. USO    Oil                             11.5/yr @ 65%
+       2. TLT    Long Bonds                       9.0/yr @ 72%
+       3. MUB    Muni Bonds (2.5/yr)              7.0/yr @ 79%
+       4. EWG    Germany (3.0/yr)                 6.5/yr @ 92%
+       5. DBC    Commodities                      2.5/yr @ 80%
+       6. XLV    Healthcare (3.0/yr)              2.0/yr @ 75%
+       7. VXX    VIX ETN                          2.0/yr @ 100%
+       8. QQQ    Nasdaq 100 (2.0/yr)              1.5/yr @ 67%
+       9. EWC    Canada ETF                       1.5/yr @ 67%
+      10. FXE    Euro                             1.5/yr @ 67%
+
+[TOP 20 ASSETS BY SIGNAL FREQUENCY (All with 50%+ WR)]
+Traceback (most recent call last):
+  File "C:\Users\hugoh\Downloads\New foldery\GrosFichiers - Hugo\comprehensive_asset_expansion.py", line 311, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\hugoh\Downloads\New foldery\GrosFichiers - Hugo\comprehensive_asset_expansion.py", line 307, in main
+    expander.run_comprehensive_expansion()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\hugoh\Downloads\New foldery\GrosFichiers - Hugo\comprehensive_asset_expansion.py", line 184, in run_comprehensive_expansion
+    self.analyze_expansion()
+    ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\hugoh\Downloads\New foldery\GrosFichiers - Hugo\comprehensive_asset_expansion.py", line 258, in analyze_expansion
+    print(f"\u2500" * 120)
+    ~~~~~^^^^^^^^^^^^
+  File "C:\Users\hugoh\AppData\Local\Programs\Python\Python314\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 0-119: character maps to <undefined>

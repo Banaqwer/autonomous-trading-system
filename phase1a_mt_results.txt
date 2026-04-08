@@ -1,0 +1,37 @@
+
+====================================================================================================
+PHASE 1A MULTI-TIMEFRAME VALIDATION
+Testing Daily + 4H coordination for operational Phase 1A
+====================================================================================================
+
+Testing 3 assets
+Period: 2023-01-01 to 2024-12-31 (2 years)
+Timeframes: Daily (1D) + 4-Hour (4H)
+Signal coordination: Accept from EITHER timeframe
+Exit logic: FLD from 4H timeframe
+
+  Testing SPY...
+    Downloading daily data... OK (501 bars)
+    Downloading 4H data... $SPY: possibly delisted; no price data found  (4h 2023-01-01 -> 2024-12-31) (Yahoo error = "4h data not available for startTime=1672549200 and endTime=1735621200. The requested range must be within the last 730 days.")
+
+1 Failed download:
+['SPY']: possibly delisted; no price data found  (4h 2023-01-01 -> 2024-12-31) (Yahoo error = "4h data not available for startTime=1672549200 and endTime=1735621200. The requested range must be within the last 730 days.")
+SKIP (no 4H data)
+
+  Testing IWM...
+    Downloading daily data... OK (501 bars)
+    Downloading 4H data... $IWM: possibly delisted; no price data found  (4h 2023-01-01 -> 2024-12-31) (Yahoo error = "4h data not available for startTime=1672549200 and endTime=1735621200. The requested range must be within the last 730 days.")
+
+1 Failed download:
+['IWM']: possibly delisted; no price data found  (4h 2023-01-01 -> 2024-12-31) (Yahoo error = "4h data not available for startTime=1672549200 and endTime=1735621200. The requested range must be within the last 730 days.")
+SKIP (no 4H data)
+
+  Testing QQQ...
+    Downloading daily data... OK (501 bars)
+    Downloading 4H data... $QQQ: possibly delisted; no price data found  (4h 2023-01-01 -> 2024-12-31) (Yahoo error = "4h data not available for startTime=1672549200 and endTime=1735621200. The requested range must be within the last 730 days.")
+
+1 Failed download:
+['QQQ']: possibly delisted; no price data found  (4h 2023-01-01 -> 2024-12-31) (Yahoo error = "4h data not available for startTime=1672549200 and endTime=1735621200. The requested range must be within the last 730 days.")
+SKIP (no 4H data)
+
+ERROR: No results from validation

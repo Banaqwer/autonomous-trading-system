@@ -1,0 +1,64 @@
+
+PHASE 1A-MT LIVE EXECUTION SYSTEM
+Daily + 4H Multi-Timeframe Coordination
+Execution Date: April 06, 2026
+
+====================================================================================================
+PHASE 1A-MT LIVE EXECUTION - DATA DOWNLOAD
+====================================================================================================
+
+SPY:
+  Daily... OK (499 bars)
+  4H... OK (950 bars)
+
+IWM:
+  Daily... OK (499 bars)
+  4H... OK (950 bars)
+
+QQQ:
+  Daily... OK (499 bars)
+  4H... OK (950 bars)
+
+====================================================================================================
+PHASE 1A-MT - ALGORITHM EXECUTION
+====================================================================================================
+
+SPY:
+  Daily... SKIP (no report)
+  4H... SKIP (no report)
+
+IWM:
+  Daily... OK (16 trades, 69% WR, 16 signals)
+  4H... SKIP (no report)
+
+QQQ:
+  Daily... OK (3 trades, 67% WR, 3 signals)
+  4H... OK (3 trades, 100% WR, 3 signals)
+
+====================================================================================================
+SIGNAL COORDINATION
+====================================================================================================
+
+SPY:
+  Daily signals: 0
+  4H signals:    0
+  Combined:      0
+  Annual frequency (2-year average):
+    Daily:       0.0/year
+    4H:          0.0/year
+    Combined:    0.0/year
+    Coordinated: 0.0/year (after 20% overlap removal)
+Traceback (most recent call last):
+  File "C:\Users\hugoh\Downloads\New foldery\GrosFichiers - Hugo\phase1a_mt_live_daily_4h.py", line 289, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\hugoh\Downloads\New foldery\GrosFichiers - Hugo\phase1a_mt_live_daily_4h.py", line 284, in main
+    trader.coordinate_signals()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\hugoh\Downloads\New foldery\GrosFichiers - Hugo\phase1a_mt_live_daily_4h.py", line 219, in coordinate_signals
+    print(f"  {status} {'\u2713' if is_operational else '\u2717'} Need 15+/year")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\hugoh\AppData\Local\Programs\Python\Python314\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2717' in position 17: character maps to <undefined>

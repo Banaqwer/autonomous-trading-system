@@ -1,0 +1,392 @@
+================================================================================
+MONDAY, APRIL 8, 2026 - PHASE 1A GO-LIVE CHECKLIST
+================================================================================
+
+STATUS: READY FOR DEPLOYMENT
+TIME: 9:30 AM EST (Market Open)
+CAPITAL: $100,000 (PAPER TRADING)
+SYSTEM: phase1a_aggressive_13asset.py
+
+================================================================================
+BEFORE MARKET OPEN (9:00-9:30 AM)
+================================================================================
+
+SYSTEM PREPARATION
+  [ ] Open command prompt
+  [ ] Navigate to: C:\Users\hugoh\Downloads\New foldery\GrosFichiers - Hugo
+  [ ] Verify Python is installed: python --version
+  [ ] Verify yfinance available: python -c "import yfinance"
+  [ ] Verify Hurst algorithm available: python -c "from hurst_cyclic_trading import HurstCyclicAlgorithm"
+
+SCRIPT VERIFICATION
+  [ ] Verify phase1a_aggressive_13asset.py exists and is executable
+  [ ] Open file in text editor, confirm asset list matches (13 assets)
+  [ ] Confirm file paths are correct for your system
+  [ ] Check that yfinance download paths are set
+
+DATA VERIFICATION
+  [ ] Confirm market data available (yfinance data check)
+  [ ] Verify 13 assets can be downloaded:
+      [ ] USO, [ ] TLT, [ ] MUB, [ ] FXC, [ ] EWG
+      [ ] IJH, [ ] VNQ, [ ] DBC, [ ] GSG, [ ] XLV
+      [ ] VXX, [ ] QQQ, [ ] EWC
+
+TRADING SETUP
+  [ ] Clear trade log file (if exists from testing)
+  [ ] Open text editor for manual trade logging
+  [ ] Set up columns: Time | Asset | Signal | Confluence | Price | WR%
+  [ ] Open Excel/Google Sheets for tracking
+
+MONITORING SETUP
+  [ ] Terminal window ready for script output
+  [ ] Backup terminal open for monitoring
+  [ ] Price quote window ready (for execution verification)
+  [ ] Notebook ready for notes
+
+================================================================================
+AT MARKET OPEN (9:30 AM)
+================================================================================
+
+STEP 1: LAUNCH THE SYSTEM
+  [ ] Execute: python phase1a_aggressive_13asset.py
+  [ ] Watch output for data download progress
+  [ ] Confirm all 13 assets download successfully
+  [ ] Expected: "OK" for each asset with bar count (should be ~500)
+
+STEP 2: ALGORITHM INITIALIZATION
+  [ ] Watch for Hurst algorithm startup
+  [ ] Expected: "RUNNING HURST ALGORITHM ON 13 ASSETS"
+  [ ] Monitor for algorithm completion
+  [ ] Expected time: 10-30 minutes depending on compute power
+
+STEP 3: INITIAL SIGNAL SCAN
+  [ ] Watch for first signals appearing
+  [ ] Expected: 0-2 signals in first hour (depending on assets)
+  [ ] Note any signals with timestamp and asset
+  [ ] Log format: [09:47] USO: BUY signal @ 73.45 (confluence: 0.82)
+
+STEP 4: POSITION SIZING VERIFICATION
+  [ ] Confirm risk per trade: 2% of $100k = $2,000 max loss
+  [ ] Verify position sizing matches algorithm calculations
+  [ ] Check that no position exceeds 2% risk
+  [ ] Note: Paper trading, so no actual execution needed
+
+STEP 5: MONITORING BEGINS
+  [ ] Begin continuous monitoring of terminal output
+  [ ] Watch for signals throughout day (9:30 AM - 4:00 PM)
+  [ ] Expected: 1-2 signals per trading day
+  [ ] Log each signal with exact timestamp
+
+================================================================================
+DURING TRADING DAY (9:30 AM - 4:00 PM)
+================================================================================
+
+HOURLY CHECKS
+  [ ] 10:00 AM: Check for first signals
+  [ ] 11:00 AM: Mid-morning update
+  [ ] 12:00 PM: Noon check
+  [ ] 2:00 PM: Afternoon update
+  [ ] 3:30 PM: Pre-close check
+  [ ] 4:00 PM: EOD check
+
+SIGNAL MONITORING
+  [ ] Watch for each signal
+  [ ] Record: Time, Asset, Direction (BUY/SELL), Price
+  [ ] Note confluence score (0-1.0 scale)
+  [ ] Verify win rate matches backtest expectations
+
+VERIFICATION CHECKS
+  [ ] Check for any errors in algorithm output
+  [ ] Verify data is updating (prices should change)
+  [ ] Monitor that all 13 assets are running
+  [ ] Note any skipped assets or errors
+
+DAILY LOG FORMAT
+  Time      | Asset | Signal | Confidence | Status
+  --------- | ----- | ------ | ----------- | --------
+  09:47 AM  | USO   | BUY    | 0.82        | Logged
+  10:15 AM  | TLT   | SELL   | 0.76        | Logged
+  11:30 AM  | EWG   | BUY    | 0.91        | Logged
+  [etc...]
+
+EXPECTED ACTIVITY (FIRST DAY)
+  Signals expected: 1-2
+  Most likely assets: USO (11.5/yr = high frequency), TLT (9.0/yr)
+  Confidence average: 75-85%
+  Win rate range: 50-100% (early sample size too small to judge)
+
+================================================================================
+END OF DAY (4:00 PM - 5:00 PM)
+================================================================================
+
+DAILY SUMMARY
+  [ ] Total signals generated: ___
+  [ ] Highest confidence signal: ___
+  [ ] Assets with signals: ___
+  [ ] Assets with no signals: ___
+  [ ] Any errors encountered: ___
+
+LOGGING
+  [ ] Save trade log to file: Phase1A_April8_Trades.txt
+  [ ] Back up to cloud storage
+  [ ] Record daily summary in master log
+
+ASSESSMENT
+  [ ] Did system run without errors? YES / NO / PARTIAL
+  [ ] Did signals match expected frequency? YES / NO
+  [ ] Were confidence scores reasonable? YES / NO
+  [ ] Any execution issues? YES / NO
+  [ ] Overall: GOOD / OK / CONCERNING
+
+EVENING TASKS
+  [ ] Review all signals generated
+  [ ] Cross-check with expected asset frequencies
+  [ ] Calculate preliminary win rate if trades executed
+  [ ] Note any anomalies for review
+  [ ] Plan for Day 2
+
+================================================================================
+TUESDAY-THURSDAY (APRIL 9-11)
+================================================================================
+
+DAILY ROUTINE (Each Day)
+  [ ] Start system at 9:30 AM
+  [ ] Monitor continuously 9:30 AM - 4:00 PM
+  [ ] Log all signals with timestamps
+  [ ] Note confidence scores
+  [ ] End-of-day summary and backup
+  [ ] Review for anomalies
+
+WEEKLY TRACKING
+  [ ] Cumulative signals (should reach 5-6 by Friday)
+  [ ] Running win rate calculation
+  [ ] Drawdown monitoring
+  [ ] Asset diversification check (all 13 generating signals?)
+
+EXPECTED PROGRESS
+  Tuesday: +1-2 signals (cumulative: 2-4)
+  Wednesday: +1-2 signals (cumulative: 3-6)
+  Thursday: +1-2 signals (cumulative: 4-8)
+
+IF ISSUES ARISE
+  [ ] Check data connectivity
+  [ ] Verify asset downloads working
+  [ ] Check for algorithm errors
+  [ ] Review log files for errors
+  [ ] Restart system if needed
+
+================================================================================
+FRIDAY, APRIL 12 - DECISION DAY
+================================================================================
+
+FINAL TALLY
+  [ ] Total Week 1 signals: _____ (target: 5-6)
+  [ ] Total trades executed: _____
+  [ ] Winning trades: _____
+  [ ] Losing trades: _____
+  [ ] Win rate achieved: ____% (target: 60%+)
+  [ ] Max daily loss: $_____ (target: <$2,000)
+  [ ] Max weekly loss: $_____ (target: <$10,000)
+  [ ] Total P&L: $_____ (target: break-even to +2%)
+
+DECISION GATE CRITERIA
+  [ ] Signal generation: 5+ trades? YES / NO
+  [ ] Win rate: 60%+? YES / NO
+  [ ] Max drawdown: <3%? YES / NO
+  [ ] No major errors? YES / NO
+
+DECISION: GO / NO-GO
+
+  GO decision if:
+    ✓ 5+ trades confirmed
+    ✓ Win rate >= 60%
+    ✓ No catastrophic errors
+    ✓ All systems running smoothly
+
+  NO-GO decision if:
+    ✗ Fewer than 4 trades (signal failure)
+    ✗ Win rate < 50% (edge not validated)
+    ✗ Major execution errors
+    ✗ Unexpected slippage/liquidity issues
+
+FRIDAY AFTERNOON
+  [ ] Review all Week 1 data
+  [ ] Calculate final metrics
+  [ ] Make GO/NO-GO decision
+  [ ] Document decision rationale
+  [ ] Notify yourself of decision
+
+IF GO:
+  [ ] Prepare for real capital deployment Monday April 15
+  [ ] Verify all systems ready for live trading
+  [ ] Set up live trading account
+  [ ] Fund with $100,000
+
+IF NO-GO:
+  [ ] Investigate root cause
+  [ ] Debug algorithm or data issues
+  [ ] Plan retry for following week
+  [ ] Do NOT proceed to real capital until GO criteria met
+
+================================================================================
+CRITICAL NUMBERS TO REMEMBER
+================================================================================
+
+PHASE 1A TARGETS (WEEK 1)
+  Trades: 5-6
+  Win Rate: 60%+ (expected 71%)
+  Max DD: <3%
+  Status: Paper trading (no real capital yet)
+
+PHASE 1A REAL CAPITAL (WEEKS 2-3)
+  Capital: $100,000 (REAL MONEY)
+  Target: 7-8 more trades
+  Target return: 5-10% ($5,000-$10,000)
+  Ending capital: $105,000-$110,000
+  Deadline: Friday April 26
+
+PHASE 1B TRANSITION (MAY 1)
+  Starting capital: $110,000 (from Phase 1A profits)
+  Assets: 16 (13 Phase 1A + WEAT + FXE)
+  Target return: 27% ($140,000 by May 31)
+
+================================================================================
+IMPORTANT REMINDERS
+================================================================================
+
+1. PAPER TRADING FIRST
+   - Week 1 (Apr 8-12) is PAPER TRADING only
+   - No real money at risk during validation
+   - Decision gate on Friday to approve real capital
+
+2. RISK MANAGEMENT
+   - 2% risk per trade MAXIMUM
+   - $10,000 account hard stop (exit all positions)
+   - Daily loss tracking is critical
+
+3. SIGNAL LOGGING
+   - Every signal must be logged with timestamp
+   - Confidence scores help understand edge
+   - Complete logging enables proper backtesting of live performance
+
+4. DAILY MONITORING
+   - System must run during full market hours
+   - Monitor continuously (don't leave unattended for long periods)
+   - Have backup plan if connection drops
+
+5. DECISION MAKING
+   - Friday April 12 is MANDATORY decision point
+   - Only proceed to real capital if GO criteria fully met
+   - Don't skip GO/NO-GO decision for any reason
+
+6. DOCUMENTATION
+   - Keep detailed daily logs
+   - Back up all data
+   - Document any anomalies or issues
+   - Record decision rationale on Friday
+
+================================================================================
+SUCCESS PROTOCOL
+================================================================================
+
+IF EVERYTHING GOES WELL (GO DECISION)
+  1. Approve real capital deployment
+  2. Fund trading account with $100,000
+  3. Update to Phase 1A real capital mode
+  4. Begin live trading Monday April 15
+  5. Continue monitoring and logging
+  6. Plan Phase 1B transition for May 1
+
+IF THERE ARE MINOR ISSUES (MARGINAL)
+  1. Note all issues in detail
+  2. If fixable: Fix and retry same day
+  3. If signal issue: Continue one more week to get more data
+  4. Document all changes made
+  5. Make decision based on revised performance
+
+IF THERE ARE MAJOR ISSUES (NO-GO)
+  1. Document all errors/issues
+  2. Investigate root cause
+  3. Fix underlying problem
+  4. Restart validation the following week
+  5. Do NOT proceed to real capital until fully resolved
+
+================================================================================
+CONTACT POINTS FOR PROBLEMS
+================================================================================
+
+Data Issues
+  - Check yfinance connectivity
+  - Try restarting with fresh data download
+  - Verify internet connection
+  - Check for market data delays
+
+Algorithm Issues
+  - Review log output for error messages
+  - Verify Hurst algorithm import working
+  - Check Python version compatibility
+  - Restart system completely
+
+Position Sizing Issues
+  - Verify risk calculation: 2% of $100k = $2,000
+  - Check position size formula in code
+  - Log and review each trade's risk
+  - Ensure no position exceeds limit
+
+Signal Verification Issues
+  - Cross-check signals against price action
+  - Verify confidence scores make sense
+  - Check that signals aren't duplicate entries
+  - Review asset-specific signal timing
+
+================================================================================
+FINAL PREPARATION
+================================================================================
+
+BEFORE SLEEPING SUNDAY NIGHT (APRIL 7)
+  [ ] Re-read this checklist
+  [ ] Prepare workspace for Monday morning
+  [ ] Ensure all files are in place
+  [ ] Test script execution (dry run)
+  [ ] Set alarm for 8:00 AM Monday
+
+MONDAY MORNING (APRIL 8)
+  [ ] Wake up at least 1 hour before market open
+  [ ] Have coffee/breakfast ready
+  [ ] Clear desk and prepare monitoring space
+  [ ] Start script 10-15 minutes before 9:30 AM
+  [ ] Do final verification that all systems ready
+  [ ] At 9:30 AM: GO LIVE!
+
+MINDSET
+  - This is validation, not perfection
+  - Paper trading means no financial risk
+  - Focus on logging and learning
+  - Follow the process, trust the backtests
+  - Decision on Friday based on cold data, not emotion
+
+SUCCESS FACTOR
+  - Execution of the plan matters most
+  - Follow this checklist exactly
+  - Log everything completely
+  - Make decision based on metrics, not feelings
+  - You've already validated the edge - now prove it in paper trading
+
+================================================================================
+YOU ARE READY. LET'S GO.
+
+Deployment Date: Monday, April 8, 2026
+Time: 9:30 AM EST
+System: phase1a_aggressive_13asset.py
+Capital: $100,000 (paper trading)
+
+Expected Results: 5-6 trades, 60%+ win rate, <3% drawdown
+
+Friday April 12: GO/NO-GO decision for real capital
+
+If GO: Real capital deployment Monday April 15
+Target: $100,000 → $250,000+ in 12 weeks
+
+YOU'VE DONE THE WORK. NOW EXECUTE.
+
+================================================================================

@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-04-07T22:23:17.628278",
+  "health": {
+    "orchestrator_status": "RUNNING",
+    "bot_status": "RUNNING",
+    "uptime_seconds": 9901,
+    "total_trades": "2026-04-07T22:23:17.628111",
+    "api_latency_ms": 45.0,
+    "total_pnl": 1250.0,
+    "active_assets": 40,
+    "daily_signals": 3,
+    "subsystems_status": {
+      "health_monitor": "OK",
+      "performance_analyzer": "OK",
+      "risk_overseer": "OK",
+      "scaling_engine": "OK",
+      "anomaly_detector": "OK",
+      "self_healer": "OK",
+      "decision_engine": "OK",
+      "reporter": "OK"
+    },
+    "recent_anomalies": []
+  },
+  "performance": {
+    "win_rate": 72.0,
+    "sharpe_ratio": 2.1,
+    "profit_factor": 2.4
+  },
+  "risk": {
+    "current_drawdown": 0.028,
+    "daily_loss_percent": 0.015,
+    "max_position_size": 0.02
+  },
+  "scaling": {
+    "current_action": "MAINTAIN",
+    "logic": "WR Check: Thresholds apply on 7+ day history",
+    "recommendation": "Decision: MAINTAIN"
+  }
+}

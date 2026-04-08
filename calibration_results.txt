@@ -1,0 +1,100 @@
+
+====================================================================================================
+CONFLUENCE THRESHOLD CALIBRATION
+Finding optimal threshold for 15+ signals/year with 65%+ win rate
+====================================================================================================
+
+Testing 5 assets × 4 thresholds
+Period: 2023-01-01 to 2024-12-31 (proven historical window)
+
+Calibrating...
+
+
+[Threshold: 0.2]
+  SPY... OK (20 trades,  10.0/yr, 70% WR)
+  IWM... OK (21 trades,  10.5/yr, 52% WR)
+  QQQ... OK (10 trades,   5.0/yr, 80% WR)
+  EEM... SKIP (no signals or error)
+  GLD... SKIP (no signals or error)
+
+[Threshold: 0.15]
+  SPY... OK (20 trades,  10.0/yr, 70% WR)
+  IWM... OK (19 trades,   9.5/yr, 53% WR)
+  QQQ... OK (10 trades,   5.0/yr, 80% WR)
+  EEM... SKIP (no signals or error)
+  GLD... SKIP (no signals or error)
+
+[Threshold: 0.1]
+  SPY... OK (20 trades,  10.0/yr, 70% WR)
+  IWM... OK (21 trades,  10.5/yr, 52% WR)
+  QQQ... OK (10 trades,   5.0/yr, 80% WR)
+  EEM... SKIP (no signals or error)
+  GLD... SKIP (no signals or error)
+
+[Threshold: 0.05]
+  SPY... OK (20 trades,  10.0/yr, 70% WR)
+  IWM... OK (21 trades,  10.5/yr, 52% WR)
+  QQQ... OK (10 trades,   5.0/yr, 80% WR)
+  EEM... SKIP (no signals or error)
+  GLD... SKIP (no signals or error)
+
+
+====================================================================================================
+CALIBRATION RESULTS
+====================================================================================================
+
+[BY THRESHOLD]
+----------------------------------------------------------------------------------------------------
+
+Threshold 0.2: 3 assets tested
+  Average frequency: 8.5 trades/year
+  Average win rate:  67%
+
+Threshold 0.15: 3 assets tested
+  Average frequency: 8.2 trades/year
+  Average win rate:  68%
+
+Threshold 0.1: 3 assets tested
+  Average frequency: 8.5 trades/year
+  Average win rate:  67%
+
+Threshold 0.05: 3 assets tested
+  Average frequency: 8.5 trades/year
+  Average win rate:  67%
+
+
+[BY ASSET]
+----------------------------------------------------------------------------------------------------
+
+SPY:
+  Threshold 0.05: [LOW]  10.0/yr, [OK] 70%
+  Threshold 0.1: [LOW]  10.0/yr, [OK] 70%
+  Threshold 0.15: [LOW]  10.0/yr, [OK] 70%
+  Threshold 0.2: [LOW]  10.0/yr, [OK] 70%
+
+IWM:
+  Threshold 0.05: [LOW]  10.5/yr, [LOW] 52%
+  Threshold 0.1: [LOW]  10.5/yr, [LOW] 52%
+  Threshold 0.15: [LOW]   9.5/yr, [LOW] 53%
+  Threshold 0.2: [LOW]  10.5/yr, [LOW] 52%
+
+QQQ:
+  Threshold 0.05: [LOW]   5.0/yr, [OK] 80%
+  Threshold 0.1: [LOW]   5.0/yr, [OK] 80%
+  Threshold 0.15: [LOW]   5.0/yr, [OK] 80%
+  Threshold 0.2: [LOW]   5.0/yr, [OK] 80%
+
+
+====================================================================================================
+RECOMMENDATIONS FOR PHASE 1A-MT
+====================================================================================================
+
+Optimal Confluence Threshold: 0.2
+Assets meeting criteria: 0
+
+No threshold achieved 15+/year + 65%+ WR on tested assets
+Best attempt:
+  IWM @ threshold 0.2: 10.5/yr, 52% WR
+
+====================================================================================================
+

@@ -1,0 +1,7 @@
+{
+  "automation_level": "LEVEL_1_MANUAL",
+  "broker": "alpaca",
+  "trading_mode": "paper",
+  "schedule_time": "09:30",
+  "log_directory": "C:\\Users\\hugoh\\Downloads\\New foldery\\GrosFichiers - Hugo\\trading_logs"
+}

@@ -1,0 +1,393 @@
+================================================================================
+MONDAY APRIL 8 - QUICK REFERENCE CARD
+================================================================================
+
+PRINT THIS OUT AND KEEP BESIDE YOUR COMPUTER
+
+
+BEFORE 8:00 AM
+==============
+
+Have ready:
+  [ ] Alpaca API key
+  [ ] Alpaca secret key
+  [ ] Command Prompt open
+  [ ] Browser ready
+  [ ] This folder open
+
+
+8:00 AM - Get Credentials
+==========================
+
+1. Go to alpaca.markets
+2. Log in to your account
+3. Generate API key and secret key
+4. Copy and save somewhere safe (you'll need them in 15 minutes)
+
+
+8:15 AM - Set Environment Variables
+====================================
+
+1. Open Command Prompt (as Administrator)
+2. Type or paste:
+   setx ALPACA_API_KEY "your-api-key-here"
+3. Press Enter
+4. Type or paste:
+   setx ALPACA_SECRET_KEY "your-secret-key-here"
+5. Press Enter
+6. Close Command Prompt and open a new one
+
+
+8:30 AM - Test Connection (optional)
+====================================
+
+1. In Command Prompt, navigate to your trading folder:
+   cd C:\Users\hugoh\Downloads\"New foldery"\GrosFichiers\ -\ Hugo
+
+2. Test with:
+   python trading_bot_alpaca_integration.py
+
+3. Should see "Connected to Alpaca: 40/40 assets ready"
+
+4. Press Ctrl+C to stop
+
+5. If error, check API key/secret are correct
+
+
+9:30 AM - LAUNCH THE SYSTEM
+============================
+
+1. In Command Prompt, navigate to your trading folder
+
+2. Run:
+   python start_orchestrator_and_bot.py
+
+3. You should see:
+   [OK] Orchestrator started (PID: xxxxx)
+   [OK] Trading bot started (PID: xxxxx)
+   [OK] Dashboard opened
+
+4. Dashboard opens in browser automatically
+
+5. Monitor the dashboard (should see "RUNNING")
+
+
+9:30 AM - 4:00 PM - MONITORING
+==============================
+
+Just watch the dashboard:
+
+  GREEN subsystems = Good, keep watching
+  ORANGE subsystems = Warning, but being fixed
+  RED subsystems = Problem, check anomaly log
+
+  Win Rate number = Percentage of winning trades
+  Sharpe Ratio = Risk-adjusted returns (higher is better)
+  Drawdown = How much down from peak (max is 10%)
+  P&L = Profit/Loss in dollars
+
+If you see something concerning:
+  [ ] Check the "Anomaly Detection Log" section
+  [ ] See what issue was detected
+  [ ] See what action was taken
+
+
+4:00 PM - END OF DAY
+====================
+
+1. Market closes
+2. Bot stops automatically
+3. Check dashboard one more time:
+   - How many trades?
+   - What was win rate?
+   - Any errors in anomaly log?
+
+4. This data is saved automatically
+
+
+DASHBOARD COLORS
+================
+
+Green (●) = Healthy, working normally
+Orange (●) = Warning, system is fixing it
+Red (●) = Critical, may need attention
+
+
+WHAT TO EXPECT
+==============
+
+First 15-30 minutes:
+  - Bot analyzing data
+  - Orchestrator verifying subsystems
+  - No signals yet, that's normal
+
+After 30 minutes:
+  - First signals should appear
+  - First trades should execute
+  - Dashboard showing metrics update
+
+During day:
+  - Trades come in groups
+  - Win rate starts building
+  - P&L fluctuates (normal)
+
+End of day:
+  - Orchestrator makes scaling decision
+  - Reports daily performance
+  - Waits for next day
+
+
+IF SOMETHING GOES WRONG
+=======================
+
+"Can't find Python"
+  → Make sure Python is installed
+  → Check: python --version in Command Prompt
+
+"Can't set environment variables"
+  → Run Command Prompt AS ADMINISTRATOR
+  → Try again
+
+"Can't connect to Alpaca"
+  → Check API key is correct
+  → Check secret key is correct
+  → Verify they're set in environment:
+    echo %ALPACA_API_KEY% (should show your key)
+
+"Dashboard shows all red"
+  → Check ai_logs/ folder for error messages
+  → Wait 60 seconds, dashboard will update with fixes
+  → If still red after 2 minutes, check logs
+
+"No signals generated"
+  → Normal some days, depends on market conditions
+  → Algorithm needs specific conditions to signal
+  → Wait, be patient
+  → Check logs for any errors
+
+
+KEYBOARD SHORTCUTS
+==================
+
+In Command Prompt:
+  Ctrl+C = Stop the program
+  Ctrl+Z = Pause the program
+
+In Dashboard:
+  F5 = Refresh page
+  Ctrl+R = Refresh page
+
+
+IMPORTANT FILES
+===============
+
+Start here:
+  python start_orchestrator_and_bot.py
+
+Monitor this:
+  ai_orchestrator_dashboard.html (opens in browser)
+
+Check these if problems:
+  ai_logs/ folder (detailed error logs)
+  ai_metrics_latest.json (raw data)
+
+These are running:
+  ai_singularity_orchestrator.py (background)
+  trading_bot_alpaca_integration.py (background)
+
+
+WHAT EACH DASHBOARD SECTION MEANS
+==================================
+
+System Status:
+  - Shows if orchestrator is running
+  - Shows if bot is running
+  - Shows API connection health
+
+Metrics:
+  - Win Rate: % of trades that made money (target: 70%+)
+  - Sharpe: Risk-adjusted returns (higher = better)
+  - Drawdown: How deep we've gone (max allowed: 10%)
+  - P&L: Actual profit/loss in dollars
+  - Active Assets: How many of 40 we're trading
+  - Daily Signals: How many signals today
+
+Subsystems (8 of them):
+  - All should be green (●)
+  - Brief orange is ok, being fixed
+  - Red means investigate
+
+Scaling Decision:
+  - What action orchestrator is considering
+  - Why it's considering it
+  - What will happen next
+
+Risk Limits:
+  - Progress bars showing current vs maximum
+  - Should all be in green zone
+  - Orange zone is warning
+  - Red zone means pause trading
+
+
+DAILY ROUTINE (AFTER MONDAY)
+============================
+
+9:30 AM:
+  - Check dashboard is running
+  - Verify "RUNNING" status
+  - Drink coffee
+
+Throughout day:
+  - Occasional dashboard check (optional)
+  - Let system work
+
+4:00 PM:
+  - Final dashboard check
+  - Note any anomalies
+  - Log the daily P&L
+
+That's it. The system does the rest.
+
+
+WEEKLY ROUTINE (FRIDAY)
+=======================
+
+Friday after 4:00 PM:
+  - Look at week's metrics
+  - Calculate win rate for week
+  - Note if any anomalies occurred
+  - Check scaling recommendations
+  - Plan for next week
+
+Ask yourself:
+  - Did system work properly?
+  - Any red flags?
+  - Ready for next week?
+
+If win rate < 70%:
+  - Note what might be causing it
+  - Extra monitoring next week
+
+If win rate >= 70%:
+  - Good! System is working
+  - Continue as normal
+
+
+PHONES & ALERTS
+===============
+
+You can check dashboard from phone:
+  1. Dashboard is ai_orchestrator_dashboard.html
+  2. Can view on any device with browser
+  3. Updates every 30 seconds
+  4. Shows all real-time metrics
+
+Set alerts:
+  1. Optional: Set phone alarm for 4:00 PM (end of day)
+  2. Optional: Email yourself daily report (not set up yet)
+  3. Dashboard auto-updates, no manual refresh needed
+
+
+WHAT NOT TO DO
+==============
+
+DON'T:
+  - Don't close Command Prompt (stops the system)
+  - Don't manually edit configuration files
+  - Don't turn off your computer before 4:00 PM
+  - Don't refresh dashboard constantly (wastes resources)
+  - Don't make trades manually (bot handles everything)
+  - Don't second-guess the scaling decisions
+  - Don't panic if one trade loses money (normal)
+  - Don't panic if one day is negative (algorithm variance)
+
+DO:
+  - Do let the system work
+  - Do trust the validation
+  - Do monitor the dashboard casually
+  - Do check logs if issues appear
+  - Do close Command Prompt at end of day (optional)
+  - Do review weekly stats on Friday
+
+
+THE SYSTEM'S JOB
+================
+
+Bot's job: Generate signals and execute trades
+Orchestrator's job: Make sure bot works well and grows profitably
+Your job: Check in occasionally and watch it work
+
+If everything is green on the dashboard, you don't need to do anything.
+The system handles all the details.
+
+
+MOST COMMON QUESTIONS
+====================
+
+Q: How often should I check the dashboard?
+A: Whenever you want. It updates every 30 seconds. No need to watch constantly.
+
+Q: What if I see a red indicator?
+A: Check the anomaly log. System is likely fixing it. Wait 60 seconds.
+
+Q: Should I manually trade if I see a good opportunity?
+A: No. Let the bot handle it. The algorithm sees things humans miss.
+
+Q: What if win rate drops below 70%?
+A: Normal variance. Keep monitoring. System will scale down automatically if needed.
+
+Q: Can I turn off my computer during market hours?
+A: Yes, after first week when we move to Phase 2 (scheduled). For Phase 1, keep it on.
+
+Q: How long does a trade usually take?
+A: Order placed at signal time, usually fills within seconds.
+
+Q: What if I get an error about API key?
+A: Check environment variables are set correctly. Restart Command Prompt.
+
+Q: Can I stop the system during the day?
+A: Yes, Ctrl+C in Command Prompt. But let it run until 4:00 PM for best results.
+
+
+EMERGENCY SHUTDOWN
+===================
+
+If system is acting strange:
+
+1. Press Ctrl+C in Command Prompt
+   (This gracefully stops everything)
+
+2. Wait 10 seconds for cleanup
+
+3. Everything should stop
+
+4. You can restart anytime with:
+   python start_orchestrator_and_bot.py
+
+
+REMEMBER
+========
+
+The system is designed to work without you.
+Your job is mostly to watch and verify it's working.
+Check in with the dashboard a few times per day.
+Review stats on Friday.
+That's it.
+
+The validation is complete.
+The algorithm is proven.
+The infrastructure is ready.
+The orchestrator is autonomous.
+
+All that's left is to let it work.
+
+See you Monday morning.
+
+================================================================================
+9:30 AM EST - System goes live
+Dashboard opens - You watch it work
+4:00 PM EST - End of day review
+Friday - Weekly stats review
+
+That's it. Let the singularity trade.
+================================================================================

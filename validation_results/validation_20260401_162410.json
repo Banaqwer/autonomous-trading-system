@@ -1,0 +1,4505 @@
+[
+  {
+    "ticker": "BTC-USD",
+    "sector": "CRYPTO",
+    "passed": false,
+    "grade": "D",
+    "score": "3/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.835,
+    "backtest": {
+      "total_return": 8.15,
+      "final_capital": 108149.8,
+      "n_trades": 17,
+      "win_rate": 35.29,
+      "avg_win": 6454.21,
+      "avg_loss": 2779.59,
+      "profit_factor": 1.267,
+      "expectancy": 479.4,
+      "sharpe": 0.137,
+      "sortino": 0.049,
+      "calmar": 0.505,
+      "max_drawdown": -16.13,
+      "recovery_bars": -1,
+      "max_consec_loss": 6,
+      "avg_hold_days": 5.2
+    },
+    "benchmark": {
+      "bh_return": 29380.83,
+      "bh_sharpe": 0.972,
+      "bh_max_dd": -83.4
+    },
+    "monte_carlo": {
+      "profitable_pct": 65.4,
+      "median_return": 8.35,
+      "worst_5pct": -23.0,
+      "best_5pct": 40.62,
+      "median_max_dd": -12.53,
+      "worst_dd_5pct": -28.19,
+      "median_sharpe": 1.95,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 137.75,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 114.39,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 4.18,
+          "sharpe": 0.242,
+          "n_trades": 5,
+          "positive": "True",
+          "bh_return": 380.78,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 1.39,
+      "consistency": 0.333
+    },
+    "failures": [
+      "Sharpe 0.14 < 1.0",
+      "Sortino 0.05 < 1.2",
+      "WinRate 35.3% < 50.0%",
+      "PF 1.27 < 1.5",
+      "Only 17 trades < 20",
+      "Sharpe 0.14 \u2264 Buy&Hold 0.97 (no edge)",
+      "MC profitable 65.4% < 85.0%",
+      "WF: only 1/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "ETH-USD",
+    "sector": "CRYPTO",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.714,
+    "backtest": {
+      "total_return": -3.83,
+      "final_capital": 96170.01,
+      "n_trades": 12,
+      "win_rate": 33.33,
+      "avg_win": 7762.43,
+      "avg_loss": 4359.96,
+      "profit_factor": 0.89,
+      "expectancy": -319.17,
+      "sharpe": -0.034,
+      "sortino": -0.008,
+      "calmar": -0.173,
+      "max_drawdown": -22.1,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 5.6
+    },
+    "benchmark": {
+      "bh_return": 945.98,
+      "bh_sharpe": 0.68,
+      "bh_max_dd": -93.96
+    },
+    "monte_carlo": {
+      "profitable_pct": 42.3,
+      "median_return": -3.36,
+      "worst_5pct": -35.9,
+      "best_5pct": 32.84,
+      "median_max_dd": -17.99,
+      "worst_dd_5pct": -39.49,
+      "median_sharpe": -0.294,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 60.71,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": -12.58,
+          "sharpe": -0.73,
+          "n_trades": 6,
+          "positive": "False",
+          "bh_return": 216.71,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": -6.29,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.03 < 1.0",
+      "Sortino -0.01 < 1.2",
+      "WinRate 33.3% < 50.0%",
+      "PF 0.89 < 1.5",
+      "Expectancy $-319 < 0",
+      "Only 12 trades < 20",
+      "Sharpe -0.03 \u2264 Buy&Hold 0.68 (no edge)",
+      "MC profitable 42.3% < 85.0%",
+      "MC Sharpe -0.29 < 0.8",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "SOL-USD",
+    "sector": "CRYPTO",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.51,
+    "backtest": {
+      "total_return": -9.61,
+      "final_capital": 90388.87,
+      "n_trades": 8,
+      "win_rate": 25.0,
+      "avg_win": 5847.98,
+      "avg_loss": 3551.18,
+      "profit_factor": 0.549,
+      "expectancy": -1201.39,
+      "sharpe": -0.257,
+      "sortino": -0.053,
+      "calmar": -0.656,
+      "max_drawdown": -14.66,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 3.2
+    },
+    "benchmark": {
+      "bh_return": 19985.93,
+      "bh_sharpe": 1.253,
+      "bh_max_dd": -96.27
+    },
+    "monte_carlo": null,
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -9.56,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 3933.96,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0.29,
+          "sharpe": 0.043,
+          "n_trades": 6,
+          "positive": "True",
+          "bh_return": 482.35,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 0.1,
+      "consistency": 0.333
+    },
+    "failures": [
+      "Sharpe -0.26 < 1.0",
+      "Sortino -0.05 < 1.2",
+      "WinRate 25.0% < 50.0%",
+      "PF 0.55 < 1.5",
+      "Expectancy $-1201 < 0",
+      "Only 8 trades < 20",
+      "Sharpe -0.26 \u2264 Buy&Hold 1.25 (no edge)",
+      "Monte Carlo: insufficient trades",
+      "WF: only 1/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "BNB-USD",
+    "sector": "CRYPTO",
+    "passed": false,
+    "grade": "D",
+    "score": "4/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.794,
+    "backtest": {
+      "total_return": 18.71,
+      "final_capital": 118712.18,
+      "n_trades": 17,
+      "win_rate": 41.18,
+      "avg_win": 7037.04,
+      "avg_loss": 3054.71,
+      "profit_factor": 1.613,
+      "expectancy": 1100.72,
+      "sharpe": 0.281,
+      "sortino": 0.066,
+      "calmar": 2.016,
+      "max_drawdown": -9.28,
+      "recovery_bars": 830,
+      "max_consec_loss": 4,
+      "avg_hold_days": 5.8
+    },
+    "benchmark": {
+      "bh_return": 35270.55,
+      "bh_sharpe": 1.075,
+      "bh_max_dd": -80.1
+    },
+    "monte_carlo": {
+      "profitable_pct": 80.9,
+      "median_return": 18.54,
+      "worst_5pct": -17.22,
+      "best_5pct": 53.38,
+      "median_max_dd": -11.59,
+      "worst_dd_5pct": -27.37,
+      "median_sharpe": 3.56,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 153.71,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 3.28,
+          "sharpe": 0.154,
+          "n_trades": 10,
+          "positive": "True",
+          "bh_return": 225.97,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 1.64,
+      "consistency": 0.5
+    },
+    "failures": [
+      "Sharpe 0.28 < 1.0",
+      "Sortino 0.07 < 1.2",
+      "WinRate 41.2% < 50.0%",
+      "Only 17 trades < 20",
+      "Sharpe 0.28 \u2264 Buy&Hold 1.07 (no edge)",
+      "MC profitable 80.9% < 85.0%",
+      "WF: only 1/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "XRP-USD",
+    "sector": "CRYPTO",
+    "passed": false,
+    "grade": "D",
+    "score": "0/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.278,
+    "backtest": {
+      "total_return": -29.5,
+      "final_capital": 70498.62,
+      "n_trades": 14,
+      "win_rate": 14.29,
+      "avg_win": 6382.17,
+      "avg_loss": 3522.14,
+      "profit_factor": 0.302,
+      "expectancy": -2107.24,
+      "sharpe": -0.605,
+      "sortino": -0.14,
+      "calmar": -0.871,
+      "max_drawdown": -33.89,
+      "recovery_bars": -1,
+      "max_consec_loss": 9,
+      "avg_hold_days": 3.4
+    },
+    "benchmark": {
+      "bh_return": 846.06,
+      "bh_sharpe": 0.673,
+      "bh_max_dd": -95.87
+    },
+    "monte_carlo": {
+      "profitable_pct": 2.3,
+      "median_return": -30.63,
+      "worst_5pct": -49.65,
+      "best_5pct": -4.6,
+      "median_max_dd": -33.57,
+      "worst_dd_5pct": -50.75,
+      "median_sharpe": -8.409,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -51.79,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": -11.3,
+          "sharpe": -0.568,
+          "n_trades": 5,
+          "positive": "False",
+          "bh_return": 87.28,
+          "beat_bh": "False"
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": -25.46,
+          "sharpe": -1.414,
+          "n_trades": 8,
+          "positive": "False",
+          "bh_return": 555.95,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": -12.25,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.60 < 1.0",
+      "Sortino -0.14 < 1.2",
+      "WinRate 14.3% < 50.0%",
+      "PF 0.30 < 1.5",
+      "MaxDD -33.9% worse than -25.0%",
+      "Expectancy $-2107 < 0",
+      "Only 14 trades < 20",
+      "Sharpe -0.60 \u2264 Buy&Hold 0.67 (no edge)",
+      "MC profitable 2.3% < 85.0%",
+      "MC Sharpe -8.41 < 0.8",
+      "WF: only 0/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "ADA-USD",
+    "sector": "CRYPTO",
+    "status": "INSUFFICIENT_TRADES",
+    "passed": false,
+    "grade": "F",
+    "score": "0/11"
+  },
+  {
+    "ticker": "AVAX-USD",
+    "sector": "CRYPTO",
+    "passed": false,
+    "grade": "D",
+    "score": "0/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.782,
+    "backtest": {
+      "total_return": -25.88,
+      "final_capital": 74123.34,
+      "n_trades": 6,
+      "win_rate": 0.0,
+      "avg_win": 0,
+      "avg_loss": 4312.78,
+      "profit_factor": 0.0,
+      "expectancy": -4312.78,
+      "sharpe": -0.975,
+      "sortino": -0.372,
+      "calmar": -1.0,
+      "max_drawdown": -25.88,
+      "recovery_bars": -1,
+      "max_consec_loss": 6,
+      "avg_hold_days": 3.7
+    },
+    "benchmark": {
+      "bh_return": 633.33,
+      "bh_sharpe": 0.807,
+      "bh_max_dd": -93.47
+    },
+    "monte_carlo": null,
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 123.21,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.97 < 1.0",
+      "Sortino -0.37 < 1.2",
+      "WinRate 0.0% < 50.0%",
+      "PF 0.00 < 1.5",
+      "MaxDD -25.9% worse than -25.0%",
+      "Expectancy $-4313 < 0",
+      "Only 6 trades < 20",
+      "Sharpe -0.97 \u2264 Buy&Hold 0.81 (no edge)",
+      "Monte Carlo: insufficient trades",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "DOT-USD",
+    "sector": "CRYPTO",
+    "passed": false,
+    "grade": "D",
+    "score": "4/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.11,
+    "backtest": {
+      "total_return": 28.04,
+      "final_capital": 128044.22,
+      "n_trades": 5,
+      "win_rate": 60.0,
+      "avg_win": 12459.71,
+      "avg_loss": 4667.46,
+      "profit_factor": 4.004,
+      "expectancy": 5608.84,
+      "sharpe": 0.474,
+      "sortino": 0.138,
+      "calmar": 5.446,
+      "max_drawdown": -5.15,
+      "recovery_bars": -1,
+      "max_consec_loss": 1,
+      "avg_hold_days": 2.8
+    },
+    "benchmark": {
+      "bh_return": 130.91,
+      "bh_sharpe": 0.584,
+      "bh_max_dd": -93.23
+    },
+    "monte_carlo": null,
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -0.49,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.47 < 1.0",
+      "Sortino 0.14 < 1.2",
+      "Only 5 trades < 20",
+      "Sharpe 0.47 \u2264 Buy&Hold 0.58 (no edge)",
+      "Monte Carlo: insufficient trades",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "LINK-USD",
+    "sector": "CRYPTO",
+    "passed": false,
+    "grade": "D",
+    "score": "3/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.726,
+    "backtest": {
+      "total_return": 12.82,
+      "final_capital": 112823.95,
+      "n_trades": 15,
+      "win_rate": 33.33,
+      "avg_win": 8641.9,
+      "avg_loss": 3038.55,
+      "profit_factor": 1.422,
+      "expectancy": 854.93,
+      "sharpe": 0.202,
+      "sortino": 0.093,
+      "calmar": 1.108,
+      "max_drawdown": -11.57,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 4.3
+    },
+    "benchmark": {
+      "bh_return": 9090.32,
+      "bh_sharpe": 0.928,
+      "bh_max_dd": -90.19
+    },
+    "monte_carlo": {
+      "profitable_pct": 69.9,
+      "median_return": 11.88,
+      "worst_5pct": -22.18,
+      "best_5pct": 48.05,
+      "median_max_dd": -13.47,
+      "worst_dd_5pct": -29.14,
+      "median_sharpe": 2.473,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 1426.26,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": -2.94,
+          "sharpe": -0.119,
+          "n_trades": 5,
+          "positive": "False",
+          "bh_return": 33.09,
+          "beat_bh": "False"
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 1.58,
+          "sharpe": 0.114,
+          "n_trades": 6,
+          "positive": "True",
+          "bh_return": 239.11,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": -0.45,
+      "consistency": 0.333
+    },
+    "failures": [
+      "Sharpe 0.20 < 1.0",
+      "Sortino 0.09 < 1.2",
+      "WinRate 33.3% < 50.0%",
+      "PF 1.42 < 1.5",
+      "Only 15 trades < 20",
+      "Sharpe 0.20 \u2264 Buy&Hold 0.93 (no edge)",
+      "MC profitable 69.9% < 85.0%",
+      "WF: only 1/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "NVDA",
+    "sector": "MEGA_CAP_TECH",
+    "passed": false,
+    "grade": "C",
+    "score": "6/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.75,
+    "backtest": {
+      "total_return": 55.51,
+      "final_capital": 155509.7,
+      "n_trades": 16,
+      "win_rate": 56.25,
+      "avg_win": 8488.12,
+      "avg_loss": 2983.34,
+      "profit_factor": 3.658,
+      "expectancy": 3469.36,
+      "sharpe": 0.657,
+      "sortino": 0.53,
+      "calmar": 11.102,
+      "max_drawdown": -5.0,
+      "recovery_bars": 43,
+      "max_consec_loss": 2,
+      "avg_hold_days": 12.5
+    },
+    "benchmark": {
+      "bh_return": 28357.39,
+      "bh_sharpe": 1.407,
+      "bh_max_dd": -66.34
+    },
+    "monte_carlo": {
+      "profitable_pct": 99.2,
+      "median_return": 53.65,
+      "worst_5pct": 15.73,
+      "best_5pct": 93.82,
+      "median_max_dd": -6.7,
+      "worst_dd_5pct": -15.6,
+      "median_sharpe": 8.728,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 180.28,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 13.74,
+          "sharpe": 0.881,
+          "n_trades": 5,
+          "positive": "True",
+          "bh_return": 59.36,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 6.87,
+      "consistency": 0.5
+    },
+    "failures": [
+      "Sharpe 0.66 < 1.0",
+      "Sortino 0.53 < 1.2",
+      "Only 16 trades < 20",
+      "Sharpe 0.66 \u2264 Buy&Hold 1.41 (no edge)",
+      "WF: only 1/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "AAPL",
+    "sector": "MEGA_CAP_TECH",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.144,
+    "backtest": {
+      "total_return": -5.54,
+      "final_capital": 94457.4,
+      "n_trades": 13,
+      "win_rate": 15.38,
+      "avg_win": 5130.51,
+      "avg_loss": 1436.69,
+      "profit_factor": 0.649,
+      "expectancy": -426.35,
+      "sharpe": -0.178,
+      "sortino": -0.046,
+      "calmar": -0.673,
+      "max_drawdown": -8.23,
+      "recovery_bars": -1,
+      "max_consec_loss": 5,
+      "avg_hold_days": 25.3
+    },
+    "benchmark": {
+      "bh_return": 935.85,
+      "bh_sharpe": 0.966,
+      "bh_max_dd": -38.52
+    },
+    "monte_carlo": {
+      "profitable_pct": 26.2,
+      "median_return": -6.21,
+      "worst_5pct": -18.86,
+      "best_5pct": 11.22,
+      "median_max_dd": -10.88,
+      "worst_dd_5pct": -19.32,
+      "median_sharpe": -2.708,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 135.67,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 52.07,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 84.0,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.18 < 1.0",
+      "Sortino -0.05 < 1.2",
+      "WinRate 15.4% < 50.0%",
+      "PF 0.65 < 1.5",
+      "Expectancy $-426 < 0",
+      "Only 13 trades < 20",
+      "Sharpe -0.18 \u2264 Buy&Hold 0.97 (no edge)",
+      "MC profitable 26.2% < 85.0%",
+      "MC Sharpe -2.71 < 0.8",
+      "WF: only 0/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "MSFT",
+    "sector": "MEGA_CAP_TECH",
+    "passed": false,
+    "grade": "C",
+    "score": "6/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.657,
+    "backtest": {
+      "total_return": 16.66,
+      "final_capital": 116656.47,
+      "n_trades": 22,
+      "win_rate": 40.91,
+      "avg_win": 4318.61,
+      "avg_loss": 1708.54,
+      "profit_factor": 1.75,
+      "expectancy": 757.11,
+      "sharpe": 0.35,
+      "sortino": 0.128,
+      "calmar": 2.515,
+      "max_drawdown": -6.62,
+      "recovery_bars": 518,
+      "max_consec_loss": 3,
+      "avg_hold_days": 24.7
+    },
+    "benchmark": {
+      "bh_return": 958.04,
+      "bh_sharpe": 1.007,
+      "bh_max_dd": -37.15
+    },
+    "monte_carlo": {
+      "profitable_pct": 85.4,
+      "median_return": 16.35,
+      "worst_5pct": -8.22,
+      "best_5pct": 42.85,
+      "median_max_dd": -7.72,
+      "worst_dd_5pct": -17.17,
+      "median_sharpe": 3.738,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": -0.27,
+          "sharpe": -0.022,
+          "n_trades": 5,
+          "positive": "False",
+          "bh_return": 105.36,
+          "beat_bh": "False"
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": -6.11,
+          "sharpe": -0.633,
+          "n_trades": 9,
+          "positive": "False",
+          "bh_return": 27.72,
+          "beat_bh": "False"
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 67.17,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": -2.13,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.35 < 1.0",
+      "Sortino 0.13 < 1.2",
+      "WinRate 40.9% < 50.0%",
+      "Sharpe 0.35 \u2264 Buy&Hold 1.01 (no edge)",
+      "WF: only 0/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "GOOGL",
+    "sector": "MEGA_CAP_TECH",
+    "passed": false,
+    "grade": "B",
+    "score": "8/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.426,
+    "backtest": {
+      "total_return": 26.49,
+      "final_capital": 126490.7,
+      "n_trades": 20,
+      "win_rate": 50.0,
+      "avg_win": 5460.09,
+      "avg_loss": 2811.02,
+      "profit_factor": 1.942,
+      "expectancy": 1324.53,
+      "sharpe": 0.414,
+      "sortino": 0.13,
+      "calmar": 1.842,
+      "max_drawdown": -14.39,
+      "recovery_bars": -1,
+      "max_consec_loss": 5,
+      "avg_hold_days": 20.8
+    },
+    "benchmark": {
+      "bh_return": 624.89,
+      "bh_sharpe": 0.84,
+      "bh_max_dd": -44.32
+    },
+    "monte_carlo": {
+      "profitable_pct": 89.0,
+      "median_return": 27.33,
+      "worst_5pct": -7.03,
+      "best_5pct": 62.72,
+      "median_max_dd": -9.72,
+      "worst_dd_5pct": -22.72,
+      "median_sharpe": 4.785,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 34.45,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 4.18,
+          "sharpe": 0.313,
+          "n_trades": 6,
+          "positive": "True",
+          "bh_return": 51.13,
+          "beat_bh": "False"
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 3.3,
+          "sharpe": 0.215,
+          "n_trades": 5,
+          "positive": "True",
+          "bh_return": 76.51,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 2,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 2.49,
+      "consistency": 0.667
+    },
+    "failures": [
+      "Sharpe 0.41 < 1.0",
+      "Sortino 0.13 < 1.2",
+      "Sharpe 0.41 \u2264 Buy&Hold 0.84 (no edge)"
+    ]
+  },
+  {
+    "ticker": "META",
+    "sector": "MEGA_CAP_TECH",
+    "passed": false,
+    "grade": "D",
+    "score": "5/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.38,
+    "backtest": {
+      "total_return": 18.53,
+      "final_capital": 118532.88,
+      "n_trades": 19,
+      "win_rate": 36.84,
+      "avg_win": 5562.79,
+      "avg_loss": 1700.55,
+      "profit_factor": 1.908,
+      "expectancy": 975.41,
+      "sharpe": 0.351,
+      "sortino": 0.101,
+      "calmar": 4.134,
+      "max_drawdown": -4.48,
+      "recovery_bars": 58,
+      "max_consec_loss": 4,
+      "avg_hold_days": 20.7
+    },
+    "benchmark": {
+      "bh_return": 656.53,
+      "bh_sharpe": 0.731,
+      "bh_max_dd": -76.74
+    },
+    "monte_carlo": {
+      "profitable_pct": 86.0,
+      "median_return": 17.17,
+      "worst_5pct": -7.78,
+      "best_5pct": 46.74,
+      "median_max_dd": -8.28,
+      "worst_dd_5pct": -18.59,
+      "median_sharpe": 3.794,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 67.36,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -32.12,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 7.44,
+          "sharpe": 0.452,
+          "n_trades": 5,
+          "positive": "True",
+          "bh_return": 270.87,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 2.48,
+      "consistency": 0.333
+    },
+    "failures": [
+      "Sharpe 0.35 < 1.0",
+      "Sortino 0.10 < 1.2",
+      "WinRate 36.8% < 50.0%",
+      "Only 19 trades < 20",
+      "Sharpe 0.35 \u2264 Buy&Hold 0.73 (no edge)",
+      "WF: only 1/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "AMZN",
+    "sector": "MEGA_CAP_TECH",
+    "passed": false,
+    "grade": "D",
+    "score": "5/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.605,
+    "backtest": {
+      "total_return": 20.68,
+      "final_capital": 120678.73,
+      "n_trades": 10,
+      "win_rate": 40.0,
+      "avg_win": 8545.35,
+      "avg_loss": 2250.44,
+      "profit_factor": 2.531,
+      "expectancy": 2067.87,
+      "sharpe": 0.373,
+      "sortino": 0.142,
+      "calmar": 2.534,
+      "max_drawdown": -8.16,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 30.1
+    },
+    "benchmark": {
+      "bh_return": 1334.59,
+      "bh_sharpe": 0.978,
+      "bh_max_dd": -56.15
+    },
+    "monte_carlo": {
+      "profitable_pct": 87.4,
+      "median_return": 20.38,
+      "worst_5pct": -5.98,
+      "best_5pct": 49.49,
+      "median_max_dd": -6.57,
+      "worst_dd_5pct": -14.88,
+      "median_sharpe": 5.748,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 79.25,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -26.21,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.37 < 1.0",
+      "Sortino 0.14 < 1.2",
+      "WinRate 40.0% < 50.0%",
+      "Only 10 trades < 20",
+      "Sharpe 0.37 \u2264 Buy&Hold 0.98 (no edge)",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "TSLA",
+    "sector": "MEGA_CAP_TECH",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.179,
+    "backtest": {
+      "total_return": -13.79,
+      "final_capital": 86208.11,
+      "n_trades": 12,
+      "win_rate": 16.67,
+      "avg_win": 6275.83,
+      "avg_loss": 2634.35,
+      "profit_factor": 0.476,
+      "expectancy": -1149.32,
+      "sharpe": -0.306,
+      "sortino": -0.072,
+      "calmar": -0.894,
+      "max_drawdown": -15.42,
+      "recovery_bars": -1,
+      "max_consec_loss": 5,
+      "avg_hold_days": 8.1
+    },
+    "benchmark": {
+      "bh_return": 2754.93,
+      "bh_sharpe": 0.873,
+      "bh_max_dd": -73.63
+    },
+    "monte_carlo": {
+      "profitable_pct": 14.5,
+      "median_return": -13.96,
+      "worst_5pct": -32.04,
+      "best_5pct": 8.33,
+      "median_max_dd": -18.83,
+      "worst_dd_5pct": -32.98,
+      "median_sharpe": -4.671,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 248.19,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.31 < 1.0",
+      "Sortino -0.07 < 1.2",
+      "WinRate 16.7% < 50.0%",
+      "PF 0.48 < 1.5",
+      "Expectancy $-1149 < 0",
+      "Only 12 trades < 20",
+      "Sharpe -0.31 \u2264 Buy&Hold 0.87 (no edge)",
+      "MC profitable 14.5% < 85.0%",
+      "MC Sharpe -4.67 < 0.8",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "AMD",
+    "sector": "MEGA_CAP_TECH",
+    "passed": false,
+    "grade": "D",
+    "score": "3/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.77,
+    "backtest": {
+      "total_return": 9.14,
+      "final_capital": 109141.57,
+      "n_trades": 19,
+      "win_rate": 36.84,
+      "avg_win": 6866.32,
+      "avg_loss": 3243.56,
+      "profit_factor": 1.235,
+      "expectancy": 481.14,
+      "sharpe": 0.171,
+      "sortino": 0.071,
+      "calmar": 0.571,
+      "max_drawdown": -16.0,
+      "recovery_bars": -1,
+      "max_consec_loss": 6,
+      "avg_hold_days": 4.1
+    },
+    "benchmark": {
+      "bh_return": 4485.77,
+      "bh_sharpe": 0.941,
+      "bh_max_dd": -65.45
+    },
+    "monte_carlo": {
+      "profitable_pct": 67.4,
+      "median_return": 9.69,
+      "worst_5pct": -26.13,
+      "best_5pct": 47.44,
+      "median_max_dd": -14.9,
+      "worst_dd_5pct": -33.6,
+      "median_sharpe": 1.89,
+      "n_simulations": 1000
+    },
+    "walk_forward": null,
+    "failures": [
+      "Sharpe 0.17 < 1.0",
+      "Sortino 0.07 < 1.2",
+      "WinRate 36.8% < 50.0%",
+      "PF 1.24 < 1.5",
+      "Only 19 trades < 20",
+      "Sharpe 0.17 \u2264 Buy&Hold 0.94 (no edge)",
+      "MC profitable 67.4% < 85.0%",
+      "Walk-Forward: insufficient data"
+    ]
+  },
+  {
+    "ticker": "AVGO",
+    "sector": "MEGA_CAP_TECH",
+    "passed": false,
+    "grade": "C",
+    "score": "6/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.663,
+    "backtest": {
+      "total_return": 33.08,
+      "final_capital": 133077.32,
+      "n_trades": 27,
+      "win_rate": 40.74,
+      "avg_win": 6513.78,
+      "avg_loss": 2410.89,
+      "profit_factor": 1.857,
+      "expectancy": 1225.09,
+      "sharpe": 0.442,
+      "sortino": 0.236,
+      "calmar": 4.357,
+      "max_drawdown": -7.59,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 15.9
+    },
+    "benchmark": {
+      "bh_return": 2988.09,
+      "bh_sharpe": 1.105,
+      "bh_max_dd": -48.3
+    },
+    "monte_carlo": {
+      "profitable_pct": 92.3,
+      "median_return": 33.16,
+      "worst_5pct": -4.36,
+      "best_5pct": 74.24,
+      "median_max_dd": -11.11,
+      "worst_dd_5pct": -24.55,
+      "median_sharpe": 4.185,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 32.83,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 8.96,
+          "sharpe": 0.433,
+          "n_trades": 10,
+          "positive": "True",
+          "bh_return": 419.61,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 4.48,
+      "consistency": 0.5
+    },
+    "failures": [
+      "Sharpe 0.44 < 1.0",
+      "Sortino 0.24 < 1.2",
+      "WinRate 40.7% < 50.0%",
+      "Sharpe 0.44 \u2264 Buy&Hold 1.10 (no edge)",
+      "WF: only 1/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "ORCL",
+    "sector": "MEGA_CAP_TECH",
+    "passed": false,
+    "grade": "D",
+    "score": "4/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.489,
+    "backtest": {
+      "total_return": 7.74,
+      "final_capital": 107742.0,
+      "n_trades": 21,
+      "win_rate": 33.33,
+      "avg_win": 4588.86,
+      "avg_loss": 1741.43,
+      "profit_factor": 1.318,
+      "expectancy": 368.67,
+      "sharpe": 0.187,
+      "sortino": 0.053,
+      "calmar": 0.734,
+      "max_drawdown": -10.55,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 13.0
+    },
+    "benchmark": {
+      "bh_return": 339.74,
+      "bh_sharpe": 0.676,
+      "bh_max_dd": -40.36
+    },
+    "monte_carlo": {
+      "profitable_pct": 69.4,
+      "median_return": 7.61,
+      "worst_5pct": -17.82,
+      "best_5pct": 32.64,
+      "median_max_dd": -9.66,
+      "worst_dd_5pct": -22.11,
+      "median_sharpe": 1.938,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 25.46,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 7.16,
+          "sharpe": 0.589,
+          "n_trades": 5,
+          "positive": "True",
+          "bh_return": 29.9,
+          "beat_bh": "False"
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": -3.31,
+          "sharpe": -0.211,
+          "n_trades": 7,
+          "positive": "False",
+          "bh_return": 144.35,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 1.28,
+      "consistency": 0.333
+    },
+    "failures": [
+      "Sharpe 0.19 < 1.0",
+      "Sortino 0.05 < 1.2",
+      "WinRate 33.3% < 50.0%",
+      "PF 1.32 < 1.5",
+      "Sharpe 0.19 \u2264 Buy&Hold 0.68 (no edge)",
+      "MC profitable 69.4% < 85.0%",
+      "WF: only 1/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "NFLX",
+    "sector": "MEGA_CAP_TECH",
+    "passed": false,
+    "grade": "D",
+    "score": "5/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.413,
+    "backtest": {
+      "total_return": 35.11,
+      "final_capital": 135107.73,
+      "n_trades": 18,
+      "win_rate": 44.44,
+      "avg_win": 8118.29,
+      "avg_loss": 2983.86,
+      "profit_factor": 2.177,
+      "expectancy": 1950.43,
+      "sharpe": 0.473,
+      "sortino": 0.159,
+      "calmar": 2.928,
+      "max_drawdown": -11.99,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 15.9
+    },
+    "benchmark": {
+      "bh_return": 1706.33,
+      "bh_sharpe": 0.886,
+      "bh_max_dd": -75.95
+    },
+    "monte_carlo": {
+      "profitable_pct": 93.5,
+      "median_return": 34.75,
+      "worst_5pct": -2.86,
+      "best_5pct": 74.86,
+      "median_max_dd": -9.77,
+      "worst_dd_5pct": -22.56,
+      "median_sharpe": 5.584,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 70.01,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -63.99,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 5.52,
+          "sharpe": 0.393,
+          "n_trades": 5,
+          "positive": "True",
+          "bh_return": 400.38,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 1.84,
+      "consistency": 0.333
+    },
+    "failures": [
+      "Sharpe 0.47 < 1.0",
+      "Sortino 0.16 < 1.2",
+      "WinRate 44.4% < 50.0%",
+      "Only 18 trades < 20",
+      "Sharpe 0.47 \u2264 Buy&Hold 0.89 (no edge)",
+      "WF: only 1/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "SOXX",
+    "sector": "SEMICONDUCTORS",
+    "passed": false,
+    "grade": "D",
+    "score": "4/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.568,
+    "backtest": {
+      "total_return": 10.61,
+      "final_capital": 110612.0,
+      "n_trades": 19,
+      "win_rate": 36.84,
+      "avg_win": 4541.11,
+      "avg_loss": 1764.65,
+      "profit_factor": 1.501,
+      "expectancy": 558.53,
+      "sharpe": 0.252,
+      "sortino": 0.07,
+      "calmar": 2.37,
+      "max_drawdown": -4.48,
+      "recovery_bars": 24,
+      "max_consec_loss": 3,
+      "avg_hold_days": 19.7
+    },
+    "benchmark": {
+      "bh_return": 682.89,
+      "bh_sharpe": 0.82,
+      "bh_max_dd": -45.75
+    },
+    "monte_carlo": {
+      "profitable_pct": 79.4,
+      "median_return": 10.37,
+      "worst_5pct": -11.76,
+      "best_5pct": 35.77,
+      "median_max_dd": -8.72,
+      "worst_dd_5pct": -18.52,
+      "median_sharpe": 2.809,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 97.96,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.25 < 1.0",
+      "Sortino 0.07 < 1.2",
+      "WinRate 36.8% < 50.0%",
+      "Only 19 trades < 20",
+      "Sharpe 0.25 \u2264 Buy&Hold 0.82 (no edge)",
+      "MC profitable 79.4% < 85.0%",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "SMH",
+    "sector": "SEMICONDUCTORS",
+    "passed": false,
+    "grade": "D",
+    "score": "4/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.836,
+    "backtest": {
+      "total_return": 2.3,
+      "final_capital": 102304.09,
+      "n_trades": 20,
+      "win_rate": 30.0,
+      "avg_win": 4379.27,
+      "avg_loss": 1712.25,
+      "profit_factor": 1.096,
+      "expectancy": 115.2,
+      "sharpe": 0.074,
+      "sortino": 0.019,
+      "calmar": 0.321,
+      "max_drawdown": -7.18,
+      "recovery_bars": -1,
+      "max_consec_loss": 3,
+      "avg_hold_days": 19.6
+    },
+    "benchmark": {
+      "bh_return": 904.01,
+      "bh_sharpe": 0.91,
+      "bh_max_dd": -45.3
+    },
+    "monte_carlo": {
+      "profitable_pct": 56.5,
+      "median_return": 2.71,
+      "worst_5pct": -18.79,
+      "best_5pct": 26.19,
+      "median_max_dd": -10.77,
+      "worst_dd_5pct": -22.93,
+      "median_sharpe": 0.888,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 76.4,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 155.15,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.07 < 1.0",
+      "Sortino 0.02 < 1.2",
+      "WinRate 30.0% < 50.0%",
+      "PF 1.10 < 1.5",
+      "Sharpe 0.07 \u2264 Buy&Hold 0.91 (no edge)",
+      "MC profitable 56.5% < 85.0%",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "QCOM",
+    "sector": "SEMICONDUCTORS",
+    "passed": false,
+    "grade": "D",
+    "score": "3/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.373,
+    "backtest": {
+      "total_return": 3.28,
+      "final_capital": 103280.27,
+      "n_trades": 14,
+      "win_rate": 42.86,
+      "avg_win": 4731.94,
+      "avg_loss": 3138.92,
+      "profit_factor": 1.131,
+      "expectancy": 234.31,
+      "sharpe": 0.089,
+      "sortino": 0.019,
+      "calmar": 0.378,
+      "max_drawdown": -8.67,
+      "recovery_bars": -1,
+      "max_consec_loss": 3,
+      "avg_hold_days": 17.1
+    },
+    "benchmark": {
+      "bh_return": 178.27,
+      "bh_sharpe": 0.462,
+      "bh_max_dd": -44.29
+    },
+    "monte_carlo": {
+      "profitable_pct": 58.3,
+      "median_return": 3.55,
+      "worst_5pct": -22.39,
+      "best_5pct": 32.11,
+      "median_max_dd": -12.22,
+      "worst_dd_5pct": -27.15,
+      "median_sharpe": 1.241,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 47.69,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.09 < 1.0",
+      "Sortino 0.02 < 1.2",
+      "WinRate 42.9% < 50.0%",
+      "PF 1.13 < 1.5",
+      "Only 14 trades < 20",
+      "Sharpe 0.09 \u2264 Buy&Hold 0.46 (no edge)",
+      "MC profitable 58.3% < 85.0%",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "MU",
+    "sector": "SEMICONDUCTORS",
+    "passed": false,
+    "grade": "D",
+    "score": "2/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.415,
+    "backtest": {
+      "total_return": -1.04,
+      "final_capital": 98959.33,
+      "n_trades": 21,
+      "win_rate": 33.33,
+      "avg_win": 5891.6,
+      "avg_loss": 3020.13,
+      "profit_factor": 0.975,
+      "expectancy": -49.56,
+      "sharpe": 0.016,
+      "sortino": 0.006,
+      "calmar": -0.053,
+      "max_drawdown": -19.58,
+      "recovery_bars": -1,
+      "max_consec_loss": 6,
+      "avg_hold_days": 8.7
+    },
+    "benchmark": {
+      "bh_return": 150.79,
+      "bh_sharpe": 0.431,
+      "bh_max_dd": -72.49
+    },
+    "monte_carlo": {
+      "profitable_pct": 45.9,
+      "median_return": -2.28,
+      "worst_5pct": -34.97,
+      "best_5pct": 29.59,
+      "median_max_dd": -18.1,
+      "worst_dd_5pct": -39.95,
+      "median_sharpe": -0.06,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": -2.02,
+          "sharpe": -0.121,
+          "n_trades": 7,
+          "positive": "False",
+          "bh_return": 57.31,
+          "beat_bh": "False"
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 11.65,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": -1.01,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.02 < 1.0",
+      "Sortino 0.01 < 1.2",
+      "WinRate 33.3% < 50.0%",
+      "PF 0.97 < 1.5",
+      "Expectancy $-50 < 0",
+      "Sharpe 0.02 \u2264 Buy&Hold 0.43 (no edge)",
+      "MC profitable 45.9% < 85.0%",
+      "MC Sharpe -0.06 < 0.8",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "AMAT",
+    "sector": "SEMICONDUCTORS",
+    "passed": false,
+    "grade": "D",
+    "score": "5/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.3,
+    "backtest": {
+      "total_return": 20.65,
+      "final_capital": 120654.81,
+      "n_trades": 16,
+      "win_rate": 43.75,
+      "avg_win": 5651.52,
+      "avg_loss": 2100.65,
+      "profit_factor": 2.093,
+      "expectancy": 1290.93,
+      "sharpe": 0.402,
+      "sortino": 0.131,
+      "calmar": 3.031,
+      "max_drawdown": -6.81,
+      "recovery_bars": 199,
+      "max_consec_loss": 3,
+      "avg_hold_days": 18.6
+    },
+    "benchmark": {
+      "bh_return": 644.41,
+      "bh_sharpe": 0.702,
+      "bh_max_dd": -55.14
+    },
+    "monte_carlo": {
+      "profitable_pct": 89.8,
+      "median_return": 20.15,
+      "worst_5pct": -6.78,
+      "best_5pct": 47.32,
+      "median_max_dd": -7.36,
+      "worst_dd_5pct": -16.15,
+      "median_sharpe": 5.087,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": -2.82,
+          "sharpe": -0.376,
+          "n_trades": 5,
+          "positive": "False",
+          "bh_return": 85.18,
+          "beat_bh": "False"
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 9.17,
+          "sharpe": 0.561,
+          "n_trades": 6,
+          "positive": "True",
+          "bh_return": 93.9,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 3.18,
+      "consistency": 0.5
+    },
+    "failures": [
+      "Sharpe 0.40 < 1.0",
+      "Sortino 0.13 < 1.2",
+      "WinRate 43.8% < 50.0%",
+      "Only 16 trades < 20",
+      "Sharpe 0.40 \u2264 Buy&Hold 0.70 (no edge)",
+      "WF: only 1/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "LRCX",
+    "sector": "SEMICONDUCTORS",
+    "passed": false,
+    "grade": "D",
+    "score": "4/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.498,
+    "backtest": {
+      "total_return": 17.34,
+      "final_capital": 117343.62,
+      "n_trades": 15,
+      "win_rate": 40.0,
+      "avg_win": 8629.7,
+      "avg_loss": 3826.07,
+      "profit_factor": 1.504,
+      "expectancy": 1156.24,
+      "sharpe": 0.278,
+      "sortino": 0.095,
+      "calmar": 0.809,
+      "max_drawdown": -21.45,
+      "recovery_bars": -1,
+      "max_consec_loss": 8,
+      "avg_hold_days": 10.6
+    },
+    "benchmark": {
+      "bh_return": 950.85,
+      "bh_sharpe": 0.776,
+      "bh_max_dd": -56.39
+    },
+    "monte_carlo": {
+      "profitable_pct": 74.9,
+      "median_return": 19.0,
+      "worst_5pct": -24.34,
+      "best_5pct": 61.59,
+      "median_max_dd": -13.79,
+      "worst_dd_5pct": -32.88,
+      "median_sharpe": 3.41,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 141.28,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 2.64,
+          "sharpe": 0.176,
+          "n_trades": 6,
+          "positive": "True",
+          "bh_return": 37.22,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 1.32,
+      "consistency": 0.5
+    },
+    "failures": [
+      "Sharpe 0.28 < 1.0",
+      "Sortino 0.10 < 1.2",
+      "WinRate 40.0% < 50.0%",
+      "Only 15 trades < 20",
+      "Sharpe 0.28 \u2264 Buy&Hold 0.78 (no edge)",
+      "MC profitable 74.9% < 85.0%",
+      "WF: only 1/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "KLAC",
+    "sector": "SEMICONDUCTORS",
+    "passed": false,
+    "grade": "D",
+    "score": "5/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.457,
+    "backtest": {
+      "total_return": 18.3,
+      "final_capital": 118296.01,
+      "n_trades": 15,
+      "win_rate": 46.67,
+      "avg_win": 5245.73,
+      "avg_loss": 2303.01,
+      "profit_factor": 1.993,
+      "expectancy": 1219.73,
+      "sharpe": 0.357,
+      "sortino": 0.073,
+      "calmar": 2.579,
+      "max_drawdown": -7.09,
+      "recovery_bars": 168,
+      "max_consec_loss": 3,
+      "avg_hold_days": 19.7
+    },
+    "benchmark": {
+      "bh_return": 1004.48,
+      "bh_sharpe": 0.814,
+      "bh_max_dd": -40.28
+    },
+    "monte_carlo": {
+      "profitable_pct": 87.1,
+      "median_return": 18.87,
+      "worst_5pct": -8.23,
+      "best_5pct": 45.45,
+      "median_max_dd": -7.68,
+      "worst_dd_5pct": -17.61,
+      "median_sharpe": 4.804,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 121.33,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 7.36,
+          "sharpe": 0.527,
+          "n_trades": 7,
+          "positive": "True",
+          "bh_return": 119.92,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 3.68,
+      "consistency": 0.5
+    },
+    "failures": [
+      "Sharpe 0.36 < 1.0",
+      "Sortino 0.07 < 1.2",
+      "WinRate 46.7% < 50.0%",
+      "Only 15 trades < 20",
+      "Sharpe 0.36 \u2264 Buy&Hold 0.81 (no edge)",
+      "WF: only 1/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "TXN",
+    "sector": "SEMICONDUCTORS",
+    "passed": false,
+    "grade": "D",
+    "score": "2/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.881,
+    "backtest": {
+      "total_return": -8.37,
+      "final_capital": 91634.58,
+      "n_trades": 23,
+      "win_rate": 21.74,
+      "avg_win": 3996.59,
+      "avg_loss": 1574.91,
+      "profit_factor": 0.705,
+      "expectancy": -363.71,
+      "sharpe": -0.199,
+      "sortino": -0.065,
+      "calmar": -0.599,
+      "max_drawdown": -13.96,
+      "recovery_bars": -1,
+      "max_consec_loss": 9,
+      "avg_hold_days": 18.0
+    },
+    "benchmark": {
+      "bh_return": 360.21,
+      "bh_sharpe": 0.682,
+      "bh_max_dd": -29.85
+    },
+    "monte_carlo": {
+      "profitable_pct": 24.8,
+      "median_return": -9.04,
+      "worst_5pct": -28.56,
+      "best_5pct": 12.93,
+      "median_max_dd": -15.28,
+      "worst_dd_5pct": -30.2,
+      "median_sharpe": -2.156,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 40.29,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 2.05,
+          "sharpe": 0.212,
+          "n_trades": 6,
+          "positive": "True",
+          "bh_return": 29.51,
+          "beat_bh": "False"
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": -7.56,
+          "sharpe": -1.25,
+          "n_trades": 5,
+          "positive": "False",
+          "bh_return": 36.19,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": -1.84,
+      "consistency": 0.333
+    },
+    "failures": [
+      "Sharpe -0.20 < 1.0",
+      "Sortino -0.07 < 1.2",
+      "WinRate 21.7% < 50.0%",
+      "PF 0.70 < 1.5",
+      "Expectancy $-364 < 0",
+      "Sharpe -0.20 \u2264 Buy&Hold 0.68 (no edge)",
+      "MC profitable 24.8% < 85.0%",
+      "MC Sharpe -2.16 < 0.8",
+      "WF: only 1/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "MRVL",
+    "sector": "SEMICONDUCTORS",
+    "passed": false,
+    "grade": "D",
+    "score": "3/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.502,
+    "backtest": {
+      "total_return": 9.67,
+      "final_capital": 109672.41,
+      "n_trades": 14,
+      "win_rate": 42.86,
+      "avg_win": 6564.54,
+      "avg_loss": 3714.35,
+      "profit_factor": 1.326,
+      "expectancy": 690.89,
+      "sharpe": 0.192,
+      "sortino": 0.036,
+      "calmar": 0.767,
+      "max_drawdown": -12.61,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 17.1
+    },
+    "benchmark": {
+      "bh_return": 751.78,
+      "bh_sharpe": 0.694,
+      "bh_max_dd": -61.88
+    },
+    "monte_carlo": {
+      "profitable_pct": 69.2,
+      "median_return": 10.56,
+      "worst_5pct": -22.87,
+      "best_5pct": 40.74,
+      "median_max_dd": -12.94,
+      "worst_dd_5pct": -31.62,
+      "median_sharpe": 2.49,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 115.27,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 27.8,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": -10.52,
+          "sharpe": -0.721,
+          "n_trades": 6,
+          "positive": "False",
+          "bh_return": 165.44,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": -3.51,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.19 < 1.0",
+      "Sortino 0.04 < 1.2",
+      "WinRate 42.9% < 50.0%",
+      "PF 1.33 < 1.5",
+      "Only 14 trades < 20",
+      "Sharpe 0.19 \u2264 Buy&Hold 0.69 (no edge)",
+      "MC profitable 69.2% < 85.0%",
+      "WF: only 0/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "QQQ",
+    "sector": "GROWTH_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.15,
+    "backtest": {
+      "total_return": -7.11,
+      "final_capital": 92887.16,
+      "n_trades": 18,
+      "win_rate": 22.22,
+      "avg_win": 2319.93,
+      "avg_loss": 1170.9,
+      "profit_factor": 0.566,
+      "expectancy": -395.16,
+      "sharpe": -0.265,
+      "sortino": -0.052,
+      "calmar": -0.635,
+      "max_drawdown": -11.21,
+      "recovery_bars": -1,
+      "max_consec_loss": 7,
+      "avg_hold_days": 28.2
+    },
+    "benchmark": {
+      "bh_return": 441.24,
+      "bh_sharpe": 0.885,
+      "bh_max_dd": -35.12
+    },
+    "monte_carlo": {
+      "profitable_pct": 18.9,
+      "median_return": -7.54,
+      "worst_5pct": -18.98,
+      "best_5pct": 6.83,
+      "median_max_dd": -10.88,
+      "worst_dd_5pct": -19.41,
+      "median_sharpe": -3.361,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 61.81,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 85.89,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.27 < 1.0",
+      "Sortino -0.05 < 1.2",
+      "WinRate 22.2% < 50.0%",
+      "PF 0.57 < 1.5",
+      "Expectancy $-395 < 0",
+      "Only 18 trades < 20",
+      "Sharpe -0.27 \u2264 Buy&Hold 0.89 (no edge)",
+      "MC profitable 18.9% < 85.0%",
+      "MC Sharpe -3.36 < 0.8",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "IWF",
+    "sector": "GROWTH_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.001,
+    "backtest": {
+      "total_return": -3.63,
+      "final_capital": 96371.31,
+      "n_trades": 13,
+      "win_rate": 23.08,
+      "avg_win": 3323.86,
+      "avg_loss": 1360.03,
+      "profit_factor": 0.733,
+      "expectancy": -279.13,
+      "sharpe": -0.133,
+      "sortino": -0.028,
+      "calmar": -0.4,
+      "max_drawdown": -9.07,
+      "recovery_bars": -1,
+      "max_consec_loss": 5,
+      "avg_hold_days": 35.3
+    },
+    "benchmark": {
+      "bh_return": 367.92,
+      "bh_sharpe": 0.868,
+      "bh_max_dd": -32.72
+    },
+    "monte_carlo": {
+      "profitable_pct": 29.9,
+      "median_return": -3.77,
+      "worst_5pct": -15.14,
+      "best_5pct": 9.91,
+      "median_max_dd": -8.43,
+      "worst_dd_5pct": -16.14,
+      "median_sharpe": -1.95,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 49.09,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 86.62,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.13 < 1.0",
+      "Sortino -0.03 < 1.2",
+      "WinRate 23.1% < 50.0%",
+      "PF 0.73 < 1.5",
+      "Expectancy $-279 < 0",
+      "Only 13 trades < 20",
+      "Sharpe -0.13 \u2264 Buy&Hold 0.87 (no edge)",
+      "MC profitable 29.9% < 85.0%",
+      "MC Sharpe -1.95 < 0.8",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "VUG",
+    "sector": "GROWTH_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "3/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.651,
+    "backtest": {
+      "total_return": 4.91,
+      "final_capital": 104913.36,
+      "n_trades": 13,
+      "win_rate": 30.77,
+      "avg_win": 4101.32,
+      "avg_loss": 1276.88,
+      "profit_factor": 1.428,
+      "expectancy": 377.95,
+      "sharpe": 0.166,
+      "sortino": 0.041,
+      "calmar": 0.943,
+      "max_drawdown": -5.21,
+      "recovery_bars": 715,
+      "max_consec_loss": 6,
+      "avg_hold_days": 36.3
+    },
+    "benchmark": {
+      "bh_return": 336.34,
+      "bh_sharpe": 0.817,
+      "bh_max_dd": -35.61
+    },
+    "monte_carlo": {
+      "profitable_pct": 68.1,
+      "median_return": 4.23,
+      "worst_5pct": -10.87,
+      "best_5pct": 21.12,
+      "median_max_dd": -6.12,
+      "worst_dd_5pct": -13.78,
+      "median_sharpe": 2.142,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 52.79,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 86.92,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.17 < 1.0",
+      "Sortino 0.04 < 1.2",
+      "WinRate 30.8% < 50.0%",
+      "PF 1.43 < 1.5",
+      "Only 13 trades < 20",
+      "Sharpe 0.17 \u2264 Buy&Hold 0.82 (no edge)",
+      "MC profitable 68.1% < 85.0%",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "TQQQ",
+    "sector": "GROWTH_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.429,
+    "backtest": {
+      "total_return": -32.21,
+      "final_capital": 67785.85,
+      "n_trades": 21,
+      "win_rate": 14.29,
+      "avg_win": 4986.05,
+      "avg_loss": 2620.68,
+      "profit_factor": 0.317,
+      "expectancy": -1534.01,
+      "sharpe": -0.628,
+      "sortino": -0.174,
+      "calmar": -1.0,
+      "max_drawdown": -32.21,
+      "recovery_bars": -1,
+      "max_consec_loss": 10,
+      "avg_hold_days": 10.7
+    },
+    "benchmark": {
+      "bh_return": 1996.33,
+      "bh_sharpe": 0.801,
+      "bh_max_dd": -81.66
+    },
+    "monte_carlo": {
+      "profitable_pct": 1.2,
+      "median_return": -34.19,
+      "worst_5pct": -52.87,
+      "best_5pct": -9.71,
+      "median_max_dd": -36.22,
+      "worst_dd_5pct": -53.27,
+      "median_sharpe": -8.482,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 160.1,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.63 < 1.0",
+      "Sortino -0.17 < 1.2",
+      "WinRate 14.3% < 50.0%",
+      "PF 0.32 < 1.5",
+      "MaxDD -32.2% worse than -25.0%",
+      "Expectancy $-1534 < 0",
+      "Sharpe -0.63 \u2264 Buy&Hold 0.80 (no edge)",
+      "MC profitable 1.2% < 85.0%",
+      "MC Sharpe -8.48 < 0.8",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "IGV",
+    "sector": "GROWTH_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "2/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.838,
+    "backtest": {
+      "total_return": -1.31,
+      "final_capital": 98694.66,
+      "n_trades": 22,
+      "win_rate": 36.36,
+      "avg_win": 2407.56,
+      "avg_loss": 1468.99,
+      "profit_factor": 0.937,
+      "expectancy": -59.33,
+      "sharpe": -0.021,
+      "sortino": -0.005,
+      "calmar": -0.148,
+      "max_drawdown": -8.81,
+      "recovery_bars": -1,
+      "max_consec_loss": 5,
+      "avg_hold_days": 28.3
+    },
+    "benchmark": {
+      "bh_return": 457.85,
+      "bh_sharpe": 0.817,
+      "bh_max_dd": -45.85
+    },
+    "monte_carlo": {
+      "profitable_pct": 45.2,
+      "median_return": -1.07,
+      "worst_5pct": -17.42,
+      "best_5pct": 18.3,
+      "median_max_dd": -9.73,
+      "worst_dd_5pct": -19.71,
+      "median_sharpe": -0.153,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 65.69,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.02 < 1.0",
+      "Sortino -0.01 < 1.2",
+      "WinRate 36.4% < 50.0%",
+      "PF 0.94 < 1.5",
+      "Expectancy $-59 < 0",
+      "Sharpe -0.02 \u2264 Buy&Hold 0.82 (no edge)",
+      "MC profitable 45.2% < 85.0%",
+      "MC Sharpe -0.15 < 0.8",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "CIBR",
+    "sector": "GROWTH_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "5/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.273,
+    "backtest": {
+      "total_return": 10.35,
+      "final_capital": 110354.12,
+      "n_trades": 10,
+      "win_rate": 40.0,
+      "avg_win": 3598.57,
+      "avg_loss": 673.36,
+      "profit_factor": 3.563,
+      "expectancy": 1035.41,
+      "sharpe": 0.396,
+      "sortino": 0.127,
+      "calmar": 4.175,
+      "max_drawdown": -2.48,
+      "recovery_bars": 389,
+      "max_consec_loss": 3,
+      "avg_hold_days": 43.0
+    },
+    "benchmark": {
+      "bh_return": 234.52,
+      "bh_sharpe": 0.669,
+      "bh_max_dd": -33.89
+    },
+    "monte_carlo": {
+      "profitable_pct": 90.9,
+      "median_return": 9.59,
+      "worst_5pct": -1.98,
+      "best_5pct": 24.33,
+      "median_max_dd": -2.16,
+      "worst_dd_5pct": -5.27,
+      "median_sharpe": 6.299,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 45.23,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 21.13,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 56.59,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.40 < 1.0",
+      "Sortino 0.13 < 1.2",
+      "WinRate 40.0% < 50.0%",
+      "Only 10 trades < 20",
+      "Sharpe 0.40 \u2264 Buy&Hold 0.67 (no edge)",
+      "WF: only 0/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "CLOU",
+    "sector": "GROWTH_ETFs",
+    "status": "INSUFFICIENT_TRADES",
+    "passed": false,
+    "grade": "F",
+    "score": "0/11"
+  },
+  {
+    "ticker": "BOTZ",
+    "sector": "GROWTH_ETFs",
+    "passed": false,
+    "grade": "C",
+    "score": "7/11",
+    "status": "FAIL",
+    "excess_sharpe": 0.198,
+    "backtest": {
+      "total_return": 36.73,
+      "final_capital": 136731.36,
+      "n_trades": 10,
+      "win_rate": 70.0,
+      "avg_win": 6438.78,
+      "avg_loss": 2780.04,
+      "profit_factor": 5.404,
+      "expectancy": 3673.14,
+      "sharpe": 0.713,
+      "sortino": 0.141,
+      "calmar": 8.552,
+      "max_drawdown": -4.3,
+      "recovery_bars": 194,
+      "max_consec_loss": 1,
+      "avg_hold_days": 31.1
+    },
+    "benchmark": {
+      "bh_return": 125.83,
+      "bh_sharpe": 0.515,
+      "bh_max_dd": -55.54
+    },
+    "monte_carlo": {
+      "profitable_pct": 99.4,
+      "median_return": 36.95,
+      "worst_5pct": 13.11,
+      "best_5pct": 60.12,
+      "median_max_dd": -4.43,
+      "worst_dd_5pct": -9.52,
+      "median_sharpe": 12.726,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -15.04,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.71 < 1.0",
+      "Sortino 0.14 < 1.2",
+      "Only 10 trades < 20",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "XLK",
+    "sector": "SECTOR_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "4/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.568,
+    "backtest": {
+      "total_return": 10.8,
+      "final_capital": 110800.85,
+      "n_trades": 9,
+      "win_rate": 55.56,
+      "avg_win": 3569.64,
+      "avg_loss": 1761.84,
+      "profit_factor": 2.533,
+      "expectancy": 1200.09,
+      "sharpe": 0.35,
+      "sortino": 0.072,
+      "calmar": 4.109,
+      "max_drawdown": -2.63,
+      "recovery_bars": 57,
+      "max_consec_loss": 1,
+      "avg_hold_days": 47.6
+    },
+    "benchmark": {
+      "bh_return": 543.46,
+      "bh_sharpe": 0.918,
+      "bh_max_dd": -33.56
+    },
+    "monte_carlo": null,
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 72.07,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 23.49,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 87.9,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.35 < 1.0",
+      "Sortino 0.07 < 1.2",
+      "Only 9 trades < 20",
+      "Sharpe 0.35 \u2264 Buy&Hold 0.92 (no edge)",
+      "Monte Carlo: insufficient trades",
+      "WF: only 0/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "XLF",
+    "sector": "SECTOR_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "4/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.289,
+    "backtest": {
+      "total_return": 11.09,
+      "final_capital": 111086.99,
+      "n_trades": 15,
+      "win_rate": 40.0,
+      "avg_win": 4104.52,
+      "avg_loss": 1504.46,
+      "profit_factor": 1.819,
+      "expectancy": 739.13,
+      "sharpe": 0.305,
+      "sortino": 0.09,
+      "calmar": 1.977,
+      "max_drawdown": -5.61,
+      "recovery_bars": -1,
+      "max_consec_loss": 3,
+      "avg_hold_days": 25.2
+    },
+    "benchmark": {
+      "bh_return": 191.09,
+      "bh_sharpe": 0.594,
+      "bh_max_dd": -42.86
+    },
+    "monte_carlo": {
+      "profitable_pct": 82.9,
+      "median_return": 10.81,
+      "worst_5pct": -7.31,
+      "best_5pct": 30.64,
+      "median_max_dd": -5.94,
+      "worst_dd_5pct": -13.34,
+      "median_sharpe": 3.983,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -0.22,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 58.56,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.30 < 1.0",
+      "Sortino 0.09 < 1.2",
+      "WinRate 40.0% < 50.0%",
+      "Only 15 trades < 20",
+      "Sharpe 0.30 \u2264 Buy&Hold 0.59 (no edge)",
+      "MC profitable 82.9% < 85.0%",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "XLE",
+    "sector": "SECTOR_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "2/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.257,
+    "backtest": {
+      "total_return": 1.15,
+      "final_capital": 101148.01,
+      "n_trades": 13,
+      "win_rate": 23.08,
+      "avg_win": 5946.2,
+      "avg_loss": 1669.06,
+      "profit_factor": 1.069,
+      "expectancy": 88.31,
+      "sharpe": 0.049,
+      "sortino": 0.009,
+      "calmar": 0.109,
+      "max_drawdown": -10.57,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 17.9
+    },
+    "benchmark": {
+      "bh_return": 59.08,
+      "bh_sharpe": 0.306,
+      "bh_max_dd": -66.81
+    },
+    "monte_carlo": {
+      "profitable_pct": 51.8,
+      "median_return": 0.41,
+      "worst_5pct": -18.05,
+      "best_5pct": 21.57,
+      "median_max_dd": -9.82,
+      "worst_dd_5pct": -21.07,
+      "median_sharpe": 0.396,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -28.47,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.05 < 1.0",
+      "Sortino 0.01 < 1.2",
+      "WinRate 23.1% < 50.0%",
+      "PF 1.07 < 1.5",
+      "Only 13 trades < 20",
+      "Sharpe 0.05 \u2264 Buy&Hold 0.31 (no edge)",
+      "MC profitable 51.8% < 85.0%",
+      "MC Sharpe 0.40 < 0.8",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "XLV",
+    "sector": "SECTOR_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "5/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.218,
+    "backtest": {
+      "total_return": 11.78,
+      "final_capital": 111779.45,
+      "n_trades": 17,
+      "win_rate": 47.06,
+      "avg_win": 2709.71,
+      "avg_loss": 1099.8,
+      "profit_factor": 2.19,
+      "expectancy": 692.91,
+      "sharpe": 0.378,
+      "sortino": 0.105,
+      "calmar": 2.388,
+      "max_drawdown": -4.93,
+      "recovery_bars": 282,
+      "max_consec_loss": 5,
+      "avg_hold_days": 43.9
+    },
+    "benchmark": {
+      "bh_return": 135.4,
+      "bh_sharpe": 0.596,
+      "bh_max_dd": -28.4
+    },
+    "monte_carlo": {
+      "profitable_pct": 87.9,
+      "median_return": 10.93,
+      "worst_5pct": -3.04,
+      "best_5pct": 28.8,
+      "median_max_dd": -4.07,
+      "worst_dd_5pct": -8.52,
+      "median_sharpe": 4.641,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 21.25,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 31.06,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 10.19,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.38 < 1.0",
+      "Sortino 0.10 < 1.2",
+      "WinRate 47.1% < 50.0%",
+      "Only 17 trades < 20",
+      "Sharpe 0.38 \u2264 Buy&Hold 0.60 (no edge)",
+      "WF: only 0/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "XLI",
+    "sector": "SECTOR_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "3/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.525,
+    "backtest": {
+      "total_return": 3.26,
+      "final_capital": 103261.21,
+      "n_trades": 18,
+      "win_rate": 27.78,
+      "avg_win": 4330.59,
+      "avg_loss": 1414.75,
+      "profit_factor": 1.177,
+      "expectancy": 181.18,
+      "sharpe": 0.1,
+      "sortino": 0.043,
+      "calmar": 0.412,
+      "max_drawdown": -7.91,
+      "recovery_bars": 97,
+      "max_consec_loss": 5,
+      "avg_hold_days": 22.6
+    },
+    "benchmark": {
+      "bh_return": 180.81,
+      "bh_sharpe": 0.625,
+      "bh_max_dd": -42.33
+    },
+    "monte_carlo": {
+      "profitable_pct": 57.2,
+      "median_return": 2.13,
+      "worst_5pct": -16.13,
+      "best_5pct": 23.6,
+      "median_max_dd": -9.32,
+      "worst_dd_5pct": -18.64,
+      "median_sharpe": 0.857,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": -3.43,
+          "sharpe": -0.383,
+          "n_trades": 6,
+          "positive": "False",
+          "bh_return": 56.15,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": -3.43,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.10 < 1.0",
+      "Sortino 0.04 < 1.2",
+      "WinRate 27.8% < 50.0%",
+      "PF 1.18 < 1.5",
+      "Only 18 trades < 20",
+      "Sharpe 0.10 \u2264 Buy&Hold 0.62 (no edge)",
+      "MC profitable 57.2% < 85.0%",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "XLY",
+    "sector": "SECTOR_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.075,
+    "backtest": {
+      "total_return": -11.0,
+      "final_capital": 88997.29,
+      "n_trades": 16,
+      "win_rate": 18.75,
+      "avg_win": 2522.77,
+      "avg_loss": 1428.54,
+      "profit_factor": 0.408,
+      "expectancy": -687.67,
+      "sharpe": -0.372,
+      "sortino": -0.07,
+      "calmar": -0.959,
+      "max_drawdown": -11.47,
+      "recovery_bars": -1,
+      "max_consec_loss": 5,
+      "avg_hold_days": 21.0
+    },
+    "benchmark": {
+      "bh_return": 253.49,
+      "bh_sharpe": 0.703,
+      "bh_max_dd": -39.67
+    },
+    "monte_carlo": {
+      "profitable_pct": 10.1,
+      "median_return": -12.17,
+      "worst_5pct": -23.32,
+      "best_5pct": 4.24,
+      "median_max_dd": -14.63,
+      "worst_dd_5pct": -23.65,
+      "median_sharpe": -5.518,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 30.68,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": -2.13,
+          "sharpe": -0.237,
+          "n_trades": 6,
+          "positive": "False",
+          "bh_return": 8.06,
+          "beat_bh": "False"
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 65.0,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": -0.71,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.37 < 1.0",
+      "Sortino -0.07 < 1.2",
+      "WinRate 18.8% < 50.0%",
+      "PF 0.41 < 1.5",
+      "Expectancy $-688 < 0",
+      "Only 16 trades < 20",
+      "Sharpe -0.37 \u2264 Buy&Hold 0.70 (no edge)",
+      "MC profitable 10.1% < 85.0%",
+      "MC Sharpe -5.52 < 0.8",
+      "WF: only 0/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "XLC",
+    "sector": "SECTOR_ETFs",
+    "passed": false,
+    "grade": "C",
+    "score": "6/11",
+    "status": "FAIL",
+    "excess_sharpe": 0.129,
+    "backtest": {
+      "total_return": 21.97,
+      "final_capital": 121966.63,
+      "n_trades": 7,
+      "win_rate": 71.43,
+      "avg_win": 5008.75,
+      "avg_loss": 1538.56,
+      "profit_factor": 8.139,
+      "expectancy": 3138.09,
+      "sharpe": 0.726,
+      "sortino": 5.379,
+      "calmar": 15.863,
+      "max_drawdown": -1.38,
+      "recovery_bars": 284,
+      "max_consec_loss": 1,
+      "avg_hold_days": 43.9
+    },
+    "benchmark": {
+      "bh_return": 106.49,
+      "bh_sharpe": 0.597,
+      "bh_max_dd": -46.65
+    },
+    "monte_carlo": null,
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 30.94,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.73 < 1.0",
+      "Only 7 trades < 20",
+      "Monte Carlo: insufficient trades",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "XLB",
+    "sector": "SECTOR_ETFs",
+    "passed": false,
+    "grade": "D",
+    "score": "4/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.241,
+    "backtest": {
+      "total_return": 8.02,
+      "final_capital": 108022.47,
+      "n_trades": 14,
+      "win_rate": 42.86,
+      "avg_win": 3400.34,
+      "avg_loss": 1547.45,
+      "profit_factor": 1.648,
+      "expectancy": 573.03,
+      "sharpe": 0.225,
+      "sortino": 0.043,
+      "calmar": 1.397,
+      "max_drawdown": -5.74,
+      "recovery_bars": 173,
+      "max_consec_loss": 4,
+      "avg_hold_days": 32.2
+    },
+    "benchmark": {
+      "bh_return": 110.73,
+      "bh_sharpe": 0.466,
+      "bh_max_dd": -37.27
+    },
+    "monte_carlo": {
+      "profitable_pct": 73.4,
+      "median_return": 7.07,
+      "worst_5pct": -9.54,
+      "best_5pct": 28.06,
+      "median_max_dd": -6.27,
+      "worst_dd_5pct": -14.54,
+      "median_sharpe": 2.795,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 14.68,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 18.99,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.23 < 1.0",
+      "Sortino 0.04 < 1.2",
+      "WinRate 42.9% < 50.0%",
+      "Only 14 trades < 20",
+      "Sharpe 0.23 \u2264 Buy&Hold 0.47 (no edge)",
+      "MC profitable 73.4% < 85.0%",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "GLD",
+    "sector": "COMMODITIES",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.712,
+    "backtest": {
+      "total_return": -2.95,
+      "final_capital": 97050.42,
+      "n_trades": 9,
+      "win_rate": 22.22,
+      "avg_win": 3705.47,
+      "avg_loss": 1480.07,
+      "profit_factor": 0.715,
+      "expectancy": -327.73,
+      "sharpe": -0.112,
+      "sortino": -0.02,
+      "calmar": -0.551,
+      "max_drawdown": -5.35,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 27.1
+    },
+    "benchmark": {
+      "bh_return": 110.93,
+      "bh_sharpe": 0.6,
+      "bh_max_dd": -22.0
+    },
+    "monte_carlo": null,
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 37.95,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 1.1,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 42.96,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.11 < 1.0",
+      "Sortino -0.02 < 1.2",
+      "WinRate 22.2% < 50.0%",
+      "PF 0.71 < 1.5",
+      "Expectancy $-328 < 0",
+      "Only 9 trades < 20",
+      "Sharpe -0.11 \u2264 Buy&Hold 0.60 (no edge)",
+      "Monte Carlo: insufficient trades",
+      "WF: only 0/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "SLV",
+    "sector": "COMMODITIES",
+    "passed": false,
+    "grade": "D",
+    "score": "3/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.224,
+    "backtest": {
+      "total_return": 4.74,
+      "final_capital": 104736.56,
+      "n_trades": 11,
+      "win_rate": 27.27,
+      "avg_win": 7882.41,
+      "avg_loss": 2363.83,
+      "profit_factor": 1.25,
+      "expectancy": 430.6,
+      "sharpe": 0.12,
+      "sortino": 0.056,
+      "calmar": 0.425,
+      "max_drawdown": -11.16,
+      "recovery_bars": -1,
+      "max_consec_loss": 6,
+      "avg_hold_days": 13.4
+    },
+    "benchmark": {
+      "bh_return": 74.92,
+      "bh_sharpe": 0.344,
+      "bh_max_dd": -42.81
+    },
+    "monte_carlo": {
+      "profitable_pct": 63.0,
+      "median_return": 4.63,
+      "worst_5pct": -18.45,
+      "best_5pct": 31.48,
+      "median_max_dd": -10.32,
+      "worst_dd_5pct": -21.4,
+      "median_sharpe": 1.705,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 16.83,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0.08,
+          "sharpe": 0.037,
+          "n_trades": 5,
+          "positive": "True",
+          "bh_return": 44.35,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.04,
+      "consistency": 0.5
+    },
+    "failures": [
+      "Sharpe 0.12 < 1.0",
+      "Sortino 0.06 < 1.2",
+      "WinRate 27.3% < 50.0%",
+      "PF 1.25 < 1.5",
+      "Only 11 trades < 20",
+      "Sharpe 0.12 \u2264 Buy&Hold 0.34 (no edge)",
+      "MC profitable 63.0% < 85.0%",
+      "WF: only 1/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "PDBC",
+    "sector": "COMMODITIES",
+    "passed": false,
+    "grade": "D",
+    "score": "2/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.195,
+    "backtest": {
+      "total_return": 1.04,
+      "final_capital": 101037.03,
+      "n_trades": 7,
+      "win_rate": 28.57,
+      "avg_win": 5601.47,
+      "avg_loss": 2033.18,
+      "profit_factor": 1.102,
+      "expectancy": 148.15,
+      "sharpe": 0.05,
+      "sortino": 0.007,
+      "calmar": 0.113,
+      "max_drawdown": -9.14,
+      "recovery_bars": -1,
+      "max_consec_loss": 5,
+      "avg_hold_days": 17.1
+    },
+    "benchmark": {
+      "bh_return": 31.91,
+      "bh_sharpe": 0.245,
+      "bh_max_dd": -40.8
+    },
+    "monte_carlo": null,
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -13.21,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -11.76,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.05 < 1.0",
+      "Sortino 0.01 < 1.2",
+      "WinRate 28.6% < 50.0%",
+      "PF 1.10 < 1.5",
+      "Only 7 trades < 20",
+      "Sharpe 0.05 \u2264 Buy&Hold 0.24 (no edge)",
+      "Monte Carlo: insufficient trades",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "CPER",
+    "sector": "COMMODITIES",
+    "passed": false,
+    "grade": "D",
+    "score": "2/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.175,
+    "backtest": {
+      "total_return": 1.78,
+      "final_capital": 101781.73,
+      "n_trades": 17,
+      "win_rate": 35.29,
+      "avg_win": 2969.57,
+      "avg_loss": 1457.79,
+      "profit_factor": 1.111,
+      "expectancy": 104.81,
+      "sharpe": 0.068,
+      "sortino": 0.019,
+      "calmar": 0.259,
+      "max_drawdown": -6.88,
+      "recovery_bars": 305,
+      "max_consec_loss": 6,
+      "avg_hold_days": 18.0
+    },
+    "benchmark": {
+      "bh_return": 34.75,
+      "bh_sharpe": 0.243,
+      "bh_max_dd": -38.42
+    },
+    "monte_carlo": {
+      "profitable_pct": 55.3,
+      "median_return": 1.2,
+      "worst_5pct": -14.8,
+      "best_5pct": 20.67,
+      "median_max_dd": -8.58,
+      "worst_dd_5pct": -17.76,
+      "median_sharpe": 0.608,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 4.85,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.07 < 1.0",
+      "Sortino 0.02 < 1.2",
+      "WinRate 35.3% < 50.0%",
+      "PF 1.11 < 1.5",
+      "Only 17 trades < 20",
+      "Sharpe 0.07 \u2264 Buy&Hold 0.24 (no edge)",
+      "MC profitable 55.3% < 85.0%",
+      "MC Sharpe 0.61 < 0.8",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "URA",
+    "sector": "COMMODITIES",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.287,
+    "backtest": {
+      "total_return": -0.17,
+      "final_capital": 99828.19,
+      "n_trades": 14,
+      "win_rate": 28.57,
+      "avg_win": 6539.55,
+      "avg_loss": 2633.0,
+      "profit_factor": 0.993,
+      "expectancy": -12.27,
+      "sharpe": 0.02,
+      "sortino": 0.008,
+      "calmar": -0.01,
+      "max_drawdown": -16.51,
+      "recovery_bars": -1,
+      "max_consec_loss": 7,
+      "avg_hold_days": 10.1
+    },
+    "benchmark": {
+      "bh_return": 59.06,
+      "bh_sharpe": 0.307,
+      "bh_max_dd": -66.58
+    },
+    "monte_carlo": {
+      "profitable_pct": 49.7,
+      "median_return": -0.11,
+      "worst_5pct": -24.84,
+      "best_5pct": 29.78,
+      "median_max_dd": -13.47,
+      "worst_dd_5pct": -28.11,
+      "median_sharpe": 0.283,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -3.99,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": -13.61,
+          "sharpe": -1.044,
+          "n_trades": 8,
+          "positive": "False",
+          "bh_return": 54.17,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": -6.8,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.02 < 1.0",
+      "Sortino 0.01 < 1.2",
+      "WinRate 28.6% < 50.0%",
+      "PF 0.99 < 1.5",
+      "Expectancy $-12 < 0",
+      "Only 14 trades < 20",
+      "Sharpe 0.02 \u2264 Buy&Hold 0.31 (no edge)",
+      "MC profitable 49.7% < 85.0%",
+      "MC Sharpe 0.28 < 0.8",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "REMX",
+    "sector": "COMMODITIES",
+    "passed": false,
+    "grade": "D",
+    "score": "5/11",
+    "status": "FAIL",
+    "excess_sharpe": 0.246,
+    "backtest": {
+      "total_return": 18.23,
+      "final_capital": 118228.65,
+      "n_trades": 13,
+      "win_rate": 38.46,
+      "avg_win": 7780.57,
+      "avg_loss": 2584.27,
+      "profit_factor": 1.882,
+      "expectancy": 1402.2,
+      "sharpe": 0.325,
+      "sortino": 0.188,
+      "calmar": 2.357,
+      "max_drawdown": -7.73,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 14.9
+    },
+    "benchmark": {
+      "bh_return": -27.69,
+      "bh_sharpe": 0.079,
+      "bh_max_dd": -71.93
+    },
+    "monte_carlo": {
+      "profitable_pct": 83.6,
+      "median_return": 18.03,
+      "worst_5pct": -9.48,
+      "best_5pct": 50.47,
+      "median_max_dd": -8.9,
+      "worst_dd_5pct": -20.49,
+      "median_sharpe": 4.34,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -15.57,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 167.7,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.33 < 1.0",
+      "Sortino 0.19 < 1.2",
+      "WinRate 38.5% < 50.0%",
+      "Only 13 trades < 20",
+      "MC profitable 83.6% < 85.0%",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "PICK",
+    "sector": "COMMODITIES",
+    "passed": false,
+    "grade": "C",
+    "score": "7/11",
+    "status": "FAIL",
+    "excess_sharpe": 0.215,
+    "backtest": {
+      "total_return": 33.8,
+      "final_capital": 133802.66,
+      "n_trades": 13,
+      "win_rate": 53.85,
+      "avg_win": 6873.57,
+      "avg_loss": 2385.39,
+      "profit_factor": 3.362,
+      "expectancy": 2600.2,
+      "sharpe": 0.56,
+      "sortino": 0.44,
+      "calmar": 6.156,
+      "max_drawdown": -5.49,
+      "recovery_bars": 676,
+      "max_consec_loss": 3,
+      "avg_hold_days": 18.0
+    },
+    "benchmark": {
+      "bh_return": 78.49,
+      "bh_sharpe": 0.345,
+      "bh_max_dd": -53.99
+    },
+    "monte_carlo": {
+      "profitable_pct": 95.8,
+      "median_return": 33.78,
+      "worst_5pct": 3.26,
+      "best_5pct": 61.8,
+      "median_max_dd": -5.29,
+      "worst_dd_5pct": -12.93,
+      "median_sharpe": 8.354,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -1.79,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 9.68,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.56 < 1.0",
+      "Sortino 0.44 < 1.2",
+      "Only 13 trades < 20",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "FCX",
+    "sector": "COMMODITIES",
+    "passed": false,
+    "grade": "D",
+    "score": "3/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.242,
+    "backtest": {
+      "total_return": 6.21,
+      "final_capital": 106214.97,
+      "n_trades": 14,
+      "win_rate": 35.71,
+      "avg_win": 6024.26,
+      "avg_loss": 2656.26,
+      "profit_factor": 1.26,
+      "expectancy": 443.93,
+      "sharpe": 0.139,
+      "sortino": 0.028,
+      "calmar": 0.632,
+      "max_drawdown": -9.83,
+      "recovery_bars": 146,
+      "max_consec_loss": 3,
+      "avg_hold_days": 7.1
+    },
+    "benchmark": {
+      "bh_return": 81.3,
+      "bh_sharpe": 0.381,
+      "bh_max_dd": -83.98
+    },
+    "monte_carlo": {
+      "profitable_pct": 62.7,
+      "median_return": 5.45,
+      "worst_5pct": -20.89,
+      "best_5pct": 34.94,
+      "median_max_dd": -11.6,
+      "worst_dd_5pct": -26.37,
+      "median_sharpe": 1.658,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 14.15,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 3.07,
+          "sharpe": 0.272,
+          "n_trades": 6,
+          "positive": "True",
+          "bh_return": 157.96,
+          "beat_bh": "False"
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 35.78,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 1,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 1.02,
+      "consistency": 0.333
+    },
+    "failures": [
+      "Sharpe 0.14 < 1.0",
+      "Sortino 0.03 < 1.2",
+      "WinRate 35.7% < 50.0%",
+      "PF 1.26 < 1.5",
+      "Only 14 trades < 20",
+      "Sharpe 0.14 \u2264 Buy&Hold 0.38 (no edge)",
+      "MC profitable 62.7% < 85.0%",
+      "WF: only 1/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "CRM",
+    "sector": "MOMENTUM",
+    "passed": false,
+    "grade": "C",
+    "score": "6/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.29,
+    "backtest": {
+      "total_return": 22.56,
+      "final_capital": 122558.48,
+      "n_trades": 20,
+      "win_rate": 40.0,
+      "avg_win": 5980.31,
+      "avg_loss": 2107.0,
+      "profit_factor": 1.892,
+      "expectancy": 1127.92,
+      "sharpe": 0.384,
+      "sortino": 0.145,
+      "calmar": 4.363,
+      "max_drawdown": -5.17,
+      "recovery_bars": -1,
+      "max_consec_loss": 3,
+      "avg_hold_days": 18.4
+    },
+    "benchmark": {
+      "bh_return": 469.91,
+      "bh_sharpe": 0.674,
+      "bh_max_dd": -58.62
+    },
+    "monte_carlo": {
+      "profitable_pct": 88.1,
+      "median_return": 21.96,
+      "worst_5pct": -7.93,
+      "best_5pct": 54.56,
+      "median_max_dd": -9.02,
+      "worst_dd_5pct": -19.09,
+      "median_sharpe": 4.313,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 100.72,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.38 < 1.0",
+      "Sortino 0.14 < 1.2",
+      "WinRate 40.0% < 50.0%",
+      "Sharpe 0.38 \u2264 Buy&Hold 0.67 (no edge)",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "NOW",
+    "sector": "MOMENTUM",
+    "passed": false,
+    "grade": "D",
+    "score": "2/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.132,
+    "backtest": {
+      "total_return": -12.88,
+      "final_capital": 87121.13,
+      "n_trades": 23,
+      "win_rate": 21.74,
+      "avg_win": 5779.42,
+      "avg_loss": 2320.89,
+      "profit_factor": 0.692,
+      "expectancy": -559.95,
+      "sharpe": -0.227,
+      "sortino": -0.079,
+      "calmar": -0.605,
+      "max_drawdown": -21.3,
+      "recovery_bars": -1,
+      "max_consec_loss": 6,
+      "avg_hold_days": 15.9
+    },
+    "benchmark": {
+      "bh_return": 1484.59,
+      "bh_sharpe": 0.905,
+      "bh_max_dd": -51.3
+    },
+    "monte_carlo": {
+      "profitable_pct": 23.3,
+      "median_return": -13.69,
+      "worst_5pct": -39.09,
+      "best_5pct": 17.07,
+      "median_max_dd": -21.87,
+      "worst_dd_5pct": -41.33,
+      "median_sharpe": -2.351,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 127.15,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": -8.18,
+          "sharpe": -0.578,
+          "n_trades": 7,
+          "positive": "False",
+          "bh_return": 120.44,
+          "beat_bh": "False"
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": -4.09,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.23 < 1.0",
+      "Sortino -0.08 < 1.2",
+      "WinRate 21.7% < 50.0%",
+      "PF 0.69 < 1.5",
+      "Expectancy $-560 < 0",
+      "Sharpe -0.23 \u2264 Buy&Hold 0.91 (no edge)",
+      "MC profitable 23.3% < 85.0%",
+      "MC Sharpe -2.35 < 0.8",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "SNOW",
+    "sector": "MOMENTUM",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.443,
+    "backtest": {
+      "total_return": -6.06,
+      "final_capital": 93936.31,
+      "n_trades": 5,
+      "win_rate": 20.0,
+      "avg_win": 5686.75,
+      "avg_loss": 2937.61,
+      "profit_factor": 0.484,
+      "expectancy": -1212.74,
+      "sharpe": -0.315,
+      "sortino": -0.134,
+      "calmar": -0.516,
+      "max_drawdown": -11.75,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 5.4
+    },
+    "benchmark": {
+      "bh_return": -38.97,
+      "bh_sharpe": 0.128,
+      "bh_max_dd": -72.99
+    },
+    "monte_carlo": null,
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -45.24,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.32 < 1.0",
+      "Sortino -0.13 < 1.2",
+      "WinRate 20.0% < 50.0%",
+      "PF 0.48 < 1.5",
+      "Expectancy $-1213 < 0",
+      "Only 5 trades < 20",
+      "Sharpe -0.32 \u2264 Buy&Hold 0.13 (no edge)",
+      "Monte Carlo: insufficient trades",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "PLTR",
+    "sector": "MOMENTUM",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.264,
+    "backtest": {
+      "total_return": -3.96,
+      "final_capital": 96040.13,
+      "n_trades": 5,
+      "win_rate": 20.0,
+      "avg_win": 5631.8,
+      "avg_loss": 2397.92,
+      "profit_factor": 0.587,
+      "expectancy": -791.97,
+      "sharpe": -0.226,
+      "sortino": -0.185,
+      "calmar": -0.413,
+      "max_drawdown": -9.59,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 10.6
+    },
+    "benchmark": {
+      "bh_return": 712.42,
+      "bh_sharpe": 1.038,
+      "bh_max_dd": -84.62
+    },
+    "monte_carlo": null,
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -4.53,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.23 < 1.0",
+      "Sortino -0.18 < 1.2",
+      "WinRate 20.0% < 50.0%",
+      "PF 0.59 < 1.5",
+      "Expectancy $-792 < 0",
+      "Only 5 trades < 20",
+      "Sharpe -0.23 \u2264 Buy&Hold 1.04 (no edge)",
+      "Monte Carlo: insufficient trades",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "COIN",
+    "sector": "MOMENTUM",
+    "status": "INSUFFICIENT_TRADES",
+    "passed": false,
+    "grade": "F",
+    "score": "0/11"
+  },
+  {
+    "ticker": "MSTR",
+    "sector": "MOMENTUM",
+    "passed": false,
+    "grade": "D",
+    "score": "1/11",
+    "status": "FAIL",
+    "excess_sharpe": -1.027,
+    "backtest": {
+      "total_return": -12.5,
+      "final_capital": 87496.87,
+      "n_trades": 12,
+      "win_rate": 33.33,
+      "avg_win": 4125.32,
+      "avg_loss": 3625.55,
+      "profit_factor": 0.569,
+      "expectancy": -1041.93,
+      "sharpe": -0.259,
+      "sortino": -0.055,
+      "calmar": -1.0,
+      "max_drawdown": -12.5,
+      "recovery_bars": -1,
+      "max_consec_loss": 4,
+      "avg_hold_days": 13.2
+    },
+    "benchmark": {
+      "bh_return": 1757.28,
+      "bh_sharpe": 0.768,
+      "bh_max_dd": -89.27
+    },
+    "monte_carlo": {
+      "profitable_pct": 17.6,
+      "median_return": -13.16,
+      "worst_5pct": -33.76,
+      "best_5pct": 10.99,
+      "median_max_dd": -18.47,
+      "worst_dd_5pct": -35.59,
+      "median_sharpe": -3.853,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -8.0,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 1716.63,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 2,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe -0.26 < 1.0",
+      "Sortino -0.06 < 1.2",
+      "WinRate 33.3% < 50.0%",
+      "PF 0.57 < 1.5",
+      "Expectancy $-1042 < 0",
+      "Only 12 trades < 20",
+      "Sharpe -0.26 \u2264 Buy&Hold 0.77 (no edge)",
+      "MC profitable 17.6% < 85.0%",
+      "MC Sharpe -3.85 < 0.8",
+      "WF: only 0/2 OOS positive"
+    ]
+  },
+  {
+    "ticker": "HOOD",
+    "sector": "MOMENTUM",
+    "passed": false,
+    "grade": "D",
+    "score": "3/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.04,
+    "backtest": {
+      "total_return": 6.65,
+      "final_capital": 106649.79,
+      "n_trades": 5,
+      "win_rate": 40.0,
+      "avg_win": 7159.92,
+      "avg_loss": 2556.68,
+      "profit_factor": 1.867,
+      "expectancy": 1329.96,
+      "sharpe": 0.353,
+      "sortino": 0.892,
+      "calmar": 1.48,
+      "max_drawdown": -4.49,
+      "recovery_bars": -1,
+      "max_consec_loss": 2,
+      "avg_hold_days": 4.6
+    },
+    "benchmark": {
+      "bh_return": 9.94,
+      "bh_sharpe": 0.393,
+      "bh_max_dd": -90.21
+    },
+    "monte_carlo": null,
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -76.39,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.35 < 1.0",
+      "Sortino 0.89 < 1.2",
+      "WinRate 40.0% < 50.0%",
+      "Only 5 trades < 20",
+      "Sharpe 0.35 \u2264 Buy&Hold 0.39 (no edge)",
+      "Monte Carlo: insufficient trades",
+      "WF: only 0/1 OOS positive"
+    ]
+  },
+  {
+    "ticker": "SHOP",
+    "sector": "MOMENTUM",
+    "passed": false,
+    "grade": "D",
+    "score": "3/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.9,
+    "backtest": {
+      "total_return": 5.22,
+      "final_capital": 105215.02,
+      "n_trades": 11,
+      "win_rate": 27.27,
+      "avg_win": 9874.7,
+      "avg_loss": 3051.14,
+      "profit_factor": 1.214,
+      "expectancy": 474.09,
+      "sharpe": 0.104,
+      "sortino": 0.029,
+      "calmar": 0.226,
+      "max_drawdown": -23.12,
+      "recovery_bars": 1180,
+      "max_consec_loss": 7,
+      "avg_hold_days": 7.8
+    },
+    "benchmark": {
+      "bh_return": 6175.88,
+      "bh_sharpe": 1.004,
+      "bh_max_dd": -84.82
+    },
+    "monte_carlo": {
+      "profitable_pct": 56.8,
+      "median_return": 3.72,
+      "worst_5pct": -26.95,
+      "best_5pct": 39.78,
+      "median_max_dd": -13.91,
+      "worst_dd_5pct": -30.04,
+      "median_sharpe": 1.273,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 589.83,
+          "beat_bh": false
+        },
+        {
+          "period": "2020-07 \u2192 2022-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": -69.27,
+          "beat_bh": false
+        },
+        {
+          "period": "2022-07 \u2192 2024-12",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 239.67,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 3,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.10 < 1.0",
+      "Sortino 0.03 < 1.2",
+      "WinRate 27.3% < 50.0%",
+      "PF 1.21 < 1.5",
+      "Only 11 trades < 20",
+      "Sharpe 0.10 \u2264 Buy&Hold 1.00 (no edge)",
+      "MC profitable 56.8% < 85.0%",
+      "WF: only 0/3 OOS positive"
+    ]
+  },
+  {
+    "ticker": "SPY",
+    "sector": "VALIDATED",
+    "passed": false,
+    "grade": "D",
+    "score": "4/11",
+    "status": "FAIL",
+    "excess_sharpe": -0.519,
+    "backtest": {
+      "total_return": 6.83,
+      "final_capital": 106830.34,
+      "n_trades": 12,
+      "win_rate": 41.67,
+      "avg_win": 2755.95,
+      "avg_loss": 992.77,
+      "profit_factor": 1.983,
+      "expectancy": 569.2,
+      "sharpe": 0.267,
+      "sortino": 0.109,
+      "calmar": 1.775,
+      "max_drawdown": -3.85,
+      "recovery_bars": 942,
+      "max_consec_loss": 4,
+      "avg_hold_days": 46.4
+    },
+    "benchmark": {
+      "bh_return": 240.81,
+      "bh_sharpe": 0.786,
+      "bh_max_dd": -33.72
+    },
+    "monte_carlo": {
+      "profitable_pct": 79.0,
+      "median_return": 6.43,
+      "worst_5pct": -5.55,
+      "best_5pct": 21.21,
+      "median_max_dd": -3.64,
+      "worst_dd_5pct": -8.14,
+      "median_sharpe": 3.645,
+      "n_simulations": 1000
+    },
+    "walk_forward": {
+      "splits": [
+        {
+          "period": "2019-01 \u2192 2020-06",
+          "return": 0,
+          "sharpe": 0,
+          "n_trades": 0,
+          "positive": false,
+          "bh_return": 26.88,
+          "beat_bh": false
+        }
+      ],
+      "positive_periods": 0,
+      "bh_beat_periods": 0,
+      "total_periods": 1,
+      "avg_oos_return": 0.0,
+      "consistency": 0.0
+    },
+    "failures": [
+      "Sharpe 0.27 < 1.0",
+      "Sortino 0.11 < 1.2",
+      "WinRate 41.7% < 50.0%",
+      "Only 12 trades < 20",
+      "Sharpe 0.27 \u2264 Buy&Hold 0.79 (no edge)",
+      "MC profitable 79.0% < 85.0%",
+      "WF: only 0/1 OOS positive"
+    ]
+  }
+]

@@ -1,0 +1,27 @@
+2026-04-07 19:29:17,932 - AISingularity - INFO - ====================================================================================================
+2026-04-07 19:29:17,932 - AISingularity - INFO - AI SINGULARITY ORCHESTRATOR INITIALIZED
+2026-04-07 19:29:17,933 - AISingularity - INFO - ====================================================================================================
+2026-04-07 19:29:17,933 - AISingularity - INFO - INITIATING STARTUP SEQUENCE
+2026-04-07 19:29:17,934 - AISingularity - INFO - Phase 1: Verifying subsystems...
+2026-04-07 19:29:17,934 - AISingularity - INFO -   HealthMonitor: OK
+2026-04-07 19:29:17,934 - AISingularity - INFO -   PerformanceAnalyzer: OK
+2026-04-07 19:29:17,934 - AISingularity - INFO -   RiskOverseer: OK
+2026-04-07 19:29:17,934 - AISingularity - INFO -   ScalingEngine: OK
+2026-04-07 19:29:17,934 - AISingularity - INFO -   AnomalyDetector: OK
+2026-04-07 19:29:17,934 - AISingularity - INFO -   SelfHealer: OK
+2026-04-07 19:29:17,934 - AISingularity - INFO -   DecisionEngine: OK
+2026-04-07 19:29:17,934 - AISingularity - INFO -   ComprehensiveReporter: OK
+2026-04-07 19:29:17,934 - AISingularity - INFO - Phase 2: Starting trading bot...
+2026-04-07 19:29:17,935 - AISingularity - INFO - Trading bot started successfully
+2026-04-07 19:29:17,935 - AISingularity - INFO - Phase 3: Starting continuous monitoring...
+2026-04-07 19:29:17,936 - AISingularity - ERROR - Error writing metrics to JSON: sequence index must be integer, not 'slice'
+2026-04-07 19:29:17,936 - AISingularity - INFO - Monitoring thread started
+2026-04-07 19:29:17,936 - AISingularity - INFO - STARTUP SEQUENCE COMPLETE - SYSTEM OPERATIONAL
+2026-04-07 19:30:17,937 - AISingularity - ERROR - Error writing metrics to JSON: sequence index must be integer, not 'slice'
+2026-04-07 19:31:17,938 - AISingularity - ERROR - Error writing metrics to JSON: sequence index must be integer, not 'slice'
+2026-04-07 19:32:17,940 - AISingularity - ERROR - Error writing metrics to JSON: sequence index must be integer, not 'slice'
+2026-04-07 19:33:19,482 - AISingularity - ERROR - Error writing metrics to JSON: sequence index must be integer, not 'slice'
+2026-04-07 19:34:19,483 - AISingularity - ERROR - Error writing metrics to JSON: sequence index must be integer, not 'slice'
+2026-04-07 19:35:19,487 - AISingularity - ERROR - Error writing metrics to JSON: sequence index must be integer, not 'slice'
+2026-04-07 19:36:19,488 - AISingularity - ERROR - Error writing metrics to JSON: sequence index must be integer, not 'slice'
+2026-04-07 19:37:19,492 - AISingularity - ERROR - Error writing metrics to JSON: sequence index must be integer, not 'slice'
