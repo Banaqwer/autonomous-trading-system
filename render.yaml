@@ -1,9 +1,15 @@
 services:
   - type: web
-    name: autonomous-trading-system
+    name: trading-bot
     env: python
-    plan: starter
-    pythonVersion: "3.11.5"
+    plan: standard
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
- 
+    startCommand: python render_start.py
+    healthCheckPath: /api/status
+    envVars:
+      - key: PK4ZYODVFWATIKV7U3PZMA6QRX
+        scope: build,runtime
+      - key: : HFjCEf6FhBkseGruACqLKk4tW2Yc2SuQeurrhC27dqaZ
+        scope: build,runtime
+      - key: ALPACA_BASE_URL
+        value: https://paper-api.alpaca.markets

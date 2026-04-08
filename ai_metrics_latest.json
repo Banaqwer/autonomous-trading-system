@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-04-07T22:23:17.628278",
+  "timestamp": "2026-04-07T22:30:17.809656",
   "health": {
     "orchestrator_status": "RUNNING",
     "bot_status": "RUNNING",
-    "uptime_seconds": 9901,
-    "total_trades": "2026-04-07T22:23:17.628111",
+    "uptime_seconds": 10322,
+    "total_trades": "2026-04-07T22:30:17.809433",
     "api_latency_ms": 45.0,
     "total_pnl": 1250.0,
     "active_assets": 40,
