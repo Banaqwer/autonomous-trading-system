@@ -1,6 +1,10 @@
 # secrets — never commit real keys
 terminal/backend/config.py
 .env
+*.env.local
+.env.local
+keys.local.env
+keys.env
 *.key
 # runtime state
 *.db
