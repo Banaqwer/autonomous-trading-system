@@ -1,0 +1,13 @@
+[project]
+name = "openquant"
+version = "0.1.0"
+description = "Clean-room reference implementation of a quant-research platform (data + backtest + grading + agent)"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.26", "pandas>=2.1", "scipy>=1.11"]
+
+[project.scripts]
+openquant = "openquant.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

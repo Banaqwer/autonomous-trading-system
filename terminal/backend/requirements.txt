@@ -1,0 +1,5 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+# optional provider deps:
+lse-data        # London Strategic Edge SDK (needs LSE_API_KEY)
+websockets      # AISStream live vessel feed (needs AISSTREAM_API_KEY)

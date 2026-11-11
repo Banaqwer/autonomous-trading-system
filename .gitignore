@@ -1,0 +1,16 @@
+# secrets — never commit real keys
+terminal/backend/config.py
+.env
+*.key
+# runtime state
+*.db
+store.json
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+# node / web
+node_modules/
+.next/
+# archives / scratch
+*.tar.gz
