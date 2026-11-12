@@ -1,9 +1,10 @@
 """Merged market stream — fan in multiple push feeds, emit one normalized stream.
 
 Replaces REST polling: subscribes to Binance combined streams (aggTrade/depth/kline),
-Deribit ticker channels and (when its key is set) AISStream vessel positions,
-normalizes to a common event, and relays to any number of browser clients over a
-single server WebSocket (/ws in app.py).
+Deribit ticker channels, (when its key is set) AISStream vessel positions and
+(when its keys are set) Alpaca IEX trades/quotes, normalizes to a common event and
+puts everything on one queue. core/fanout.py translates these hub events into the
+client-facing /ws messages (terminal ids, topics, throttles).
 
 Normalized event shapes:
   {"type":"trade","src":"binance","sym":"BTCUSDT","px":..,"qty":..,"buy":bool,"t":ms}
@@ -11,6 +12,9 @@ Normalized event shapes:
   {"type":"kline","src":"binance","sym":"BTCUSDT","o":..,"h":..,"l":..,"c":..,"v":..,"t":s}
   {"type":"ticker","src":"deribit","sym":"BTC-PERPETUAL","px":..,"iv":..,"t":ms}
   {"type":"vessel","src":"ais","mmsi":..,"name":..,"lat":..,"lon":..,"sog":..,"cog":..}
+  {"type":"vessel_static","src":"ais","mmsi":..,...}   only if providers.ais.parse_static exists
+  {"type":"trade","src":"alpaca","sym":"AAPL","px":..,"qty":..,"t":ms}
+  {"type":"quote","src":"alpaca","sym":"AAPL","bid":..,"ask":..,"bid_size":..,"ask_size":..,"t":ms}
 
 Resilience model (this process is meant to run 24/7)
 ----------------------------------------------------
@@ -28,7 +32,11 @@ Every feed is ONE connection attempt wrapped by `supervise()`:
   * one malformed message is counted and skipped, it never drops the connection;
   * feeds are independent: one failing never touches the others or the server;
   * only cancellation (shutdown) or a permanent condition (no API key, missing
-    dependency) stops a feed.
+    dependency) stops a feed;
+  * Alpaca allows ONE stream connection per account: a 406 "connection limit
+    exceeded" (or any other error reply) ends the session without data, so it gets
+    the same slow-retry treatment as a rejected key — never a tight loop. Outside
+    the US regular session the Alpaca feed does not connect at all ("standby").
 `snapshot()` exposes per-feed state for /api/stream_status.
 """
 from __future__ import annotations
@@ -42,9 +50,16 @@ log = logging.getLogger("uvicorn.error").getChild("stream")
 
 BINANCE_WS = "wss://data-stream.binance.vision/stream?streams={streams}"
 DERIBIT_WS = "wss://www.deribit.com/ws/api/v2"
+ALPACA_WS = "wss://stream.data.alpaca.markets/v2/iex"
+
+BINANCE_SYMBOLS = ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+DERIBIT_CHANNELS = ("ticker.BTC-PERPETUAL.100ms", "ticker.ETH-PERPETUAL.100ms")
+ALPACA_SYMBOLS = ("AAPL", "NVDA", "TSLA", "XOM")
+FEEDS = ("binance", "deribit", "ais", "alpaca")
 
 # ---- tunables (module-level so a deployment or a test can override them) ----
-STALL_SECONDS = {"binance": 30.0, "deribit": 30.0, "ais": 90.0}  # silence => reconnect
+STALL_SECONDS = {"binance": 30.0, "deribit": 30.0, "ais": 90.0, "alpaca": 90.0}  # silence => reconnect
+ALPACA_STANDBY_POLL = 30.0   # how often a standby Alpaca feed re-checks the session
 DEFAULT_STALL = 60.0
 OPEN_TIMEOUT = 15.0     # connect + handshake budget
 BACKOFF_MIN = 1.0       # first retry delay (seconds)
@@ -70,7 +85,7 @@ STATUS: dict[str, dict] = {}
 def _st(name: str) -> dict:
     return STATUS.setdefault(name, {
         # idle | connecting | connected (open, no data yet) | live (data flowing)
-        # | backoff | disabled | stopped
+        # | backoff | disabled | stopped | standby (waiting for its market to open)
         "state": "idle",
         "connects": 0,            # successful connections
         "reconnects": 0,          # sessions that ended and were retried
@@ -99,7 +114,7 @@ def snapshot() -> dict:
         d["seconds_since_message"] = round(now - last_msg, 1) if last_msg else None
         d["seconds_since_event"] = round(now - last, 1) if last else None
         stall = STALL_SECONDS.get(name, DEFAULT_STALL)
-        d["healthy"] = (st["state"] == "disabled") or (
+        d["healthy"] = (st["state"] in ("disabled", "standby")) or (
             st["state"] == "live" and last is not None and now - last <= stall)
         feeds[name] = d
     return {"ok": bool(feeds) and all(f["healthy"] for f in feeds.values()), "feeds": feeds}
@@ -123,6 +138,8 @@ async def _session(name: str, url: str, out: asyncio.Queue, handle, subscribe=No
     Always terminates by raising (drop, stall, FeedError) or by the remote
     closing; `supervise()` decides what happens next. `handle(msg)` returns an
     iterable of normalized events and may raise FeedError to force a reconnect.
+    An item of the form {"_send": payload} is not an event: the payload is sent to
+    the remote (multi-step handshakes such as Alpaca's auth -> subscribe).
     """
     try:
         import websockets
@@ -147,6 +164,9 @@ async def _session(name: str, url: str, out: asyncio.Queue, handle, subscribe=No
             st["last_message_at"] = time.time()
             try:
                 for ev in handle(json.loads(raw)):
+                    if "_send" in ev:
+                        await ws.send(json.dumps(ev["_send"]))
+                        continue
                     _emit(out, ev, st)
                     st["events"] += 1
                     st["last_event_at"] = time.time()
@@ -252,6 +272,54 @@ def _ais_events(m):
     if v and v.get("lat") is not None and v.get("lon") is not None:
         yield {"type": "vessel", "src": "ais", "mmsi": v.get("mmsi"), "name": v.get("name"),
                "lat": v.get("lat"), "lon": v.get("lon"), "sog": v.get("sog"), "cog": v.get("cog")}
+        return
+    parse_static = getattr(ais, "parse_static", None)     # optional: ship type, dimensions…
+    if parse_static is not None:
+        s = parse_static(m)
+        if s and s.get("mmsi") is not None:
+            yield {"type": "vessel_static", "src": "ais", **s}
+
+
+def _iso_ms(text):
+    from core.util import iso_epoch
+    t = iso_epoch(text)
+    return int(t * 1000) if t is not None else None
+
+
+def _alpaca_handler(key: str, secret: str, symbols):
+    """Alpaca v2 stream: [{"T":"success","msg":"connected"}] -> auth ->
+    [{"T":"success","msg":"authenticated"}] -> subscribe -> t (trade) / q (quote) frames.
+    Any {"T":"error"} (402 auth failed, 406 connection limit exceeded, …) ends the session."""
+    def handle(frames):
+        for x in frames if isinstance(frames, list) else [frames]:
+            kind = x.get("T")
+            if kind == "t":
+                yield {"type": "trade", "src": "alpaca", "sym": x["S"], "px": float(x["p"]),
+                       "qty": float(x.get("s") or 0), "t": _iso_ms(x.get("t"))}
+            elif kind == "q":
+                yield {"type": "quote", "src": "alpaca", "sym": x["S"],
+                       "bid": float(x["bp"]), "ask": float(x["ap"]),
+                       "bid_size": float(x.get("bs") or 0), "ask_size": float(x.get("as") or 0),
+                       "t": _iso_ms(x.get("t"))}
+            elif kind == "success" and x.get("msg") == "connected":
+                yield {"_send": {"action": "auth", "key": key, "secret": secret}}
+            elif kind == "success" and x.get("msg") == "authenticated":
+                yield {"_send": {"action": "subscribe", "trades": list(symbols),
+                                 "quotes": list(symbols)}}
+            elif kind == "error":
+                raise FeedError(f"alpaca error {x.get('code')}: {x.get('msg')}")
+    return handle
+
+
+def _alpaca_market_closed() -> bool:
+    """True unless the US regular session is known to be open. ("unknown" — no calendar —
+    counts as closed: the fan-out would drop every tick anyway, and the feed must not hold
+    the account's single connection all night.)"""
+    try:
+        from core import session
+        return session.state("us_equity") != session.OPEN
+    except Exception:
+        return False
 
 
 async def binance_feed(symbols, out: asyncio.Queue):
@@ -278,12 +346,35 @@ async def ais_feed(out: asyncio.Queue, bbox=None):
                    subscribe=ais.subscribe_message(key, bbox))
 
 
-async def run_hub(out: asyncio.Queue, binance_syms=("BTCUSDT", "ETHUSDT"),
-                  deribit_chs=("ticker.BTC-PERPETUAL.100ms", "ticker.ETH-PERPETUAL.100ms")):
-    """Run every feed under its own supervisor. Returns only on cancellation
-    (or if every feed is permanently disabled)."""
-    await asyncio.gather(
-        supervise("binance", lambda: binance_feed(list(binance_syms), out)),
-        supervise("deribit", lambda: deribit_feed(list(deribit_chs), out)),
-        supervise("ais", lambda: ais_feed(out)),   # disables itself if its key is unset
-    )
+async def alpaca_feed(symbols, out: asyncio.Queue):
+    """One Alpaca IEX session: trades + quotes for `symbols` (needs APCA_API_KEY_ID /
+    APCA_API_SECRET_KEY; supervise() handles reconnects). While the US regular session
+    is closed it waits in "standby" instead of holding the account's single connection."""
+    key, secret = os.environ.get("APCA_API_KEY_ID"), os.environ.get("APCA_API_SECRET_KEY")
+    if not key or not secret:
+        raise FeedDisabled("APCA_API_KEY_ID / APCA_API_SECRET_KEY not set")
+    st = _st("alpaca")
+    while _alpaca_market_closed():
+        st.update(state="standby", retry_in=None)
+        await asyncio.sleep(ALPACA_STANDBY_POLL)
+    await _session("alpaca", ALPACA_WS, out, _alpaca_handler(key, secret, symbols))
+
+
+async def run_hub(out: asyncio.Queue, binance_syms=BINANCE_SYMBOLS, deribit_chs=DERIBIT_CHANNELS,
+                  alpaca_syms=ALPACA_SYMBOLS, feeds=None):
+    """Run every enabled feed under its own supervisor. Returns only on cancellation
+    (or if every feed is permanently disabled).
+
+    `feeds`: iterable of names from FEEDS; None = all (ais and alpaca disable
+    themselves when their keys are unset)."""
+    enabled = set(FEEDS if feeds is None else feeds)
+    unknown = enabled - set(FEEDS)
+    if unknown:
+        log.warning("unknown feed name(s) ignored: %s", ", ".join(sorted(unknown)))
+    factories = {
+        "binance": lambda: binance_feed(list(binance_syms), out),
+        "deribit": lambda: deribit_feed(list(deribit_chs), out),
+        "ais": lambda: ais_feed(out),                           # disabled without its key
+        "alpaca": lambda: alpaca_feed(list(alpaca_syms), out),  # disabled without its keys
+    }
+    await asyncio.gather(*(supervise(name, factories[name]) for name in FEEDS if name in enabled))

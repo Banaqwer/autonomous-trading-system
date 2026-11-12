@@ -1,6 +1,23 @@
 """Copy this to config.py and fill in your keys (config.py is gitignored).
 The code reads os.environ first, so you can also set these as environment
 variables / cloud secrets instead of editing this file.
+
+Keys the market-data foundation uses (everything else works without them):
+  APCA_API_KEY_ID / APCA_API_SECRET_KEY   real-time US equity quotes + bars (Alpaca IEX);
+                                          without them equities fall back to Yahoo (delayed)
+  TIINGO_API_KEY                          fallback for equities and FX when Yahoo fails
+  FRED_API_KEY                            fallback for US10Y / US2Y (end of day)
+  LSE_API_KEY                             fallback for futures (zero-row preview only)
+  AISSTREAM_API_KEY                       vessel positions (SHIP)
+/api/status shows which keys are present (booleans only, never a value).
+
+Not keys — runtime switches, set them in the environment when starting the gateway:
+  OT_FEEDS=binance,deribit,ais,alpaca     upstream websocket feeds (unset = all configured;
+                                          "none" = no feed). AISStream allows 3 connections
+                                          per key, Alpaca 1 stream per account.
+  OT_QUOTES=0                             switch the background quote poller off (tests)
+Row-billed LSE calls (candles / series / economic_calendar) are always refused by the
+gateway: there is no switch for them (they bill rows READ, up to 500k per call).
 """
 import os
 _DEFAULTS = {

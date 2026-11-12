@@ -124,21 +124,28 @@ async def running_hub(q=None):
 
 @pytest.fixture(autouse=True)
 def fast_hub(monkeypatch):
-    """Fresh status board, millisecond backoff, no AIS key, no proxy for localhost."""
+    """Fresh status board, millisecond backoff, no AIS / Alpaca keys, no proxy for localhost."""
     stream_hub.STATUS.clear()
     monkeypatch.setattr(stream_hub, "BACKOFF_MIN", 0.05)
     monkeypatch.setattr(stream_hub, "BACKOFF_MAX", 0.2)
     monkeypatch.setattr(stream_hub, "BACKOFF_MAX_EMPTY", 0.2)
     monkeypatch.setattr(stream_hub, "OPEN_TIMEOUT", 2.0)
-    monkeypatch.setattr(stream_hub, "STALL_SECONDS", {"binance": 5.0, "deribit": 5.0, "ais": 5.0})
+    monkeypatch.setattr(stream_hub, "STALL_SECONDS",
+                        {"binance": 5.0, "deribit": 5.0, "ais": 5.0, "alpaca": 5.0})
+    monkeypatch.setattr(stream_hub, "ALPACA_STANDBY_POLL", 0.05)
+    monkeypatch.setattr(stream_hub, "_alpaca_market_closed", lambda: False)
     monkeypatch.delenv("AISSTREAM_API_KEY", raising=False)
+    monkeypatch.delenv("APCA_API_KEY_ID", raising=False)
+    monkeypatch.delenv("APCA_API_SECRET_KEY", raising=False)
     for k in ("NO_PROXY", "no_proxy"):
         monkeypatch.setenv(k, "127.0.0.1,localhost")
     yield
     stream_hub.STATUS.clear()
 
 
-def point(monkeypatch, binance=None, deribit=None, ais_url=None):
+def point(monkeypatch, binance=None, deribit=None, ais_url=None, alpaca=None):
+    if alpaca is not None:
+        monkeypatch.setattr(stream_hub, "ALPACA_WS", alpaca)
     if binance is not None:
         monkeypatch.setattr(stream_hub, "BINANCE_WS", binance + "?streams={streams}")
     if deribit is not None:
@@ -165,7 +172,8 @@ def test_reconnects_after_abrupt_drop(monkeypatch):
                                  what="4 binance connections")
                 assert not task.done(), "hub must survive a dropped socket"
                 assert b.paths[0] == ("/?streams=btcusdt@aggTrade/btcusdt@depth20@100ms/btcusdt@kline_1m"
-                                      "/ethusdt@aggTrade/ethusdt@depth20@100ms/ethusdt@kline_1m")
+                                      "/ethusdt@aggTrade/ethusdt@depth20@100ms/ethusdt@kline_1m"
+                                      "/solusdt@aggTrade/solusdt@depth20@100ms/solusdt@kline_1m")
                 st = stream_hub.STATUS["binance"]
                 assert st["reconnects"] >= 3 and st["connects"] >= 4
                 assert st["last_error"]
@@ -300,6 +308,9 @@ def test_ais_disabled_without_key_and_hub_keeps_running(monkeypatch):
                 snap = stream_hub.snapshot()
                 assert snap["ok"] is True, "a disabled feed is not an outage"
                 assert stream_hub.STATUS["ais"]["reconnects"] == 0
+                # the optional Alpaca feed behaves the same way without its keys
+                assert stream_hub.STATUS["alpaca"]["state"] == "disabled"
+                assert stream_hub.STATUS["alpaca"]["reconnects"] == 0
     run(main())
 
 
@@ -330,7 +341,7 @@ def test_ais_streams_vessels_and_bad_key_backs_off(monkeypatch):
                 await wait_until(lambda: st["state"] == "live" and st["messages"] > 3,
                                  what="ais live")
                 assert a.received[0]["APIKey"] == "test-key"
-                assert a.received[0]["FilterMessageTypes"] == ["PositionReport"]
+                assert "PositionReport" in a.received[0]["FilterMessageTypes"]
                 vessels = [e for e in drain(q) if e["type"] == "vessel"]
                 assert vessels and vessels[0] == {
                     "type": "vessel", "src": "ais", "mmsi": 123, "name": "TEST SHIP",
@@ -555,3 +566,175 @@ def test_deribit_event_shapes():
     assert ev(frame(instrument_name="X", mark_price=None, last_price=99.0))[0]["px"] == 99.0
     assert ev(frame(instrument_name="X", mark_price=0, last_price=98.0))[0]["px"] == 98.0
     assert ev({"jsonrpc": "2.0", "method": "heartbeat", "params": {"type": "test_request"}}) == []
+
+
+# ---------------------------------------------------------------- hub additions
+def test_sol_is_part_of_the_binance_stream():
+    assert stream_hub.BINANCE_SYMBOLS == ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+    ev = list(stream_hub._binance_events({"stream": "solusdt@aggTrade", "data": {
+        "s": "SOLUSDT", "p": "82.73", "q": "0.5", "m": False, "T": 1794475205065}}))
+    assert ev == [{"type": "trade", "src": "binance", "sym": "SOLUSDT", "px": 82.73,
+                   "qty": 0.5, "buy": True, "t": 1794475205065}]
+
+
+def test_run_hub_runs_only_the_selected_feeds(monkeypatch):
+    async def main():
+        async with Fake(steady_trades) as b:
+            point(monkeypatch, b.url(), f"ws://127.0.0.1:{closed_port()}/")
+            q = asyncio.Queue()
+            task = asyncio.create_task(stream_hub.run_hub(q, feeds=("binance", "nonsense")))
+            try:
+                await wait_until(lambda: stream_hub._st("binance")["state"] == "live",
+                                 what="binance live")
+                assert set(stream_hub.STATUS) == {"binance"}, "deribit / ais / alpaca were not started"
+                assert stream_hub.snapshot()["ok"] is True
+            finally:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+    run(main())
+
+
+def test_run_hub_with_no_feeds_returns_immediately():
+    async def main():
+        await asyncio.wait_for(stream_hub.run_hub(asyncio.Queue(), feeds=()), 1.0)
+    run(main())
+    assert stream_hub.STATUS == {}
+
+
+ALPACA_TRADE = {"T": "t", "S": "AAPL", "i": 96921, "x": "V", "p": 355.78, "s": 80,
+                "c": ["@"], "t": "2026-11-11T20:59:59.785711222Z", "z": "C"}
+ALPACA_QUOTE = {"T": "q", "S": "AAPL", "bx": "V", "bp": 355.7, "bs": 2, "ax": "V", "ap": 355.82,
+                "as": 3, "c": ["R"], "t": "2026-11-11T20:59:59.900Z", "z": "C"}
+
+
+def test_alpaca_event_shapes():
+    handle = stream_hub._alpaca_handler("k", "s", ["AAPL", "XOM"])
+    assert list(handle([{"T": "success", "msg": "connected"}])) == [
+        {"_send": {"action": "auth", "key": "k", "secret": "s"}}]
+    assert list(handle([{"T": "success", "msg": "authenticated"}])) == [
+        {"_send": {"action": "subscribe", "trades": ["AAPL", "XOM"], "quotes": ["AAPL", "XOM"]}}]
+    assert list(handle([{"T": "subscription", "trades": ["AAPL"], "quotes": ["AAPL"]}])) == []
+    assert list(handle([ALPACA_TRADE, ALPACA_QUOTE])) == [
+        {"type": "trade", "src": "alpaca", "sym": "AAPL", "px": 355.78, "qty": 80.0,
+         "t": 1794430799785},
+        {"type": "quote", "src": "alpaca", "sym": "AAPL", "bid": 355.7, "ask": 355.82,
+         "bid_size": 2.0, "ask_size": 3.0, "t": 1794430799900}]
+    with pytest.raises(stream_hub.FeedError, match="406"):
+        list(handle([{"T": "error", "code": 406, "msg": "connection limit exceeded"}]))
+    with pytest.raises(stream_hub.FeedError, match="auth failed"):
+        list(handle([{"T": "error", "code": 402, "msg": "auth failed"}]))
+
+
+def test_alpaca_authenticates_subscribes_and_streams(monkeypatch):
+    monkeypatch.setenv("APCA_API_KEY_ID", "test-id")
+    monkeypatch.setenv("APCA_API_SECRET_KEY", "test-secret")
+
+    async def alpaca_script(fake, ws, n):
+        await ws.send(json.dumps([{"T": "success", "msg": "connected"}]))
+        fake.received.append(json.loads(await ws.recv()))                  # auth
+        await ws.send(json.dumps([{"T": "success", "msg": "authenticated"}]))
+        fake.received.append(json.loads(await ws.recv()))                  # subscribe
+        await ws.send(json.dumps([{"T": "subscription", "trades": ["AAPL"], "quotes": ["AAPL"]}]))
+        while True:
+            await ws.send(json.dumps([ALPACA_TRADE, ALPACA_QUOTE]))
+            await asyncio.sleep(0.02)
+
+    async def main():
+        async with Fake(steady_trades) as b, Fake(steady_tickers) as d, Fake(alpaca_script) as a:
+            point(monkeypatch, b.url(), d.url(), alpaca=a.url())
+            async with running_hub() as (q, task):
+                st = stream_hub._st("alpaca")
+                await wait_until(lambda: st["state"] == "live" and st["events"] >= 4,
+                                 what="alpaca live")
+                assert a.received[0] == {"action": "auth", "key": "test-id", "secret": "test-secret"}
+                assert a.received[1] == {"action": "subscribe",
+                                         "trades": ["AAPL", "NVDA", "TSLA", "XOM"],
+                                         "quotes": ["AAPL", "NVDA", "TSLA", "XOM"]}
+                assert a.connections == 1 and st["reconnects"] == 0
+                events = [e for e in drain(q) if e["src"] == "alpaca"]
+                assert events[0] == {"type": "trade", "src": "alpaca", "sym": "AAPL",
+                                     "px": 355.78, "qty": 80.0, "t": 1794430799785}
+                assert events[1]["type"] == "quote" and events[1]["bid"] == 355.7
+                assert stream_hub.snapshot()["feeds"]["alpaca"]["healthy"] is True
+                assert "test-secret" not in json.dumps(stream_hub.snapshot()), "no key in the status board"
+    run(main())
+
+
+def test_alpaca_connection_limit_406_is_treated_like_a_rejected_key(monkeypatch):
+    """Alpaca allows one stream per account. A second one is accepted, then told
+    406: that must end in the slow retry, never a tight reconnect loop."""
+    monkeypatch.setenv("APCA_API_KEY_ID", "test-id")
+    monkeypatch.setenv("APCA_API_SECRET_KEY", "test-secret")
+    monkeypatch.setattr(stream_hub, "BACKOFF_MAX", 0.1)
+    monkeypatch.setattr(stream_hub, "BACKOFF_MAX_EMPTY", 30.0)
+    monkeypatch.setattr(stream_hub, "EMPTY_SESSIONS_SLOW", 2)
+
+    async def limit_script(fake, ws, n):
+        await ws.send(json.dumps([{"T": "success", "msg": "connected"}]))
+        fake.received.append(json.loads(await ws.recv()))
+        await ws.send(json.dumps([{"T": "error", "code": 406, "msg": "connection limit exceeded"}]))
+        await asyncio.sleep(3600)
+
+    async def main():
+        async with Fake(steady_trades) as b, Fake(steady_tickers) as d, Fake(limit_script) as a:
+            point(monkeypatch, b.url(), d.url(), alpaca=a.url())
+            async with running_hub() as (q, task):
+                st = stream_hub._st("alpaca")
+                await wait_until(lambda: st["state"] == "backoff" and (st["retry_in"] or 0) > 0.3,
+                                 timeout=15, what="alpaca on the slow retry")
+                assert "406" in st["last_error"] and "connection limit exceeded" in st["last_error"]
+                assert "received no data" in st["last_error"]
+                assert st["empty_sessions"] >= 2 and st["events"] == 0
+                assert "test-secret" not in st["last_error"]
+                seen = a.connections
+                await asyncio.sleep(0.25)        # BACKOFF_MAX is 0.1: a tight loop would reconnect twice
+                assert a.connections == seen, "406 must not be retried at the normal pace"
+                assert stream_hub.snapshot()["feeds"]["alpaca"]["healthy"] is False
+                assert stream_hub._st("binance")["state"] == "live", "other feeds are untouched"
+                assert not task.done()
+    run(main())
+
+
+def test_alpaca_waits_in_standby_while_the_us_session_is_closed(monkeypatch):
+    monkeypatch.setenv("APCA_API_KEY_ID", "test-id")
+    monkeypatch.setenv("APCA_API_SECRET_KEY", "test-secret")
+    closed = {"value": True}
+    monkeypatch.setattr(stream_hub, "_alpaca_market_closed", lambda: closed["value"])
+
+    async def alpaca_script(fake, ws, n):
+        await ws.send(json.dumps([{"T": "success", "msg": "connected"}]))
+        await ws.recv()
+        await ws.send(json.dumps([{"T": "success", "msg": "authenticated"}]))
+        await ws.recv()
+        while True:
+            await ws.send(json.dumps([ALPACA_TRADE]))
+            await asyncio.sleep(0.02)
+
+    async def main():
+        async with Fake(steady_trades) as b, Fake(steady_tickers) as d, Fake(alpaca_script) as a:
+            point(monkeypatch, b.url(), d.url(), alpaca=a.url())
+            async with running_hub() as (q, task):
+                st = stream_hub._st("alpaca")
+                await wait_until(lambda: st["state"] == "standby", what="alpaca standby")
+                await wait_until(lambda: stream_hub._st("binance")["state"] == "live"
+                                 and stream_hub._st("deribit")["state"] == "live", what="others live")
+                await asyncio.sleep(0.2)
+                assert a.connections == 0, "no connection is held while the market is closed"
+                snap = stream_hub.snapshot()
+                assert snap["feeds"]["alpaca"]["healthy"] is True and snap["ok"] is True, \
+                    "a closed market is not an outage"
+                closed["value"] = False                      # the session opens
+                await wait_until(lambda: st["state"] == "live", what="alpaca live after the open")
+                assert a.connections == 1
+    run(main())
+
+
+def test_ais_static_data_is_passed_through_when_the_provider_supports_it(monkeypatch):
+    monkeypatch.setattr(ais, "parse_static",
+                        lambda m: ({"mmsi": m["MetaData"]["MMSI"], "ship_type": 80}
+                                   if m.get("MessageType") == "ShipStaticData" else None),
+                        raising=False)
+    frame = {"MessageType": "ShipStaticData", "MetaData": {"MMSI": 123}, "Message": {}}
+    assert list(stream_hub._ais_events(frame)) == [
+        {"type": "vessel_static", "src": "ais", "mmsi": 123, "ship_type": 80}]
+    assert list(stream_hub._ais_events({"MessageType": "Other", "MetaData": {"MMSI": 1}})) == []

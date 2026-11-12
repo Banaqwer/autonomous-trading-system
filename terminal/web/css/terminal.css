@@ -1,0 +1,321 @@
+/* OPEN TERMINAL — tokens, shell layout and shared components.
+   Spec: terminal/REBUILD_SPEC.md §4. Slice stylesheets (markets/flow/options/geo/sat/macro.css)
+   use these tokens only: no hard-coded colours, no font-size below var(--fs-min).
+
+   Shared classes for modules:
+     .ot-table (th/td.num right-aligned, sticky header, tr.sel, td.up/.down/.muted)   via OT.ui.table
+     .badge .b-rt/.b-delayed/.b-eod/.b-closed/.b-stale/.b-lag/.b-none/.b-derived/.b-other   via OT.ui.badge
+     .ot-state (.k-loading/.k-nosource/.k-error/.k-closed/.k-empty, .strip)            via OT.ui.state
+     .btn (.on, .pick)  .input  .select  .field  .ot-tabs/.ot-tab                      controls
+     .panel > .panel-head + .panel-body   .kv (dl)   .stat/.stat-label/.stat-value   .note   layout
+     .ot-canvas (100% x 100% of its box; size the box, not the canvas)   .up .down .flat .muted .faint .num
+     .val   put it on every live value: values turn grey while the gateway is offline
+            (.stat-value, .kv dd, table cells and .up/.down/.flat inside a module do so by themselves). */
+
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:400;font-display:swap;
+  src:url("../vendor/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:700;font-display:swap;
+  src:url("../vendor/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2")}
+
+:root{
+  /* ---- spec §4 tokens (exact) ---- */
+  --bg:#07090d; --panel:#0c1118; --panel-2:#121a26; --line:#223046; --line-2:#33455f;
+  --text:#e8eef6; --text-2:#b3bfce; --text-3:#8a98ab;
+  --amber:#ffb000; --up:#31d17c; --down:#ff6464; --info:#62b4ff;
+  --rt:#31d17c; --delayed:#ffb000; --eod:#8fb4ff; --closed:#8a98ab; --stale:#ff6464;
+  --fs-min:12px; --fs-sm:13px; --fs-data:clamp(13px,0.74vw,16px); --fs-title:clamp(15px,0.85vw,18px);
+  --fs-key:clamp(20px,1.2vw,28px); --row:clamp(26px,1.5vw,32px);
+  --mono:"JetBrains Mono",Consolas,"Cascadia Mono","Courier New",monospace;
+  --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  /* Measured WCAG 2.1 contrast ratios (relative luminance formula), foreground on background:
+                 --bg    --panel  --panel-2  --sel-bg  --offline-bg
+     --text     17.07    16.22    14.97      12.9      12.83
+     --text-2   10.68    10.15     9.37       8.1       8.03
+     --text-3    6.79     6.46     5.96       5.1       5.10     (also --closed)
+     --amber    10.88    10.34     9.54       8.2       8.17     (also --delayed)
+     --up       10.00     9.51     8.77       7.5       7.52     (also --rt)
+     --down      6.89     6.55     6.04       5.2       5.17     (also --stale)
+     --info      9.01     8.56     7.90
+     --eod       9.62     9.14     8.44
+     Dark text (--bg) on a filled chip: on --amber 10.88, on --up 10.00, on --down 6.89, on --info 9.01.
+     --text-3 on --line is 4.53 and on --line-2 3.32: never put text on --line-2.
+     Every pair used by this stylesheet is >= 4.5:1. */
+
+  /* ---- derived tokens (shell only; built from the tokens above) ---- */
+  --sel-bg:#27220f;        /* --amber 11% over --panel: selected row */
+  --offline-bg:#382026;    /* --down 18% over --panel: offline banner / error strip */
+  --rail-w:clamp(280px,16.5vw,380px);
+  --hdr-h:clamp(56px,3.2vw,72px);
+  --pad:12px;
+  --radius:3px;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0}
+html{background:var(--bg);color-scheme:dark}
+body{
+  display:grid; height:100vh; min-width:1024px; min-height:560px; overflow:hidden;
+  grid-template-columns:var(--rail-w) minmax(0,1fr);
+  grid-template-rows:auto auto auto minmax(0,1fr) auto;
+  grid-template-areas:"head head" "offline offline" "rail tabs" "rail main" "status status";
+  background:var(--bg); color:var(--text);
+  font-family:var(--mono); font-size:var(--fs-data); line-height:1.35;
+  font-variant-numeric:tabular-nums; font-feature-settings:"zero" 0,"calt" 0;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--info)}
+[hidden]{display:none !important}
+*{scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+::selection{background:var(--line-2);color:var(--text)}
+
+/* ---------- value colours ---------- */
+.up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--text-2)}
+.muted{color:var(--text-2)} .faint{color:var(--text-3)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.prose{font-family:var(--sans)}
+
+/* ---------- header ---------- */
+#hdr{grid-area:head;display:flex;align-items:center;gap:18px;height:var(--hdr-h);padding:0 14px 0 0;
+  background:var(--panel);border-bottom:1px solid var(--line);min-width:0}
+.brand{flex:none;width:var(--rail-w);padding-left:14px;display:flex;align-items:baseline;gap:8px;
+  font-size:var(--fs-title);font-weight:700;letter-spacing:.14em;color:var(--amber);white-space:nowrap}
+.brand span{color:var(--text-2);font-weight:400;letter-spacing:.14em}
+.hdr-inst{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:18px}
+.hi-id{display:flex;flex-direction:column;min-width:72px;flex:0 1 auto;overflow:hidden;line-height:1.25}
+.hi-sym{font-size:var(--fs-title);font-weight:700;color:var(--amber);letter-spacing:.04em}
+.hi-name{font-size:var(--fs-min);color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hi-last{flex:none;font-size:var(--fs-key);font-weight:700;line-height:1;padding:4px 6px;border-radius:var(--radius);min-width:4ch;text-align:right}
+.hi-chg{flex:none;display:flex;flex-direction:column;align-items:flex-end;line-height:1.25;font-size:var(--fs-sm)}
+.hi-meta{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:3px;line-height:1.2}
+.hi-age{font-size:var(--fs-min);color:var(--text-2)}
+.lamps{flex:none;display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,auto);column-gap:14px;row-gap:2px;align-items:center}
+.lamp{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-min);color:var(--text-2);letter-spacing:.04em;
+  white-space:nowrap;cursor:default;border-radius:var(--radius);padding:1px 3px}
+.lamp i{flex:none;width:9px;height:9px;border-radius:50%;background:transparent;border:1px solid var(--text-3)}
+.lamp.ok i{background:var(--rt);border-color:var(--rt)}
+.lamp.warn i{background:var(--delayed);border-color:var(--delayed)}
+.lamp.bad i{background:var(--stale);border-color:var(--stale)}
+.lamp.off{color:var(--text-3)}
+.clock{flex:none;display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;min-width:10ch}
+.clock-time{font-size:var(--fs-title);font-weight:700;color:var(--text)}
+.clock-date{font-size:var(--fs-min);color:var(--text-2)}
+
+/* ---------- offline banner ---------- */
+#offline{grid-area:offline;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 16px;
+  background:var(--offline-bg);border-bottom:2px solid var(--down);color:var(--text);font-size:var(--fs-data)}
+#offline b{color:var(--down);letter-spacing:.1em;font-size:var(--fs-title)}
+#offline .off-detail{color:var(--text-2)}
+/* gateway offline: nothing may look live. Values keep >= 4.5:1 (--text-3) instead of using opacity. */
+body.gw-offline .val,body.gw-offline .val.up,body.gw-offline .val.down,
+body.gw-offline .stat-value,body.gw-offline .kv dd,
+body.gw-offline .mod-body .up,body.gw-offline .mod-body .down,body.gw-offline .mod-body .flat{color:var(--text-3) !important}
+body.gw-offline .dot{background:transparent !important;border-color:var(--text-3) !important}
+body.gw-offline .badge,body.gw-offline .badge .b-src{color:var(--text-3) !important}
+body.gw-offline .ot-table td{color:var(--text-3) !important}
+body.gw-offline .mod-body canvas{filter:grayscale(.9) brightness(.8)}   /* charts and maps look frozen, because they are */
+body.gw-offline .w-spark{display:none}
+body:not(.gw-offline) .wrow:not(.stale):not(.lag) .w-age{display:none}
+/* a row whose source stopped updating: STALE in place of the change, the value's age in place of the sparkline */
+.wrow.stale .w-spark{display:none}
+.wrow.stale .w-age,.w-pct.stale{color:var(--stale)}
+.wrow.stale .w-last{color:var(--text-3)}
+/* a row the gateway calls ok but whose value is behind / not arriving (see OT.ui.quoteLag): amber, with its age */
+.wrow.lag .w-spark{display:none}
+.wrow.lag .w-age{color:var(--delayed)}
+
+/* ---------- rail: command line + watchlist ---------- */
+#rail{grid-area:rail;display:flex;flex-direction:column;min-height:0;background:var(--panel);border-right:1px solid var(--line)}
+.cmd{flex:none;padding:8px 10px 6px;border-bottom:1px solid var(--line)}
+.cmd-row{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;background:var(--bg);
+  border:1px solid var(--line-2);border-radius:var(--radius)}
+.cmd-row:focus-within{border-color:var(--amber)}
+.cmd-prompt{color:var(--amber);font-weight:700}
+#cmd{flex:1;min-width:0;height:100%;background:transparent;border:0;color:var(--text);text-transform:uppercase;letter-spacing:.04em}
+#cmd::placeholder{color:var(--text-3);text-transform:none;letter-spacing:0}
+#cmd:focus-visible{outline:none}
+.cmd-hint{min-height:18px;margin-top:3px;font-size:var(--fs-min);color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmd-hint.bad{color:var(--down)}
+.watch{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding-bottom:6px}
+.wgroup{display:flex;align-items:center;height:20px;padding:0 10px 0 11px;
+  font-size:var(--fs-min);color:var(--text-3);letter-spacing:.12em;text-transform:uppercase;border-top:1px solid var(--line)}
+.wgroup:first-child{border-top:0}
+.wrow{display:grid;grid-template-columns:9px minmax(0,1fr) 52px 10.5ch;column-gap:8px;align-items:center;
+  height:calc(var(--row) + 5px);padding:0 10px 0 8px;border-left:3px solid transparent;cursor:pointer}
+.w-id,.w-name{user-select:none}          /* prices and changes can be selected and copied; labels do not get in the way */
+.wrow:hover{background:var(--panel-2)}
+.wrow.sel{background:var(--sel-bg);border-left-color:var(--amber)}
+.wrow:focus-visible{outline-offset:-2px}
+.w-l{display:flex;flex-direction:column;min-width:0;line-height:1.18}
+.w-id{font-weight:700;color:var(--text);letter-spacing:.02em}
+.wrow.sel .w-id{color:var(--amber)}
+.w-name{font-size:var(--fs-min);color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-mid{width:52px;height:24px;display:flex;align-items:center;justify-content:flex-end}
+.w-spark{display:block;width:52px;height:24px}
+.w-age{font-size:var(--fs-min);color:var(--text-3)}
+.w-r{display:flex;flex-direction:column;align-items:flex-end;line-height:1.18;min-width:0}
+.w-last{color:var(--text);border-radius:2px;padding:0 2px;margin-right:-2px}
+.w-pct{font-size:var(--fs-min)}
+.dot{width:9px;height:9px;border-radius:50%;border:1px solid var(--text-3);background:transparent}
+.dot.d-rt{background:var(--rt);border-color:var(--rt)}
+.dot.d-delayed{background:var(--delayed);border-color:var(--delayed)}
+.dot.d-eod{background:var(--eod);border-color:var(--eod)}
+.dot.d-closed{background:var(--closed);border-color:var(--closed)}
+.dot.d-stale{background:var(--stale);border-color:var(--stale)}
+.dot.d-lag{background:transparent;border-color:var(--delayed);border-width:2px}
+.dot.d-none{background:transparent;border-color:var(--text-3);border-style:dashed}
+
+/* ---------- module tabs (grouped ribbon) ---------- */
+#tabs{grid-area:tabs;display:flex;align-items:stretch;min-width:0;overflow-x:auto;overflow-y:hidden;
+  background:var(--panel);border-bottom:1px solid var(--line)}
+.tgroup{flex:none;display:flex;flex-direction:column;justify-content:flex-end;padding:5px 10px 0;border-right:1px solid var(--line)}
+.tgroup-label{font-size:var(--fs-min);line-height:1.2;color:var(--text-3);letter-spacing:.12em;padding-left:8px}
+.tgroup-tabs{display:flex;gap:2px}
+.tab{height:28px;padding:0 8px;background:none;border:0;border-bottom:2px solid transparent;color:var(--text-2);
+  font-size:var(--fs-sm);letter-spacing:.03em;cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--text);background:var(--panel-2)}
+.tab[aria-selected="true"]{color:var(--amber);border-bottom-color:var(--amber);font-weight:700}
+.tab:focus-visible{outline-offset:-2px}
+
+/* ---------- main + module frame ---------- */
+#main{grid-area:main;position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--bg)}
+.mod{position:absolute;inset:0;display:flex;flex-direction:column;min-width:0;min-height:0}
+.mod-head{flex:none;display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;min-height:42px;padding:6px var(--pad);
+  background:var(--panel);border-bottom:1px solid var(--line)}
+.mod-title{font-size:var(--fs-title);font-weight:700;color:var(--text);letter-spacing:.03em;white-space:nowrap}
+.mod-inst{display:inline-flex;align-items:baseline;gap:8px;white-space:nowrap}
+.mod-inst-id{font-weight:700;color:var(--amber)}
+.mod-inst-name{color:var(--text-2);font-size:var(--fs-sm)}
+.mod-src{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.mod-asof{font-size:var(--fs-sm);color:var(--text-2)}
+.mod-note{font-size:var(--fs-sm);color:var(--text-2)}
+.mod-controls{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mod-body{position:relative;flex:1 1 auto;min-width:0;min-height:0;overflow:auto;background:var(--bg)}
+.ot-canvas{display:block;width:100%;height:100%}
+
+/* ---------- badges ---------- */
+.badge{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 6px;border:1px solid currentColor;border-radius:var(--radius);
+  font-size:var(--fs-min);font-weight:700;line-height:1;letter-spacing:.05em;white-space:nowrap;vertical-align:middle;cursor:default}
+.badge .b-src{font-weight:400;color:var(--text-2);letter-spacing:.03em}
+.badge.b-rt{color:var(--rt)} .badge.b-delayed{color:var(--delayed)} .badge.b-eod{color:var(--eod)}
+.badge.b-closed{color:var(--closed)} .badge.b-stale{color:var(--stale)} .badge.b-derived{color:var(--info)}
+.badge.b-none{color:var(--text-3);border-style:dashed}
+.badge.b-lag{color:var(--delayed);border-style:dashed}
+.badge.b-other{color:var(--text-2)}
+.age{font-variant-numeric:tabular-nums}
+.age.old{color:var(--stale)}
+
+/* ---------- standard states ---------- */
+.ot-state{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding:24px;overflow:auto;text-align:center;background:var(--bg)}
+.ot-state .st-kind{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-min);font-weight:700;letter-spacing:.16em;color:var(--text-3)}
+.ot-state .st-title{font-size:var(--fs-title);font-weight:700;color:var(--text);max-width:80ch}
+.ot-state .st-detail{font-family:var(--sans);font-size:var(--fs-data);line-height:1.5;color:var(--text-2);max-width:72ch;white-space:pre-line}
+.ot-state .st-retry{font-size:var(--fs-sm);color:var(--text-2)}
+.ot-state .st-picks{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;margin-top:4px}
+.ot-state .st-picks-label{font-size:var(--fs-sm);color:var(--text-2)}
+.ot-state.k-nosource .st-kind{color:var(--amber)}
+.ot-state.k-error .st-kind{color:var(--down)}
+.ot-state.k-closed .st-kind{color:var(--closed)}
+.ot-state.k-loading .st-kind::before{content:"";width:10px;height:10px;border-radius:50%;border:2px solid var(--line-2);border-top-color:var(--amber);
+  animation:ot-spin .9s linear infinite}
+/* strip variant: a notice above content that stays visible (default for kind "closed") */
+.ot-state.strip{position:sticky;top:0;inset:auto;flex-direction:row;flex-wrap:wrap;justify-content:flex-start;gap:6px 14px;padding:6px var(--pad);
+  text-align:left;background:var(--panel-2);border-bottom:1px solid var(--line)}
+.ot-state.strip .st-title{font-size:var(--fs-data)}
+.ot-state.strip .st-detail{font-size:var(--fs-sm)}
+.ot-state.strip .st-picks{margin-top:0}
+@keyframes ot-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.ot-state.k-loading .st-kind::before{animation:none}}
+
+/* ---------- tables ---------- */
+.ot-table{width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums}
+.ot-table th{position:sticky;top:0;z-index:2;height:var(--row);padding:0 10px;background:var(--panel);
+  border-bottom:1px solid var(--line-2);color:var(--text-2);font-size:var(--fs-sm);font-weight:400;text-align:left;white-space:nowrap;letter-spacing:.03em}
+.ot-table td{height:var(--row);padding:0 10px;border-bottom:1px solid var(--line);white-space:nowrap;color:var(--text)}
+.ot-table th.num,.ot-table td.num{text-align:right}
+.ot-table th.sortable{cursor:pointer;user-select:none}
+.ot-table th.sortable:hover{color:var(--text);background:var(--panel-2)}
+.ot-table th.sortable::after{content:"";display:inline-block;width:1.2ch;text-align:right;color:var(--amber)}
+.ot-table th[aria-sort="ascending"]::after{content:"\2191"}
+.ot-table th[aria-sort="descending"]::after{content:"\2193"}
+.ot-table th[aria-sort="ascending"],.ot-table th[aria-sort="descending"]{color:var(--text)}
+.ot-table tbody tr:hover td{background:var(--panel-2)}
+.ot-table tbody tr.sel td{background:var(--sel-bg)}
+.ot-table tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+.ot-table tbody tr.clickable{cursor:pointer}
+.ot-table tbody tr:focus-visible{outline-offset:-2px}
+.ot-table td.up{color:var(--up)} .ot-table td.down{color:var(--down)} .ot-table td.muted{color:var(--text-2)}
+
+/* ---------- controls ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:28px;padding:0 10px;background:var(--panel-2);
+  border:1px solid var(--line-2);border-radius:var(--radius);color:var(--text);font-size:var(--fs-sm);white-space:nowrap;cursor:pointer}
+.btn:hover{border-color:var(--text-3)}
+.btn.on,.btn[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.btn:disabled{color:var(--text-3);cursor:not-allowed;border-color:var(--line)}
+.btn.pick{font-weight:700;color:var(--amber)}
+.btn.pick:hover{border-color:var(--amber)}
+.input,.select{height:28px;padding:0 8px;background:var(--bg);border:1px solid var(--line-2);border-radius:var(--radius);color:var(--text);font-size:var(--fs-sm)}
+.input:focus,.select:focus{border-color:var(--amber)}
+.input::placeholder{color:var(--text-3)}
+.select{padding-right:4px;cursor:pointer}
+.select option{background:var(--panel);color:var(--text)}
+.field{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--text-2);white-space:nowrap}
+.ot-tabs{display:inline-flex;border:1px solid var(--line-2);border-radius:var(--radius);overflow:hidden}
+.ot-tab{height:26px;padding:0 10px;background:var(--panel-2);border:0;border-right:1px solid var(--line-2);color:var(--text-2);font-size:var(--fs-sm);cursor:pointer;white-space:nowrap}
+.ot-tab:last-child{border-right:0}
+.ot-tab:hover{color:var(--text)}
+.ot-tab[aria-selected="true"]{background:var(--sel-bg);color:var(--amber);font-weight:700}
+.ot-tab:focus-visible{outline-offset:-2px}
+
+/* ---------- building blocks for module layouts ---------- */
+.panel{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.panel-head{flex:none;display:flex;align-items:center;gap:10px;min-height:var(--row);padding:0 10px;border-bottom:1px solid var(--line);
+  font-size:var(--fs-sm);color:var(--text-2);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.panel-body{position:relative;flex:1 1 auto;min-width:0;min-height:0;overflow:auto}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin:0}
+.kv dt{color:var(--text-2)}
+.kv dd{margin:0;text-align:right;color:var(--text);font-variant-numeric:tabular-nums}
+.stat{display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat-label{font-size:var(--fs-min);color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.stat-value{font-size:var(--fs-key);font-weight:700;line-height:1.1;color:var(--text);white-space:nowrap}
+.note{font-family:var(--sans);font-size:var(--fs-sm);line-height:1.5;color:var(--text-2)}
+
+/* ---------- tooltip ---------- */
+.ot-tip{position:fixed;left:0;top:0;z-index:1000;max-width:min(420px,60vw);padding:8px 10px;background:var(--panel-2);
+  border:1px solid var(--line-2);border-radius:var(--radius);box-shadow:0 8px 28px rgba(0,0,0,.6);
+  color:var(--text);font-size:var(--fs-sm);line-height:1.45;white-space:pre-line;pointer-events:none}
+.ot-tip b{color:var(--amber)}
+.ot-tip .muted{color:var(--text-2)}
+
+/* ---------- status bar ---------- */
+#status{grid-area:status;display:flex;align-items:center;gap:18px;height:26px;padding:0 12px;overflow:hidden;
+  background:var(--panel);border-top:1px solid var(--line);font-size:var(--fs-min);color:var(--text-2);white-space:nowrap}
+#status .sp{flex:1}
+#status .st-ok{color:var(--up)} #status .st-warn{color:var(--amber)} #status .st-bad{color:var(--down)}
+#status .st-keys{color:var(--text-3);overflow:hidden;text-overflow:ellipsis}
+#status #st-warn{color:var(--amber);font-weight:700;cursor:default}
+/* live values under a text selection are not rewritten (the selection would be lost): say so while it lasts */
+body[data-held] #status::before{content:"SELECTION HOLDS " attr(data-held) " LIVE VALUE(S) · click anywhere to release";color:var(--amber);font-weight:700}
+kbd{display:inline-block;min-width:1.6em;padding:0 4px;border:1px solid var(--line-2);border-radius:var(--radius);
+  background:var(--panel-2);color:var(--text);font-family:var(--mono);font-size:var(--fs-min);text-align:center}
+
+/* ---------- below the 1280 px design minimum (e.g. a 1366x768 laptop at Windows 125 % = 1093 px) ----------
+   Nothing overlaps and every tab stays reachable: the long instrument name goes (it is in the tooltip of the
+   header and of the rail row), the "as of" line shortens with an ellipsis instead of running into the lamps,
+   and the tab ribbon wraps onto a second line instead of being cut off. */
+@media (max-width:1279px){
+  #hdr{gap:10px}
+  .hdr-inst{gap:10px}
+  .hi-id{min-width:0}
+  .hi-name{display:none}
+  .hi-meta{flex:0 1 auto;min-width:0;overflow:hidden}
+  .hi-age{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lamps{column-gap:8px}
+  .clock{min-width:0}
+  #tabs{flex-wrap:wrap;overflow:visible}
+  .tgroup{padding:3px 6px 0}
+  .tab{padding:0 6px}
+}

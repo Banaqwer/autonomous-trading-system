@@ -1,6 +1,10 @@
+# OPEN TERMINAL gateway — runtime dependencies (stdlib otherwise)
 fastapi>=0.110
 uvicorn[standard]>=0.29
-# optional provider deps:
-lse-data        # London Strategic Edge SDK (needs LSE_API_KEY)
-websockets>=13  # merged live stream /ws (Binance, Deribit, AISStream); feeds disable themselves without it
-# tests:  pip install pytest   then   cd terminal/backend && python -m pytest tests -q
+websockets>=13    # upstream feeds (Binance, Deribit, AISStream, Alpaca) and /ws; feeds disable themselves without it
+tzdata            # IANA time-zone database for zoneinfo — REQUIRED on Windows for session open/closed (else "unknown")
+lse-data          # optional: London Strategic Edge SDK (needs LSE_API_KEY); only the zero-row preview() is used for quotes
+#
+# run:    python -m uvicorn app:app --port 8080        (from terminal/backend; page at http://localhost:8080/)
+# tests:  pip install pytest httpx
+#         cd terminal/backend && python -m pytest tests -q -p no:cacheprovider
