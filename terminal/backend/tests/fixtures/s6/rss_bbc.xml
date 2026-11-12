@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+    <channel>
+        <title><![CDATA[BBC News]]></title>
+        <description><![CDATA[BBC News - Business]]></description>
+        <link>https://www.bbc.co.uk/news/business</link>
+        <image>
+            <url>https://news.bbcimg.co.uk/nol/shared/img/bbc_news_120x60.gif</url>
+            <title>BBC News</title>
+            <link>https://www.bbc.co.uk/news/business</link>
+        </image>
+        <generator>RSS for Node</generator>
+        <lastBuildDate>Thu, 12 Nov 2026 15:00:48 GMT</lastBuildDate>
+        <atom:link href="https://feeds.bbci.co.uk/news/business/rss.xml" rel="self" type="application/rss+xml"/>
+        <copyright><![CDATA[Copyright: (C) British Broadcasting Corporation, see https://www.bbc.co.uk/usingthebbc/terms-of-use/#15metadataandrssfeeds for terms and conditions of reuse.]]></copyright>
+        <language><![CDATA[en-gb]]></language>
+        <ttl>15</ttl>
+        <item>
+            <title><![CDATA[Nvidia's CEO was the rock star of AI before his dramatic unravelling]]></title>
+            <description><![CDATA[Within days, Huang's status as a seemingly untouchable figure leading the global AI race has crumbled. ]]></description>
+            <link>https://www.bbc.co.uk/news/articles/cmze750zg0jeo?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/cmze750zg0jeo#0</guid>
+            <pubDate>Thu, 12 Nov 2026 14:18:33 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/5297/live/47801ac0-de4a-11f1-8eb3-bb386b145647.jpg"/>
+        </item>
+<item>
+            <title><![CDATA[Who could replace Jensen Huang as Nvidia's permanent chief executive?]]></title>
+            <description><![CDATA[Chief financial officer Colette Kress will replace him temporarily, but several others are in the frame as potential successors.]]></description>
+            <link>https://www.bbc.co.uk/news/articles/cqgm37dv20e8o?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/cqgm37dv20e8o#0</guid>
+            <pubDate>Thu, 12 Nov 2026 14:48:26 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/1381/live/d9f5ab20-de97-11f1-a701-fddedf244c16.jpg"/>
+        </item>
+<item>
+            <title><![CDATA[Faisal Islam: Why the UK economy is surprisingly resilient]]></title>
+            <description><![CDATA[The UK is seeing impressive growth, but will it last?]]></description>
+            <link>https://www.bbc.co.uk/news/articles/cj62p32k90wyo?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/cj62p32k90wyo#0</guid>
+            <pubDate>Thu, 12 Nov 2026 13:27:09 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/c584/live/89340bf0-de9c-11f1-9afe-1f03bfe02283.jpg"/>
+        </item>
+<item>
+            <title><![CDATA[UK economy grows at fastest rate for more than two years]]></title>
+            <description><![CDATA[﻿The UK economy grew by 0.7% in the three months to September, according to official figures.]]></description>
+            <link>https://www.bbc.co.uk/news/articles/ck3rgd429zd5o?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/ck3rgd429zd5o#0</guid>
+            <pubDate>Thu, 12 Nov 2026 11:20:25 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/b029/live/c4ae2930-de89-11f1-b441-2b33b063138f.jpg"/>
+        </item>
+<item>
+            <title><![CDATA[Poundland gets more time to secure a rescue deal as emergency talks continue]]></title>
+            <description><![CDATA[A deadline to secure a buyer was set to expire at midnight, but the retailer now has an extra 10 days to find a buyer.]]></description>
+            <link>https://www.bbc.co.uk/news/articles/c3702jjkez4ko?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/c3702jjkez4ko#0</guid>
+            <pubDate>Thu, 12 Nov 2026 14:29:59 GMT</pubDate>
+            <media:thumbnail width="240" height="134" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/0a6e/live/a313f250-dd58-11f1-acd1-a78ce9f5fae0.jpg"/>
+        </item>
+    </channel>
+</rss>

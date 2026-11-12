@@ -1,72 +1,144 @@
-"""Deribit public API — crypto options chain, IV surface, per-strike greeks, GEX.
-No API key required. JSON-RPC-over-HTTP GET.  Docs: docs.deribit.com
+"""Deribit public API (keyless) — option chains for BTC, ETH and SOL (owner: S3 options).
+
+ONE call returns a whole currency (every expiry, every strike):
+
+    GET https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option
+
+* BTC / ETH options are coin-margined: `bid_price`, `ask_price`, `mark_price` are in COIN. The USD
+  price is coin price x `underlying_price` (the forward of that row's expiry) — this is the
+  convention Deribit's own pricing uses (price_coin = Black-76(F, K, …) / F).
+* SOL options are USDC-settled linear options: `currency=USDC`, instruments `SOL_USDC-<expiry>-
+  <strike>-<C|P>`, prices already in USDC. The same answer also carries BTC_USDC, ETH_USDC, XRP_USDC …
+  rows, which are filtered out by the instrument prefix.
+* `mark_iv` is in percent. `open_interest` and `volume` are in units of the base coin (also for
+  SOL_USDC, whose contract size is 10 SOL: volume_usd / volume equals the premium per 1 SOL).
+* `estimated_delivery_price` is the Deribit index (btc_usd, eth_usd, sol_usdc) — the spot reference
+  options settle against. `underlying_price` is the forward for the row's expiry.
+* The summary has NO greeks (they would cost one `ticker` call per instrument): the route derives
+  them with Black-76 from `mark_iv` and `underlying_price` (r = 0, as Deribit's `interest_rate`).
+* Expiry is 08:00 UTC on the date in the instrument name (`25DEC26`, `4DEC26`).
+
+`fetch_summary` is the only function that touches the network; `parse_summary` is pure.
 """
 from __future__ import annotations
-import time, math, urllib.request, json
+
+import calendar
+import datetime
+import re
+
+from core import http
+from core.errors import BadRequest, UpstreamError
+from core.util import num
 
 BASE = "https://www.deribit.com/api/v2"
+SOURCE = "deribit"
+EXPIRY_HOUR_UTC = 8
 
-def _get(method: str, **params) -> dict:
-    qs = "&".join(f"{k}={v}" for k, v in params.items())
-    url = f"{BASE}/public/{method}?{qs}"
-    req = urllib.request.Request(url, headers={"User-Agent": "openterm/0.1"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read())["result"]
+# vendor symbol (universe `options.symbol`) -> (Deribit currency, instrument prefix, native price unit)
+MARKETS = {
+    "BTC": ("BTC", "BTC-", "BTC"),
+    "ETH": ("ETH", "ETH-", "ETH"),
+    "SOL_USDC": ("USDC", "SOL_USDC-", "USDC"),
+}
 
-def instruments(currency="BTC", kind="option"):
-    return _get("get_instruments", currency=currency, kind=kind, expired="false")
+_MONTHS = {m: i + 1 for i, m in enumerate(
+    ("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"))}
+_NAME = re.compile(r"^([A-Z]+(?:_[A-Z]+)?)-(\d{1,2})([A-Z]{3})(\d{2})-(\d+(?:d\d+)?)-([CP])$")
 
-def book_summary(currency="BTC", kind="option"):
-    """Whole chain in one call: mark_iv, open_interest, underlying_price, volume."""
-    return _get("get_book_summary_by_currency", currency=currency, kind=kind)
 
-def ticker(instrument_name):
-    """Per-instrument greeks (delta/gamma/vega/theta/rho) + mark_iv + index_price."""
-    return _get("ticker", instrument_name=instrument_name)
+def market(symbol: str) -> tuple[str, str, str]:
+    """(currency, instrument prefix, native unit) for a universe options symbol; BadRequest otherwise.
+    Only these three literals can ever reach the upstream URL."""
+    try:
+        return MARKETS[symbol]
+    except KeyError:
+        raise BadRequest(f"Deribit options are wired for {', '.join(MARKETS)} only") from None
 
-def index_price(currency="BTC"):
-    return _get("get_index_price", index_name=f"{currency.lower()}_usd").get("index_price")
 
-def chain(currency="BTC", max_expiries=4):
-    """Build a tidy options chain: rows of {expiry, strike, type, iv, oi, mark, underlying}."""
-    insts = {i["instrument_name"]: i for i in instruments(currency)}
-    rows = []
-    for b in book_summary(currency):
-        name = b["instrument_name"]
-        meta = insts.get(name)
-        if not meta:
+def fetch_summary(currency: str, timeout: float = 15) -> dict:
+    """The raw JSON-RPC answer for one currency (all its option instruments)."""
+    if currency not in {c for c, _, _ in MARKETS.values()}:
+        raise BadRequest("unknown Deribit currency")
+    url = f"{BASE}/public/get_book_summary_by_currency?{http.qs({'currency': currency, 'kind': 'option'})}"
+    return http.get_json(url, timeout=timeout, source=SOURCE)
+
+
+def parse_name(name: str):
+    """'BTC-25DEC26-74000-C' -> ('BTC', '2026-12-25', expiry epoch s, 74000.0, 'C'); None if not an option name.
+    Strikes with decimals are written with a 'd' ('0d5' = 0.5)."""
+    m = _NAME.match(name or "")
+    if not m:
+        return None
+    base, day, mon, yy, strike, cp = m.groups()
+    month = _MONTHS.get(mon)
+    if not month:
+        return None
+    year, day = 2000 + int(yy), int(day)
+    try:
+        datetime.date(year, month, day)                       # refuses 31 FEB instead of rolling it over
+    except ValueError:
+        return None
+    exp_ts = calendar.timegm((year, month, day, EXPIRY_HOUR_UTC, 0, 0))
+    k = num(strike.replace("d", "."))
+    if not k or k <= 0:
+        return None
+    return base, f"{year:04d}-{month:02d}-{day:02d}", float(exp_ts), k, cp
+
+
+def parse_summary(payload: dict, symbol: str) -> dict:
+    """Normalise one book summary to the chain snapshot the options route works on:
+
+        {"source", "symbol", "as_of" (Deribit's clock, epoch s), "spot" (Deribit index), "spot_src",
+         "native" ("BTC" | "ETH" | "USDC"), "contracts": [contract, …]}
+        contract = {"name", "key" ("YYYY-MM-DD"), "date", "root", "exp_ts", "strike", "type" ("C"|"P"),
+                    "bid", "ask", "mark" (USD), "bid_native", "ask_native", "mark_native" (as quoted),
+                    "iv" (decimal), "oi", "volume" (base-coin units), "fwd" (that row's forward),
+                    "last" (USD), "delta"/"gamma"/"vega"/"theta": None (not in this answer)}
+
+    A row without a usable name is skipped; a missing number is None, never 0."""
+    _, prefix, native = market(symbol)
+    if not isinstance(payload, dict) or not isinstance(payload.get("result"), list):
+        err = payload.get("error") if isinstance(payload, dict) else None
+        msg = (err or {}).get("message") if isinstance(err, dict) else None
+        raise UpstreamError(SOURCE, None, f"unexpected reply from Deribit{': ' + str(msg)[:120] if msg else ''}")
+    coin = native != "USDC"
+    contracts, spot = [], None
+    for row in payload["result"]:
+        if not isinstance(row, dict):
             continue
-        rows.append({
-            "instrument": name,
-            "expiry": meta["expiration_timestamp"],
-            "strike": meta["strike"],
-            "type": meta["option_type"],
-            "iv": b.get("mark_iv"),
-            "open_interest": b.get("open_interest"),
-            "mark": b.get("mark_price"),
-            "underlying": b.get("underlying_price"),
-            "volume": b.get("volume"),
+        name = row.get("instrument_name") or ""
+        if not name.startswith(prefix):
+            continue
+        parsed = parse_name(name)
+        if parsed is None:
+            continue
+        _, date, exp_ts, strike, cp = parsed
+        fwd = num(row.get("underlying_price"))
+        if not fwd or fwd <= 0:
+            fwd = None
+        fx = fwd if coin else 1.0             # coin price -> USD; None when there is no forward
+
+        def usd(v, fx=fx):
+            v = num(v)
+            return None if v is None or fx is None else v * fx
+
+        iv = num(row.get("mark_iv"))
+        if spot is None:
+            spot = num(row.get("estimated_delivery_price")) or None
+        contracts.append({
+            "name": name, "key": date, "date": date, "root": prefix.rstrip("-"), "exp_ts": exp_ts,
+            "strike": strike, "type": cp,
+            "bid": usd(row.get("bid_price")), "ask": usd(row.get("ask_price")), "mark": usd(row.get("mark_price")),
+            "bid_native": num(row.get("bid_price")), "ask_native": num(row.get("ask_price")),
+            "mark_native": num(row.get("mark_price")),
+            "iv": iv / 100.0 if iv and iv > 0 else None,
+            "oi": num(row.get("open_interest")), "volume": num(row.get("volume")),
+            "fwd": fwd, "last": usd(row.get("last")), "last_t": None,
+            "delta": None, "gamma": None, "vega": None, "theta": None,
         })
-    exps = sorted({r["expiry"] for r in rows})[:max_expiries]
-    return [r for r in rows if r["expiry"] in exps]
-
-def gex(currency="BTC"):
-    """Dealer gamma exposure by strike: GEX = gamma * OI * S^2 * 0.01, puts negative.
-    Uses chain IV + Black-Scholes gamma (fast, avoids a ticker call per strike)."""
-    rows = chain(currency)
-    if not rows:
-        return {"spot": None, "strikes": [], "gex": []}
-    S = next((r["underlying"] for r in rows if r["underlying"]), None)
-    now = time.time() * 1000
-    agg = {}
-    for r in rows:
-        K, iv, oi = r["strike"], (r["iv"] or 0) / 100.0, (r["open_interest"] or 0)
-        if not (S and K and iv and oi):
-            continue
-        T = max((r["expiry"] - now) / (1000 * 86400 * 365), 1e-4)
-        d1 = (math.log(S / K) + 0.5 * iv * iv * T) / (iv * math.sqrt(T))
-        gamma = math.exp(-d1 * d1 / 2) / (2.5066 * S * iv * math.sqrt(T))
-        g = gamma * oi * S * S * 0.01 / 1e6
-        agg[K] = agg.get(K, 0) + (g if r["type"] == "call" else -g)
-    ks = sorted(agg)
-    return {"spot": S, "strikes": ks, "gex": [round(agg[k], 3) for k in ks]}
+    us_out = num(payload.get("usOut"))
+    return {
+        "source": SOURCE, "symbol": symbol, "as_of": us_out / 1e6 if us_out else None,
+        "spot": spot, "spot_src": "Deribit index (settlement reference)",
+        "native": native, "contracts": contracts,
+    }

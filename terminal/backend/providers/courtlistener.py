@@ -16,10 +16,13 @@ no-token path. The request/parsing is built to the documented v4 shape but is
 UNTESTED against the live API.
 """
 from __future__ import annotations
-import os, json, urllib.request, urllib.parse
+import os, json
+
+from core import http
+
+SOURCE = "courtlistener"
 
 BASE = "https://www.courtlistener.com/api/rest/v4/search/"
-_UA = {"User-Agent": "openterm/0.1"}
 
 
 def enabled():
@@ -29,11 +32,7 @@ def enabled():
 def _get(params):
     """GET the v4 search endpoint with the token auth header. Returns parsed JSON."""
     token = os.environ["COURTLISTENER_API_TOKEN"]
-    url = BASE + "?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(
-        url, headers={**_UA, "Authorization": "Token " + token})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read())
+    return http.get_json(BASE + "?" + http.qs(params), {"Authorization": "Token " + token}, 30, source=SOURCE)
 
 
 def recent_suits(query="", nature_of_suit=None, limit=20):
@@ -54,7 +53,7 @@ def recent_suits(query="", nature_of_suit=None, limit=20):
     if not enabled():
         return []
     params = {
-        "q": query or "",
+        "q": str(query or "")[:200],
         "type": "r",                 # r = RECAP (dockets / filings)
         "order_by": "dateFiled desc",
     }
@@ -78,7 +77,7 @@ def recent_suits(query="", nature_of_suit=None, limit=20):
 
 if __name__ == "__main__":
     import sys
-    sys.path.insert(0, "/home/user/openquant/terminal/backend")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     import config  # noqa: sets os.environ from baked defaults
 
     print("enabled =", enabled())

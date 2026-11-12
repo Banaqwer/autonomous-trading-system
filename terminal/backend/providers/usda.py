@@ -9,23 +9,51 @@ Ag-commodity sensor helpers. NASS helpers below never raise (network wrapped,
 return [] on any failure). quickstats() keeps its original raising behaviour.
 """
 from __future__ import annotations
-import os, json, base64, urllib.request, urllib.parse, urllib.error
+import os, json, base64, re
+
+from core import http
+from core.errors import BadRequest, NotConfigured, UpstreamError
+
+SOURCE = "usda-nass"
+_WORD = re.compile(r"^[A-Z0-9][A-Z0-9 ,&/\-]{0,39}$")
 
 NASS_BASE = "https://quickstats.nass.usda.gov/api/api_GET/"
 MARS_BASE = "https://marsapi.ams.usda.gov"
 
 
-def quickstats(commodity="CORN", statistic="PRODUCTION", year="2024", agg="NATIONAL"):
+def check_quickstats(commodity, statistic, year, agg="NATIONAL"):
+    if not _WORD.match(commodity) or not _WORD.match(statistic) or not _WORD.match(agg):
+        raise BadRequest("commodity / statistic / agg must be NASS names such as CORN, PRODUCTION, NATIONAL")
+    if not re.match(r"^(19|20)\d\d$", str(year)):
+        raise BadRequest("year must be a 4-digit year")
+
+
+def fetch_quickstats(commodity="CORN", statistic="PRODUCTION", year="2024", agg="NATIONAL", timeout=30):
+    """Raw QuickStats reply. The API takes the key only as the `key` query parameter
+    (scrubbed from every error by core.http)."""
     key = os.environ.get("USDA_API_KEY") or os.environ.get("NASS_API_KEY")
     if not key:
-        raise RuntimeError("USDA_API_KEY not set — free at quickstats.nass.usda.gov/api")
-    p = urllib.parse.urlencode({"key": key, "commodity_desc": commodity,
-        "statisticcat_desc": statistic, "year": year, "agg_level_desc": agg, "format": "JSON"})
-    with urllib.request.urlopen(f"https://quickstats.nass.usda.gov/api/api_GET/?{p}", timeout=30) as r:
-        d = json.loads(r.read())
-    return [{"commodity": x.get("commodity_desc"), "value": x.get("Value"),
-             "unit": x.get("unit_desc"), "year": x.get("year"), "geo": x.get("location_desc")}
-            for x in d.get("data", [])][:200]
+        raise NotConfigured("NASS_API_KEY is not set — free at quickstats.nass.usda.gov/api", source=SOURCE)
+    commodity, statistic, agg, year = (str(commodity).upper().strip(), str(statistic).upper().strip(),
+                                       str(agg).upper().strip(), str(year).strip())
+    check_quickstats(commodity, statistic, year, agg)
+    p = http.qs({"key": key, "commodity_desc": commodity, "statisticcat_desc": statistic, "year": year,
+                 "agg_level_desc": agg, "format": "JSON"})
+    return http.get_json(f"{NASS_BASE}?{p}", timeout=timeout, source=SOURCE)
+
+
+def parse_quickstats(payload):
+    """[{commodity, series, value (number or None when withheld), unit, year, period, geo}]."""
+    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+        msg = str(payload.get("error"))[:120] if isinstance(payload, dict) else ""
+        raise UpstreamError(SOURCE, None, f"unexpected reply shape ({msg or 'no data list'})")
+    return [{"commodity": x.get("commodity_desc"), "series": x.get("short_desc"), "value": _to_num(x.get("Value")),
+             "unit": x.get("unit_desc"), "year": x.get("year"), "period": x.get("reference_period_desc"),
+             "geo": x.get("location_desc")} for x in payload["data"] if isinstance(x, dict)][:200]
+
+
+def quickstats(commodity="CORN", statistic="PRODUCTION", year="2024", agg="NATIONAL"):
+    return parse_quickstats(fetch_quickstats(commodity, statistic, year, agg))
 
 
 def _nass_get(params):
@@ -35,11 +63,8 @@ def _nass_get(params):
         return []
     q = {"key": key, "format": "JSON"}
     q.update(params)
-    url = f"{NASS_BASE}?{urllib.parse.urlencode(q)}"
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "OpenQuant/1.0"})
-        with urllib.request.urlopen(req, timeout=30) as r:
-            d = json.loads(r.read().decode("utf-8", "replace"))
+        d = http.get_json(f"{NASS_BASE}?{http.qs(q)}", timeout=30, source=SOURCE)
         return d.get("data", []) or []
     except Exception:
         return []
@@ -152,13 +177,10 @@ def mars_reports(q="cattle", limit=25):
         return []
     url = f"{MARS_BASE}/services/v1.2/reports"
     if q:
-        url += f"?q={urllib.parse.quote(q)}"
+        url += "?" + http.qs({"q": str(q)[:80]})
     try:
         token = base64.b64encode(f"{key}:".encode()).decode()
-        req = urllib.request.Request(url, headers={
-            "Authorization": f"Basic {token}", "User-Agent": "OpenQuant/1.0"})
-        with urllib.request.urlopen(req, timeout=30) as r:
-            d = json.loads(r.read().decode("utf-8", "replace"))
+        d = http.get_json(url, {"Authorization": f"Basic {token}"}, 30, source="usda-mars")
         rows = d if isinstance(d, list) else d.get("results", d.get("reports", []))
         out = []
         for x in (rows or [])[:limit]:
@@ -177,7 +199,7 @@ def mars_reports(q="cattle", limit=25):
 
 if __name__ == "__main__":
     import sys
-    sys.path.insert(0, "/home/user/openquant/terminal/backend")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     import config  # noqa: F401  (sets os.environ)
 
     print("=== cold_storage('BEEF') ===")

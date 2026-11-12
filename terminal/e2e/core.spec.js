@@ -355,7 +355,7 @@ module.exports = {
         flag: document.body.dataset.held || '', bar: getComputedStyle(document.getElementById('status'), '::before').content }), id);
       check(sel0.length >= 3 && s1.sel === sel0, 'the selection of the header price did not survive live updates: ' + JSON.stringify(sel0) + ' → ' + JSON.stringify(s1.sel));
       if (s1.shown !== s1.held) check(+s1.flag >= 1 && /SELECTION HOLDS/.test(s1.bar), 'a value is held back for the selection (' + s1.shown + ' shown, ' + s1.held + ' current) but the status bar does not say so: ' + JSON.stringify([s1.flag, s1.bar]));
-      await pg.mouse.click(900, 500);                                      // selection gone: the value catches up at once
+      await pg.mouse.click(90, 30);       /* the brand: inert (a point in the main area is a MON row now) */                                      // selection gone: the value catches up at once
       await pg.evaluate(() => window.__otT.raf(3));
       const s2 = await pg.evaluate(i => ({ shown: document.getElementById('hdr-last').textContent, held: OT.fmt.px(i, OT.quotes[i].last), sel: getSelection().toString() }), id);
       check(s2.sel === '' && s2.shown === s2.held, 'after the selection is released the header must show the current price: ' + JSON.stringify(s2));
@@ -367,7 +367,7 @@ module.exports = {
       await sleep(2200);
       const r1 = await pg.evaluate(() => getSelection().toString().trim());
       check(r0.length >= 3 && r1 === r0, 'a rail price cannot be selected, or loses its selection on the next tick: ' + JSON.stringify(r0) + ' → ' + JSON.stringify(r1));
-      await pg.mouse.click(900, 500);
+      await pg.mouse.click(90, 30);       /* the brand: inert (a point in the main area is a MON row now) */
       // table: a focused row keeps focus through a re-sort; a selected cell is not rewritten under the selection
       const t = await pg.evaluate(async () => {
         const out = {};

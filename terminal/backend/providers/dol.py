@@ -14,9 +14,13 @@ sorting client-side. OSHA inspection = case detail; OSHA violation = citations, 
 on activity_nr (newly opened inspections usually have no citations issued yet).
 """
 from __future__ import annotations
-import os, json, urllib.parse, urllib.request, urllib.error
+import os, json
 from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor
+
+from core import http
+
+SOURCE = "dol"
 
 _BASE = "https://api.dol.gov/v4/get/OSHA/%s/json"
 
@@ -32,14 +36,11 @@ def _get(dataset, params):
         return []
     q = {"X-API-KEY": key}
     q.update(params)
-    url = _BASE % dataset + "?" + urllib.parse.urlencode(q)
-    req = urllib.request.Request(url, headers={"User-Agent": "openterm/0.1"})
+    if dataset not in ("inspection", "violation"):
+        return []
     try:
-        resp = urllib.request.urlopen(req, timeout=45)
-        if resp.status == 204:           # no rows match -> empty
-            return []
-        body = resp.read().decode()
-        if not body.strip():
+        code, _, body = http.request(_BASE % dataset + "?" + http.qs(q), timeout=45, source=SOURCE)
+        if code == 204 or not body.strip():      # no rows match -> empty
             return []
         return json.loads(body).get("data", []) or []
     except Exception:
@@ -114,7 +115,7 @@ def recent_inspections(limit=50, days=45, with_violations=True):
 
 if __name__ == "__main__":
     import sys
-    sys.path.insert(0, "/home/user/openquant/terminal/backend")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     import config  # noqa: F401  (populates os.environ)
 
     print("enabled:", enabled())

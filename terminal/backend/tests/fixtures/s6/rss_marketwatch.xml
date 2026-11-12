@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:media="http://search.yahoo.com/mrss/" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0"
+>
+<channel>
+<title>MarketWatch.com - Top Stories</title>
+<description>MarketWatch, a leading publisher of business and financial news, offers users up-to-the minute news, investment tools, and subscription products.</description>
+<link>http://www.marketwatch.com/</link>
+<language>en-us</language>
+<copyright>Copyright &#169; Dow Jones &amp; Company, Inc. All rights reserved.</copyright>
+<lastBuildDate>Thu, 12 Nov 2026 15:00:30 GMT</lastBuildDate>
+<ttl>60</ttl>
+<image>
+<title>MarketWatch.com - Top Stories</title>
+<url>https://www.marketwatch.com/rss/marketwatch.gif</url>
+<link>http://www.marketwatch.com/</link>
+</image>
+<item>
+<guid isPermaLink="false">WP-MKTW-0005343259</guid>
+<title>Jensen Huang built Nvidia into a behemoth. His resignation puts the entire AI boom in jeopardy.</title>
+<description>Huang fueled his company and the AI ecosystem with advanced chips and creative financing deals across the supply chain. What will happen now that&#x2019;s he gone?</description>
+<link>https://www.marketwatch.com/story/jensen-huang-built-nvidia-into-a-behemoth-his-scandal-puts-the-entire-ai-boom-in-jeopardy-c374b079?mod=mw_rss_topstories</link>
+<pubDate>Thu, 12 Nov 2026 14:49:00 GMT</pubDate>
+<dc:creator>William Gavin</dc:creator>
+<dc:creator>Hannah Pedone</dc:creator>
+<dc:creator>Christine Ji</dc:creator>
+<dc:creator>Britney Nguyen</dc:creator>
+<media:content url="https://images.mktw.net/im-07328527" medium="image" type="image/jpeg">
+<media:credit>Patrick T. Fallon/Agence France-Presse/Getty Images</media:credit>
+</media:content>
+</item>
+<item>
+<guid isPermaLink="false">WP-MKTW-0005337904</guid>
+<title>I&#x2019;m 63 and spending $95,000 on a roof deck for my $500,000 home. Am I being extravagant?</title>
+<description>&#x201c;I have a net worth of $2.3 million and my only debt is a 15-year mortgage.&#x201d;</description>
+<link>https://www.marketwatch.com/story/im-63-and-want-to-spend-95-000-on-a-roof-deck-for-my-500-000-home-is-that-a-good-investment-f1a59c27?mod=mw_rss_topstories</link>
+<pubDate>Thu, 12 Nov 2026 14:45:00 GMT</pubDate>
+<dc:creator>Quentin Fottrell</dc:creator>
+<media:content url="https://images.mktw.net/im-83882608" medium="image" type="image/jpeg">
+<media:credit>Getty Images</media:credit>
+</media:content>
+</item>
+<item>
+<guid isPermaLink="false">WP-MKTW-0005342280</guid>
+<title>Opening trading-card packs has become a $2 billion market</title>
+<description>Pack-ripping apps are changing the way people buy and sell cards. But analysts say their &#x201c;slot-like payoff&#x201d; raises risks.</description>
+<link>https://www.marketwatch.com/story/opening-trading-card-packs-has-become-a-2-billion-market-new-apps-are-trying-to-cash-in-b7ba11f5?mod=mw_rss_topstories</link>
+<pubDate>Thu, 12 Nov 2026 14:19:00 GMT</pubDate>
+<dc:creator>Bill Peters</dc:creator>
+<media:content url="https://images.mktw.net/im-87023125" medium="image" type="image/jpeg">
+<media:credit>MarketWatch photo illustration/iStockphoto</media:credit>
+</media:content>
+</item>
+<item>
+<guid isPermaLink="false">WP-MKTW-0005342663</guid>
+<title>I inherited $1.4 million from my father. Am I wrong to ask my husband of 25 years for a postnuptial agreement?</title>
+<description>&#x201c;He has always said he wants his daughter to inherit a chunk of his estate, and I&#x2019;ve never objected to that.&#x201d;</description>
+<link>https://www.marketwatch.com/story/i-inherited-1-4-million-from-my-father-am-i-wrong-to-ask-my-husband-of-25-years-for-a-postnuptial-agreement-b739c51d?mod=mw_rss_topstories</link>
+<pubDate>Thu, 12 Nov 2026 14:16:00 GMT</pubDate>
+<dc:creator>Quentin Fottrell</dc:creator>
+<media:content url="https://images.mktw.net/im-95255307" medium="image" type="image/jpeg">
+<media:credit>Getty Images</media:credit>
+</media:content>
+</item>
+</channel>
+</rss>

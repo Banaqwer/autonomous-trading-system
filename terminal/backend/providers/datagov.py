@@ -7,18 +7,20 @@ Regulations.gov. Causal sensors:
 Stdlib only. Never raises; returns [] on any failure.
 """
 from __future__ import annotations
-import os, json, urllib.request, urllib.parse
+import os, json
 from datetime import date, timedelta
 
-_UA = {"User-Agent": "openterm/0.1"}
+from core import http
+
+SOURCE = "datagov"
 SAM_URL = "https://api.sam.gov/opportunities/v2/search"
 REG_URL = "https://api.regulations.gov/v4/documents"
 
 
 def _get(url, params, headers=None):
-    q = urllib.parse.urlencode(params)
-    req = urllib.request.Request(url + "?" + q, headers={**_UA, **(headers or {})})
-    return json.loads(urllib.request.urlopen(req, timeout=30).read())
+    """SAM.gov takes the key as the `api_key` query parameter (its header form is not verified here:
+    10 requests a day); core.http scrubs it from errors. Regulations.gov gets it in the X-Api-Key header."""
+    return http.get_json(url + "?" + http.qs(params), headers, 30, source=SOURCE)
 
 
 def sam_awards(naics=None, limit=20):
@@ -39,7 +41,7 @@ def sam_awards(naics=None, limit=20):
         "postedTo": today.strftime("%m/%d/%Y"),
     }
     if naics:
-        params["ncode"] = str(naics)
+        params["ncode"] = "".join(ch for ch in str(naics) if ch.isdigit())[:6]
     try:
         d = _get(SAM_URL, params)
         out = []
@@ -67,14 +69,13 @@ def regulations_recent(term="", limit=20):
     if not key:
         return []
     params = {
-        "api_key": key,
         "sort": "-postedDate",
         "page[size]": max(5, min(int(limit), 250)),
     }
     if term:
-        params["filter[searchTerm]"] = term
+        params["filter[searchTerm]"] = str(term)[:120]
     try:
-        d = _get(REG_URL, params)
+        d = _get(REG_URL, params, {"X-Api-Key": key})        # header form verified 2026-11-12: the key stays out of the URL
         out = []
         for doc in (d.get("data", []) or [])[:int(limit)]:
             a = doc.get("attributes", {}) or {}
@@ -91,7 +92,7 @@ def regulations_recent(term="", limit=20):
 
 if __name__ == "__main__":
     import sys
-    sys.path.insert(0, "/home/user/openquant/terminal/backend")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     import config  # noqa: sets os.environ
     print("=== sam_awards ===")
     sa = sam_awards(limit=5)

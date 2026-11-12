@@ -1,1 +1,67 @@
-/* options slice styles — owned by the slice agent. Use the tokens from terminal.css; no hard-coded colours or sizes. */
+/* options slice styles (OPTS VOLS GREEKS GEX) — owner: S3. Tokens from terminal.css only: no hard-coded
+   colours, no font-size below var(--fs-min). */
+
+/* ---------- shared: module frame, summary strip, expiry control, foot note ---------- */
+.opt-wrap{display:flex;flex-direction:column;height:100%;min-height:0;min-width:0}
+.opt-strip{flex:none;display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 28px;padding:8px var(--pad);
+  background:var(--panel);border-bottom:1px solid var(--line)}
+.opt-stat{display:flex;flex-direction:column;gap:1px;min-width:0;cursor:default}
+.opt-stat-l{font-size:var(--fs-min);color:var(--text-3);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.opt-stat-v{font-size:var(--fs-title);font-weight:700;color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums}
+.opt-stat-v.up{color:var(--up)} .opt-stat-v.down{color:var(--down)} .opt-stat-v.amber{color:var(--amber)}
+.opt-stat.big .opt-stat-v{font-size:var(--fs-key)}
+.opt-foot{flex:none;padding:6px var(--pad);background:var(--panel);border-top:1px solid var(--line)}
+.opt-more{margin-left:10px;color:var(--info);border-bottom:1px dotted var(--info);cursor:help;white-space:nowrap}
+.opt-expiry-ctl{display:inline-flex;align-items:center;gap:4px}
+.opt-step{width:28px;padding:0;font-size:var(--fs-title);line-height:1}
+.select.opt-expiry{max-width:31ch}
+.opt-chip{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--text-2);white-space:nowrap}
+
+/* ---------- OPTS: the chain ---------- */
+.opt-main{flex:1 1 auto;min-height:0;min-width:0;display:flex}
+.opt-box{position:relative;flex:1 1 auto;min-height:0;min-width:0;overflow:auto;background:var(--bg)}
+/* open interest / volume by strike: only where the chain leaves room for it (a 1920 px screen) */
+.opt-side{display:none;flex:0 0 clamp(400px,29%,560px);min-width:0;min-height:0;flex-direction:column;gap:8px;padding:8px;
+  border-left:1px solid var(--line)}
+.opt-side .panel{flex:1 1 0}
+@media (min-width:1700px){.opt-side{display:flex}}
+.opt-chain th,.opt-chain td{padding:0 8px}
+@media (max-width:1365px){.opt-chain th,.opt-chain td{padding:0 5px}}
+.opt-chain thead tr.grp th{top:0;height:24px;text-align:center;font-weight:700;letter-spacing:.16em;color:var(--text-2);border-bottom:0}
+.opt-chain thead tr.cols th{top:24px}
+.opt-chain thead tr.grp th:nth-child(2),.opt-chain thead tr.cols th[data-col="k"]{text-align:center;
+  border-left:1px solid var(--line-2);border-right:1px solid var(--line-2)}
+.opt-chain td.itm{background:var(--panel-2)}
+.opt-chain td.k{text-align:center;font-weight:700;background:var(--panel);
+  border-left:1px solid var(--line-2);border-right:1px solid var(--line-2)}
+.opt-chain td.k .k-atm{margin-left:8px;padding:0 4px;border:1px solid var(--amber);border-radius:var(--radius);
+  color:var(--amber);font-size:var(--fs-min);font-weight:700;letter-spacing:.06em}
+.opt-chain tr.atm td{border-top:1px solid var(--amber);border-bottom:1px solid var(--amber)}
+.opt-chain tr.atm td.k{color:var(--amber)}
+.opt-chain tbody tr:hover td{background:var(--line)}
+.opt-chain tbody tr.sel td{background:var(--sel-bg)}
+
+/* ---------- shared: panels that hold a canvas ---------- */
+.opt-plot{overflow:hidden;padding:6px 8px 4px}
+.opt-hint{margin-left:auto;font-size:var(--fs-min);color:var(--text-3);letter-spacing:0;text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opt-sp{flex:1}
+.opt-origin{margin-left:auto;align-self:center}
+.panel-head .ot-tabs{text-transform:none;letter-spacing:0}
+
+/* ---------- VOLS: smile | term structure over the surface ---------- */
+.vol-grid{flex:1 1 auto;min-height:0;display:grid;gap:8px;padding:8px;
+  grid-template-columns:minmax(0,3fr) minmax(0,2fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+.vol-grid .vol-heat{grid-column:1 / -1}
+
+/* ---------- GREEKS: four charts ---------- */
+.grk-grid{flex:1 1 auto;min-height:0;display:grid;gap:8px;padding:8px;
+  grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
+
+/* ---------- GEX: bars | profile over the by-expiry table ---------- */
+.gex-grid{flex:1 1 auto;min-height:0;display:grid;gap:8px;padding:8px;
+  grid-template-columns:minmax(0,3fr) minmax(0,2fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+.gex-grid .gex-bars{grid-row:1 / -1}
+.gex-table th,.gex-table td{padding:0 8px}
+@media (max-width:1599px){.gex-table [data-col="call"],.gex-table [data-col="put"]{display:none}}
+.gex-formula{flex:none;padding:6px var(--pad) 2px;background:var(--panel);border-top:1px solid var(--line);color:var(--text)}
+.opt-wrap .gex-formula + .opt-foot{border-top:0;padding-top:0}
