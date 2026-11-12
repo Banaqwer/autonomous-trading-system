@@ -5,6 +5,8 @@ from __future__ import annotations
 import sqlite3, os, time, json
 
 DB = os.path.join(os.path.dirname(__file__), "factory.db")
+SNAPSHOT = os.path.join(os.path.dirname(__file__), "track_record.json")  # committed, portable
+_TABLES = ("predictions", "proposals", "runs")
 
 def _conn():
     c = sqlite3.connect(DB); c.row_factory = sqlite3.Row; return c
@@ -26,6 +28,41 @@ def init_db():
       n_signals INTEGER, n_edges INTEGER, n_new INTEGER, n_resolved INTEGER, duration REAL);
     """)
     c.commit(); c.close()
+    # Portable track record: on a fresh machine the gitignored DB is empty, so
+    # restore from the committed snapshot once. Never overwrites existing rows;
+    # set OPENQUANT_NO_AUTOSEED=1 to skip (tests).
+    if not os.environ.get("OPENQUANT_NO_AUTOSEED"):
+        try:
+            restore_from_snapshot()
+        except Exception:
+            pass
+
+def restore_from_snapshot(path=None, force=False):
+    """Load track_record.json into the DB. By default only when DB is empty.
+    Returns the number of rows inserted. Safe no-op if the snapshot is absent."""
+    path = path or SNAPSHOT
+    if not os.path.exists(path):
+        return 0
+    c = _conn()
+    empty = c.execute("SELECT COUNT(*) FROM predictions").fetchone()[0] == 0
+    if not empty and not force:
+        c.close(); return 0
+    with open(path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    total = 0
+    for t in _TABLES:
+        rows = data.get("tables", {}).get(t, [])
+        if not rows:
+            continue
+        valid = {r["name"] for r in c.execute(f"PRAGMA table_info({t})")}
+        for r in rows:
+            cols = [k for k in r if k in valid]
+            ph = ",".join("?" * len(cols))
+            c.execute(f"INSERT OR REPLACE INTO {t}({','.join(cols)}) VALUES({ph})",
+                      tuple(r[k] for k in cols))
+            total += 1
+    c.commit(); c.close()
+    return total
 
 # ---- predictions ----
 def has_open(instrument, direction, source):

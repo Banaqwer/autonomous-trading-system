@@ -95,7 +95,8 @@ python examples/demo.py
 |---|---|
 | `terminal/backend/config.py` (live keys) | Section 3 above |
 | `keys.local.env` (private key source) | Keep your own copy; it's gitignored |
-| `*.db`, `store.json` (accuracy history, seeded paper trades) | Regenerated on first run; the recorded history resets. Back these up if you want to keep the track record. |
+| `factory.db` (live accuracy DB) | **Auto-restores** from the committed `quantpad/backend/track_record.json` on first run. After a factory run, persist new history with `python3 scripts/track_record.py export` then commit the JSON. |
+| `*.db`, `store.json` (other runtime state) | Regenerated on first run. |
 | The **old** repo contents (Hurst trading system + ~215 photos) | Still in git history at commit `92b4f82` until GitHub garbage-collects it: `git clone … old && cd old && git checkout 92b4f82` |
 
 ---
