@@ -20,6 +20,11 @@ Every feed is ONE connection attempt wrapped by `supervise()`:
     with exponential backoff + jitter (reset once a connection has stayed healthy);
   * a feed that goes silent for STALL_SECONDS is treated as dead and reconnected,
     so a half-open socket can't freeze the stream;
+  * health is judged on normalized events actually delivered, not on raw frames:
+    a connection that is open (or only sent a subscribe ack) but carries no data
+    is reported unhealthy and keeps backing off;
+  * sessions that are accepted and then yield nothing, several times in a row
+    (typical of a revoked API key), drop to a slow retry instead of hammering;
   * one malformed message is counted and skipped, it never drops the connection;
   * feeds are independent: one failing never touches the others or the server;
   * only cancellation (shutdown) or a permanent condition (no API key, missing
@@ -44,7 +49,9 @@ DEFAULT_STALL = 60.0
 OPEN_TIMEOUT = 15.0     # connect + handshake budget
 BACKOFF_MIN = 1.0       # first retry delay (seconds)
 BACKOFF_MAX = 60.0      # retry delay ceiling
-HEALTHY_AFTER = 30.0    # a session that stayed live this long resets the backoff
+HEALTHY_AFTER = 30.0    # a session that delivered data for this long resets the backoff
+EMPTY_SESSIONS_SLOW = 5     # this many accepted-but-empty sessions in a row => slow retry
+BACKOFF_MAX_EMPTY = 600.0   # ...with this ceiling (bad key / dead subscription)
 MAX_QUEUE = 20000       # if the consumer stalls, drop events instead of eating RAM
 
 
@@ -62,14 +69,19 @@ STATUS: dict[str, dict] = {}
 
 def _st(name: str) -> dict:
     return STATUS.setdefault(name, {
-        "state": "idle",          # idle | connecting | live | backoff | disabled | stopped
+        # idle | connecting | connected (open, no data yet) | live (data flowing)
+        # | backoff | disabled | stopped
+        "state": "idle",
         "connects": 0,            # successful connections
         "reconnects": 0,          # sessions that ended and were retried
-        "messages": 0,
+        "messages": 0,            # raw frames received (incl. acks, ignored types)
+        "events": 0,              # normalized events produced from those frames
         "bad_messages": 0,        # unparseable/unexpected payloads (skipped)
         "dropped_events": 0,      # shed because the output queue was full
+        "empty_sessions": 0,      # consecutive sessions that connected but gave no events
         "connected_at": None,
         "last_message_at": None,
+        "last_event_at": None,
         "last_error": None,
         "last_error_at": None,
         "retry_in": None,
@@ -78,13 +90,14 @@ def _st(name: str) -> dict:
 
 def snapshot() -> dict:
     """Per-feed state for monitoring. `ok` is True when every enabled feed is live
-    and has produced data recently."""
+    and has delivered an event recently (raw frames such as acks do not count)."""
     now = time.time()
     feeds = {}
     for name, st in STATUS.items():
         d = dict(st)
-        last = st.get("last_message_at")
-        d["seconds_since_message"] = round(now - last, 1) if last else None
+        last_msg, last = st.get("last_message_at"), st.get("last_event_at")
+        d["seconds_since_message"] = round(now - last_msg, 1) if last_msg else None
+        d["seconds_since_event"] = round(now - last, 1) if last else None
         stall = STALL_SECONDS.get(name, DEFAULT_STALL)
         d["healthy"] = (st["state"] == "disabled") or (
             st["state"] == "live" and last is not None and now - last <= stall)
@@ -122,7 +135,8 @@ async def _session(name: str, url: str, out: asyncio.Queue, handle, subscribe=No
         if subscribe is not None:
             await ws.send(json.dumps(subscribe))
         st["connects"] += 1
-        st.update(state="live", connected_at=time.time(), retry_in=None)
+        # "connected", not "live": the socket is open but nothing proves data flows yet
+        st.update(state="connected", connected_at=time.time(), retry_in=None, last_event_at=None)
         log.info("%s: connected", name)
         while True:
             try:
@@ -134,6 +148,9 @@ async def _session(name: str, url: str, out: asyncio.Queue, handle, subscribe=No
             try:
                 for ev in handle(json.loads(raw)):
                     _emit(out, ev, st)
+                    st["events"] += 1
+                    st["last_event_at"] = time.time()
+                    st["state"] = "live"
             except FeedError:
                 raise
             except Exception as e:      # one bad payload must not cost the connection
@@ -155,7 +172,7 @@ async def supervise(name: str, session_factory):
     while True:
         st["state"] = "connecting"
         st["connected_at"] = None
-        seen = st["messages"]
+        seen = st["events"]
         try:
             await session_factory()
             err = "connection ended"
@@ -168,12 +185,23 @@ async def supervise(name: str, session_factory):
             return
         except Exception as e:
             err = f"{type(e).__name__}: {e}".strip().rstrip(":")[:300]
-        # a session that was live AND delivering data for a while earns a fresh (fast)
-        # retry; one that connected but stayed silent keeps backing off
-        connected_at = st.get("connected_at")
-        if (connected_at and st["messages"] > seen
-                and time.time() - connected_at >= HEALTHY_AFTER):
+        # A session earns a fresh (fast) retry only if data actually flowed for a
+        # while: measured from connect to the LAST DELIVERED EVENT, so "one ack, then
+        # silence until the stall timer" does not count.
+        connected_at, last_event = st.get("connected_at"), st.get("last_event_at")
+        delivered = st["events"] > seen
+        if delivered and connected_at and last_event and last_event - connected_at >= HEALTHY_AFTER:
             backoff = BACKOFF_MIN
+        # Accepted but empty, repeatedly: almost always a rejected key or a dead
+        # subscription, which retrying fast cannot fix. (A failed CONNECT is an outage
+        # and is not counted: recovery from those must stay quick.)
+        if connected_at and not delivered:
+            st["empty_sessions"] += 1
+            err += " (connected but received no data: check API key / subscription)"
+        elif delivered:
+            st["empty_sessions"] = 0
+        ceiling = BACKOFF_MAX_EMPTY if st["empty_sessions"] >= EMPTY_SESSIONS_SLOW else BACKOFF_MAX
+        backoff = min(backoff, ceiling)
         delay = random.uniform(backoff * 0.5, backoff)
         st["reconnects"] += 1
         st.update(state="backoff", last_error=err, last_error_at=time.time(), retry_in=round(delay, 2))
@@ -183,7 +211,7 @@ async def supervise(name: str, session_factory):
         except asyncio.CancelledError:      # shutdown while waiting to retry
             st.update(state="stopped", retry_in=None)
             raise
-        backoff = min(backoff * 2, BACKOFF_MAX)
+        backoff = min(backoff * 2, ceiling)
 
 
 # ------------------------------------------------------------------- the feeds
@@ -207,6 +235,8 @@ def _binance_events(m):
 def _deribit_events(m):
     if m.get("error"):                       # e.g. subscription rejected
         raise FeedError(f"deribit error: {m['error']}")
+    if m.get("id") == 1 and m.get("result") == []:     # ack that subscribed to nothing
+        raise FeedError("deribit accepted the request but subscribed to no channels")
     if m.get("method") == "subscription":
         p = m["params"]["data"]
         yield {"type": "ticker", "src": "deribit", "sym": p.get("instrument_name"),

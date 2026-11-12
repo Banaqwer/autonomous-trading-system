@@ -14,8 +14,8 @@ try:
     import config  # baked-in keys (gitignored)
 except Exception:
     pass
-import os, asyncio, json, logging
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+import os, asyncio, contextlib, json, logging
+from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -79,8 +79,9 @@ def _spawn(name, factory):
     t.add_done_callback(_bg_tasks.discard)
     return t
 
-@app.on_event("startup")
-async def _start_hub():
+@contextlib.asynccontextmanager
+async def _lifespan(_app):
+    """Start the merged stream on startup; cancel it cleanly on shutdown."""
     central: asyncio.Queue = asyncio.Queue()
     async def fanout():
         while True:
@@ -90,12 +91,15 @@ async def _start_hub():
                     q.put_nowait(ev)
     _spawn("stream-hub", lambda: stream_hub.run_hub(central))
     _spawn("stream-fanout", fanout)
+    try:
+        yield
+    finally:
+        tasks = list(_bg_tasks)
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
-@app.on_event("shutdown")
-async def _stop_hub():
-    for t in list(_bg_tasks):
-        t.cancel()
-    await asyncio.gather(*_bg_tasks, return_exceptions=True)
+app.router.lifespan_context = _lifespan
 
 @app.get("/api/stream_status")
 def stream_status():
@@ -108,15 +112,25 @@ async def ws(sock: WebSocket):
     await sock.accept()
     q: asyncio.Queue = asyncio.Queue()
     _clients.add(q)
-    try:
+
+    async def pump():                       # server -> client
         while True:
-            ev = await q.get()
-            await sock.send_text(json.dumps(ev))
-    except WebSocketDisconnect:
-        pass
-    except Exception:
-        pass        # client vanished mid-send (reset, closed tab) — just drop it
+            await sock.send_text(json.dumps(await q.get()))
+
+    async def watch():
+        # Only receive() reports a close while nothing is being sent. Without it a
+        # closed tab is never reaped when the stream is quiet (feeds down), and
+        # uvicorn's graceful shutdown waits on this handler forever.
+        while (await sock.receive())["type"] != "websocket.disconnect":
+            pass                            # the page never sends; ignore anything it does
+
+    tasks = [asyncio.create_task(pump()), asyncio.create_task(watch())]
+    try:
+        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     finally:
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)   # also swallows send errors
         _clients.discard(q)
 
 # ---- MON / CHRT / FOOT ----

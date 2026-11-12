@@ -37,10 +37,12 @@ class Fake:
         self.script = script
         self.connections = 0
         self.received = []
+        self.paths = []
         self._handlers = set()
 
     async def _handler(self, ws):
         self.connections += 1
+        self.paths.append(ws.request.path)
         task = asyncio.current_task()
         self._handlers.add(task)
         try:
@@ -126,6 +128,7 @@ def fast_hub(monkeypatch):
     stream_hub.STATUS.clear()
     monkeypatch.setattr(stream_hub, "BACKOFF_MIN", 0.05)
     monkeypatch.setattr(stream_hub, "BACKOFF_MAX", 0.2)
+    monkeypatch.setattr(stream_hub, "BACKOFF_MAX_EMPTY", 0.2)
     monkeypatch.setattr(stream_hub, "OPEN_TIMEOUT", 2.0)
     monkeypatch.setattr(stream_hub, "STALL_SECONDS", {"binance": 5.0, "deribit": 5.0, "ais": 5.0})
     monkeypatch.delenv("AISSTREAM_API_KEY", raising=False)
@@ -157,8 +160,12 @@ def test_reconnects_after_abrupt_drop(monkeypatch):
         async with Fake(drop_after_3) as b, Fake(steady_tickers) as d:
             point(monkeypatch, b.url(), d.url())
             async with running_hub() as (q, task):
-                await wait_until(lambda: b.connections >= 4, what="4 binance connections")
+                await wait_until(lambda: b.connections >= 4
+                                 and stream_hub._st("binance")["connects"] >= 4,
+                                 what="4 binance connections")
                 assert not task.done(), "hub must survive a dropped socket"
+                assert b.paths[0] == ("/?streams=btcusdt@aggTrade/btcusdt@depth20@100ms/btcusdt@kline_1m"
+                                      "/ethusdt@aggTrade/ethusdt@depth20@100ms/ethusdt@kline_1m")
                 st = stream_hub.STATUS["binance"]
                 assert st["reconnects"] >= 3 and st["connects"] >= 4
                 assert st["last_error"]
@@ -383,6 +390,9 @@ def test_backoff_doubles_with_jitter_and_caps(monkeypatch):
     monkeypatch.setattr(stream_hub, "BACKOFF_MIN", 1.0)
     monkeypatch.setattr(stream_hub, "BACKOFF_MAX", 8.0)
     delays = _record_sleeps(monkeypatch, stop_after=7)
+    real_uniform, ranges = stream_hub.random.uniform, []
+    monkeypatch.setattr(stream_hub.random, "uniform",
+                        lambda a, b: (ranges.append((a, b)), real_uniform(a, b))[1])
 
     async def always_fails():
         raise ConnectionRefusedError("nope")
@@ -393,35 +403,100 @@ def test_backoff_doubles_with_jitter_and_caps(monkeypatch):
     run(main())
     for d, ceiling in zip(delays, [1, 2, 4, 8, 8, 8, 8]):
         assert ceiling * 0.5 <= d <= ceiling, (delays, ceiling)
+    assert ranges == [(c * 0.5, c) for c in (1.0, 2.0, 4.0, 8.0, 8.0, 8.0, 8.0)], \
+        "each retry is drawn from [backoff/2, backoff] so feeds do not retry in lockstep"
+    assert len(set(delays)) > 1
     st = stream_hub.STATUS["x"]
     assert st["reconnects"] == 7 and st["state"] == "stopped"
     assert st["last_error"] == "ConnectionRefusedError: nope"
+    assert st["empty_sessions"] == 0, "a failed connect is an outage, not an empty session"
 
 
-def test_backoff_resets_only_after_a_healthy_session(monkeypatch):
+def test_backoff_resets_only_after_data_flowed_for_a_while(monkeypatch):
     monkeypatch.setattr(stream_hub, "BACKOFF_MIN", 1.0)
     monkeypatch.setattr(stream_hub, "BACKOFF_MAX", 64.0)
     monkeypatch.setattr(stream_hub, "HEALTHY_AFTER", 30.0)
-    delays = _record_sleeps(monkeypatch, stop_after=6)
+    delays = _record_sleeps(monkeypatch, stop_after=7)
     calls = {"n": 0}
 
     async def session():
         calls["n"] += 1
         st = stream_hub._st("y")
-        if calls["n"] == 4:           # 4th session: live for a minute and delivering data
-            st["connected_at"] = stream_hub.time.time() - 60
-            st["messages"] += 100
-        elif calls["n"] == 5:         # 5th: connected for a minute but totally silent
-            st["connected_at"] = stream_hub.time.time() - 60
+        now = stream_hub.time.time()
+        if calls["n"] == 4:           # data flowed for a minute, then dropped  -> reset
+            st.update(connected_at=now - 60, last_event_at=now); st["events"] += 100
+        elif calls["n"] == 5:         # connected for a minute, never sent anything
+            st.update(connected_at=now - 60)
+        elif calls["n"] == 6:         # one event right after connecting, then 60s of silence
+            st.update(connected_at=now - 60, last_event_at=now - 59.9); st["events"] += 1
         raise ConnectionResetError("dropped")
 
     async def main():
         with pytest.raises(asyncio.CancelledError):
             await stream_hub.supervise("y", session)
     run(main())
-    ceilings = [1, 2, 4, 1, 2, 4]     # reset after #4 (healthy); NOT after #5 (silent)
+    ceilings = [1, 2, 4, 1, 2, 4, 8]     # reset after #4 only; #5 and #6 keep backing off
     for d, c in zip(delays, ceilings):
         assert c * 0.5 <= d <= c, (delays, ceilings)
+
+
+def test_repeated_empty_sessions_fall_back_to_a_slow_retry(monkeypatch):
+    """Accepted-then-nothing over and over is a bad key or dead subscription:
+    stop retrying every minute. A failed connect must NOT trigger this."""
+    monkeypatch.setattr(stream_hub, "BACKOFF_MIN", 1.0)
+    monkeypatch.setattr(stream_hub, "BACKOFF_MAX", 4.0)
+    monkeypatch.setattr(stream_hub, "BACKOFF_MAX_EMPTY", 64.0)
+    monkeypatch.setattr(stream_hub, "EMPTY_SESSIONS_SLOW", 3)
+    delays = _record_sleeps(monkeypatch, stop_after=9)
+
+    async def accepted_then_dropped():
+        stream_hub._st("k").update(connected_at=stream_hub.time.time())
+        raise ConnectionResetError("closed")
+
+    async def main():
+        with pytest.raises(asyncio.CancelledError):
+            await stream_hub.supervise("k", accepted_then_dropped)
+    run(main())
+    for d, c in zip(delays, [1, 2, 4, 8, 16, 32, 64, 64, 64]):   # ceiling lifts at the 3rd
+        assert c * 0.5 <= d <= c, delays
+    st = stream_hub.STATUS["k"]
+    assert st["empty_sessions"] == 9
+    assert "received no data" in st["last_error"]
+
+
+def test_ack_only_session_is_not_reported_healthy(monkeypatch):
+    """Deribit can accept the subscription and then publish nothing. A raw ack
+    frame must not make the feed look live or healthy."""
+    monkeypatch.setattr(stream_hub, "STALL_SECONDS", {"binance": 5.0, "deribit": 0.3})
+
+    async def ack_then_silence(fake, ws, n):
+        req = json.loads(await ws.recv())
+        await ws.send(json.dumps({"jsonrpc": "2.0", "id": 1, "result": req["params"]["channels"]}))
+        await asyncio.sleep(3600)
+
+    async def main():
+        async with Fake(steady_trades) as b, Fake(ack_then_silence) as d:
+            point(monkeypatch, b.url(), d.url())
+            async with running_hub() as (q, task):
+                st = stream_hub._st("deribit")
+                seen_states, healthy = set(), []
+                def sample():
+                    seen_states.add(st["state"])
+                    healthy.append(stream_hub.snapshot()["feeds"]["deribit"]["healthy"])
+                    return st["reconnects"] >= 3
+                await wait_until(sample, what="deribit ack-only sessions recycled")
+                assert st["messages"] >= 3 and st["events"] == 0
+                assert "live" not in seen_states and "connected" in seen_states
+                assert not any(healthy) and stream_hub.snapshot()["ok"] is False
+                assert "stalled" in st["last_error"] and "received no data" in st["last_error"]
+                assert stream_hub.snapshot()["feeds"]["binance"]["healthy"] is True
+    run(main())
+
+
+def test_deribit_empty_subscription_is_an_error(monkeypatch):
+    with pytest.raises(stream_hub.FeedError):
+        list(stream_hub._deribit_events({"jsonrpc": "2.0", "id": 1, "result": []}))
+    assert list(stream_hub._deribit_events({"jsonrpc": "2.0", "id": 1, "result": ["ticker.x"]})) == []
 
 
 def test_permanent_condition_disables_without_retry():
@@ -435,11 +510,48 @@ def test_permanent_condition_disables_without_retry():
     assert st["state"] == "disabled" and st["reconnects"] == 0 and st["last_error"] == "no key"
 
 
-def test_snapshot_reports_stale_live_feed_as_unhealthy():
+def test_snapshot_judges_health_on_delivered_events():
     st = stream_hub._st("binance")
-    st.update(state="live", last_message_at=stream_hub.time.time() - 1)
+    now = stream_hub.time.time()
+    st.update(state="live", last_message_at=now, last_event_at=now - 1)
     assert stream_hub.snapshot()["ok"] is True
-    st["last_message_at"] = stream_hub.time.time() - 10_000
+    st["last_event_at"] = now - 10_000                    # frames still arriving, no events
     snap = stream_hub.snapshot()
     assert snap["ok"] is False and snap["feeds"]["binance"]["healthy"] is False
-    assert stream_hub.snapshot.__doc__ and snap["feeds"]["binance"]["seconds_since_message"] > 9_000
+    assert snap["feeds"]["binance"]["seconds_since_event"] > 9_000
+    assert snap["feeds"]["binance"]["seconds_since_message"] < 5
+    st.update(state="connected", last_event_at=None)       # open socket, nothing delivered yet
+    assert stream_hub.snapshot()["feeds"]["binance"]["healthy"] is False
+
+
+# ---- normalized event shapes (the contract terminal/web/openterm.html consumes) ----
+def test_binance_event_shapes():
+    ev = lambda frame: list(stream_hub._binance_events(frame))
+    assert ev({"stream": "btcusdt@aggTrade",
+               "data": {"s": "BTCUSDT", "p": "100.5", "q": "2", "m": True, "T": 1700000000123}}) == [
+        {"type": "trade", "src": "binance", "sym": "BTCUSDT", "px": 100.5, "qty": 2.0,
+         "buy": False, "t": 1700000000123}]
+    assert ev({"stream": "btcusdt@depth20@100ms",
+               "data": {"bids": [["100.0", "1.5"], ["99.5", "2.0"]],
+                        "asks": [["100.5", "0.5"], ["101.0", "3.0"]]}}) == [
+        {"type": "book", "src": "binance", "sym": "BTCUSDT",
+         "bids": [[100.0, 1.5], [99.5, 2.0]], "asks": [[100.5, 0.5], [101.0, 3.0]]}]
+    assert ev({"stream": "ethusdt@kline_1m", "data": {"s": "ETHUSDT", "k": {
+        "t": 1700000040000, "o": "10", "h": "12", "l": "9", "c": "11", "v": "7.5"}}}) == [
+        {"type": "kline", "src": "binance", "sym": "ETHUSDT", "o": 10.0, "h": 12.0, "l": 9.0,
+         "c": 11.0, "v": 7.5, "t": 1700000040}]                      # kline time is SECONDS
+    assert ev({"stream": "btcusdt@somethingElse", "data": {}}) == []
+
+
+def test_deribit_event_shapes():
+    def frame(**data):
+        return {"jsonrpc": "2.0", "method": "subscription",
+                "params": {"channel": "ticker.BTC-PERPETUAL.100ms", "data": data}}
+    ev = lambda f: list(stream_hub._deribit_events(f))
+    assert ev(frame(instrument_name="BTC-PERPETUAL", mark_price=100.0, last_price=99.0,
+                    mark_iv=55.0, timestamp=1700000000000)) == [
+        {"type": "ticker", "src": "deribit", "sym": "BTC-PERPETUAL", "px": 100.0,
+         "iv": 55.0, "t": 1700000000000}]
+    assert ev(frame(instrument_name="X", mark_price=None, last_price=99.0))[0]["px"] == 99.0
+    assert ev(frame(instrument_name="X", mark_price=0, last_price=98.0))[0]["px"] == 98.0
+    assert ev({"jsonrpc": "2.0", "method": "heartbeat", "params": {"type": "test_request"}}) == []
