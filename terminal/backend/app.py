@@ -14,7 +14,7 @@ try:
     import config  # baked-in keys (gitignored)
 except Exception:
     pass
-import os, asyncio, json
+import os, asyncio, json, logging
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -44,13 +44,40 @@ def health():
                "USDA_API_KEY", "FINNHUB_API_KEY", "TWELVEDATA_API_KEY",
                "TIINGO_API_KEY", "ALPHAVANTAGE_API_KEY", "SENTINELHUB_INSTANCE_ID")
     keys = {k: bool(os.environ.get(k)) for k in watched}
+    stream = stream_hub.snapshot()
     return {"ok": True,
             "no_key_live": ["deribit", "binance", "nhc", "french", "gibs", "open-meteo",
                             "sec-edgar", "gdelt", "world-bank", "un-comtrade"],
-            "keys_present": keys, "ws": "/ws"}
+            "keys_present": keys, "ws": "/ws",
+            "stream": {"ok": stream["ok"],
+                       "feeds": {n: f["state"] for n, f in stream["feeds"].items()}}}
 
 # ---------------- merged live stream (/ws) ----------------
 _clients: set[asyncio.Queue] = set()
+_bg_tasks: set[asyncio.Task] = set()   # strong refs: asyncio only keeps weak ones, so an
+                                       # unreferenced task can be garbage-collected mid-run
+_log = logging.getLogger("uvicorn.error").getChild("gateway")
+
+async def _forever(name, factory):
+    """Keep a background coroutine alive: if it ever raises, log and restart it.
+    A normal return means it has nothing left to do (e.g. every feed is
+    permanently disabled); cancellation (shutdown) stops it."""
+    while True:
+        try:
+            await factory()
+            _log.warning("%s finished (nothing left to run)", name)
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            _log.exception("%s crashed; restarting", name)
+        await asyncio.sleep(1)
+
+def _spawn(name, factory):
+    t = asyncio.create_task(_forever(name, factory), name=name)
+    _bg_tasks.add(t)
+    t.add_done_callback(_bg_tasks.discard)
+    return t
 
 @app.on_event("startup")
 async def _start_hub():
@@ -59,10 +86,22 @@ async def _start_hub():
         while True:
             ev = await central.get()
             for q in list(_clients):
-                if q.qsize() < 500:
+                if q.qsize() < 500:        # slow client: shed its events, never block the rest
                     q.put_nowait(ev)
-    asyncio.create_task(stream_hub.run_hub(central))
-    asyncio.create_task(fanout())
+    _spawn("stream-hub", lambda: stream_hub.run_hub(central))
+    _spawn("stream-fanout", fanout)
+
+@app.on_event("shutdown")
+async def _stop_hub():
+    for t in list(_bg_tasks):
+        t.cancel()
+    await asyncio.gather(*_bg_tasks, return_exceptions=True)
+
+@app.get("/api/stream_status")
+def stream_status():
+    """Per-feed health of the merged live stream (state, reconnects, last error,
+    seconds since last message). `ok` is False if any enabled feed is not live."""
+    return {**stream_hub.snapshot(), "clients": len(_clients)}
 
 @app.websocket("/ws")
 async def ws(sock: WebSocket):
@@ -75,6 +114,8 @@ async def ws(sock: WebSocket):
             await sock.send_text(json.dumps(ev))
     except WebSocketDisconnect:
         pass
+    except Exception:
+        pass        # client vanished mid-send (reset, closed tab) — just drop it
     finally:
         _clients.discard(q)
 

@@ -2,4 +2,5 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 # optional provider deps:
 lse-data        # London Strategic Edge SDK (needs LSE_API_KEY)
-websockets      # AISStream live vessel feed (needs AISSTREAM_API_KEY)
+websockets>=13  # merged live stream /ws (Binance, Deribit, AISStream); feeds disable themselves without it
+# tests:  pip install pytest   then   cd terminal/backend && python -m pytest tests -q
