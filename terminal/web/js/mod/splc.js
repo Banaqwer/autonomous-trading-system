@@ -243,7 +243,6 @@ async function load() {
     const d = await OT.api('/api/supply/oil', null, { timeout: 45000 });
     S.loadedAt = Date.now(); S.nextAt = S.loadedAt + pollMs(d); S.error = null;
     if (ok()) { ctx.state(null); render(d); } else S.data = d;      // answered after the user left: show() renders it on return
-    else S.data = d;
   } catch (e) {
     if (!(e instanceof OT.ApiError)) throw e;
     S.error = e; S.nextAt = Date.now() + Math.max(30, e.retryAfter || 60) * 1000;

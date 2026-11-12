@@ -1,1 +1,85 @@
-/* sat slice styles — owned by the slice agent. Use the tokens from terminal.css; no hard-coded colours or sizes. */
+/* S5 slice styles — SAT (Satellite) and SHIP (Vessels/AIS). Tokens only; no hard-coded colours. */
+
+/* ============================== SAT ============================== */
+.sat{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:8px;padding:8px}
+.sat-img{overflow:hidden}
+.sat-imgbox{position:relative;flex:1 1 auto;min-width:0;min-height:0;background:var(--bg)}
+.sat-imgbox>canvas{position:absolute;inset:0;cursor:grab}  /* out of flow: the backing pixel size must never feed back into the box */
+.sat-side{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto}
+.sat-scene{flex:0 0 auto}
+.sat-storage{flex:1 1 auto;min-height:0}
+.sat .panel-body{padding:10px;display:flex;flex-direction:column;gap:8px}
+
+.sat-kv{grid-template-columns:auto 1fr;gap:4px 14px}
+.sat-kv dt{font-size:var(--fs-sm)}
+.sat-sceneid{font-family:var(--mono);font-size:var(--fs-min);color:var(--text-3);
+  max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+
+.sat-dates-head,.sat-sub-head{font-size:var(--fs-min);color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+.sat-dates{display:flex;flex-wrap:wrap;gap:5px}
+.sat-date{flex-direction:column;height:auto;padding:4px 7px;line-height:1.15;gap:1px}
+.sat-date-d{font-size:var(--fs-sm);font-weight:600}
+.sat-date-c{font-size:var(--fs-min);color:var(--text-3)}
+.sat-date.sel{border-color:var(--amber);color:var(--amber)}
+.sat-date.sel .sat-date-c{color:var(--amber)}
+.sat-checked{font-size:var(--fs-min);color:var(--text-3)}
+
+.sat-st-meta{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:var(--fs-min);color:var(--text-3)}
+.sat-st-title{font-size:var(--fs-sm);color:var(--text-2)}
+.sat-st-row{display:flex;align-items:baseline;gap:4px}
+.sat-st-val{font-size:var(--fs-key);font-weight:700;font-variant-numeric:tabular-nums}
+.sat-st-unit{font-size:var(--fs-sm);color:var(--text-3)}
+.sat-st-chg{font-size:var(--fs-data);font-variant-numeric:tabular-nums}
+.sat-st-week{font-size:var(--fs-min)}
+.sat-st-chart{flex:1 1 auto;min-height:84px;position:relative}
+.sat-st-chart>canvas{position:absolute;inset:0}
+.sat-st-none{font-size:var(--fs-sm)}
+
+/* ============================== SHIP ============================== */
+.ship{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:8px;padding:8px}
+.ship-map{overflow:hidden}
+.ship-strip{flex:none}
+.ship-cv{position:relative;flex:1 1 auto;min-width:0;min-height:0;background:var(--bg)}
+.ship-cv>canvas{position:absolute;inset:0;cursor:grab}  /* out of flow: the backing pixel size must never feed back into the box */
+.ship-ctl{position:absolute;top:8px;left:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;z-index:2}
+.ship-ctl .btn{background:var(--panel-2);box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.ship-cursor{font-family:var(--mono);font-size:var(--fs-min);color:var(--text);background:var(--panel-2);
+  border:1px solid var(--line);border-radius:3px;padding:2px 6px;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+
+.ship-side{display:flex;flex-direction:column;gap:8px;min-height:0}
+.ship-counts{flex:0 0 auto}
+.ship-list{flex:1 1 auto;min-height:0}
+.ship-count-sub{font-size:var(--fs-min);color:var(--text-3);margin-left:auto}
+.ship .panel-body{padding:10px}
+.ship-counts .panel-body{display:flex;flex-direction:column;gap:7px}
+.ship-big{font-size:var(--fs-key);font-weight:700;font-variant-numeric:tabular-nums}
+.ship-coverage{font-size:var(--fs-min);color:var(--text-2)}
+.ship-sub-head{font-size:var(--fs-min);color:var(--text-3);text-transform:uppercase;letter-spacing:.04em}
+.ship-chips{display:flex;flex-wrap:wrap;gap:5px}
+.ship-chip{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-min);color:var(--text-2);
+  background:var(--panel-2);border:1px solid var(--line);border-radius:3px;padding:2px 6px}
+.ship-chip b{color:var(--text);font-variant-numeric:tabular-nums}
+.ship-chip-dot{width:8px;height:8px;border-radius:50%;flex:none}
+.ship-regions{display:flex;flex-direction:column;gap:2px}
+.ship-region{display:flex;justify-content:space-between;gap:10px;font-size:var(--fs-sm)}
+.ship-region-n{color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ship-region b{font-variant-numeric:tabular-nums}
+.ship-list-body{padding:0;display:flex;flex-direction:column;min-height:0}
+.ship-tblbox{flex:1 1 auto;min-height:0;overflow:auto}
+.ship-dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:middle;flex:none}
+.ship-name{vertical-align:middle}
+
+/* tooltips (rendered inside .ot-tip) */
+.ship-tip{min-width:180px}
+.ship-tip b{display:block;margin-bottom:3px;color:var(--text)}
+.ship-tip-row{display:flex;justify-content:space-between;gap:14px;font-size:var(--fs-min);line-height:1.5}
+.ship-tip-row .muted{color:var(--text-3)}
+.ship-tip-v{color:var(--text);font-variant-numeric:tabular-nums;text-align:right}
+.ship-tip-foot{margin-top:3px;font-size:var(--fs-min);color:var(--text-3)}
+
+/* ============================== responsive ============================== */
+@media (max-width:1040px){
+  .sat,.ship{grid-template-columns:1fr;grid-template-rows:minmax(220px,1fr) auto;overflow:auto}
+  .sat-side,.ship-side{overflow:visible}
+  .sat-storage,.ship-list{min-height:200px}
+}
