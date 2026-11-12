@@ -1,0 +1,487 @@
+{
+ "auditor": "front-geo-macro",
+ "summary": "Scope WX, SAT, SHIP, SPLC, NEWS, ECO, driven in LIVE mode at 1920x1080 and 1366x768 against localhost:8080. The repo was not modified; screenshots are in /tmp/tmp.nuZbCJUSqB/s1920 and /tmp/tmp.nuZbCJUSqB/s1366.\n\n1. Of the six modules, only three things on screen are real in LIVE mode: one text line of NHC storms in WX, the Sentinel-2 picture in SAT, and the AIS dots in SHIP. NEWS, ECO and SPLC are 100% simulated or hard-coded; the page only ever calls /api/health, candles, quote, storms, satellite_image, options and gex.\n2. The hurricane discrepancy is explained. \"HURRICANE KESTREL\" position depends only on seconds since that tab loaded (-0.89 deg lon, +0.30 deg lat per 650 ms tick, no bounds). The owner's two positions are 30 s and 88 s after page load. It leaves the map after 13 s and reaches impossible coordinates (97.8N, 320.7W at 174 s).\n3. The real storm today (TS Pena, 9.8N 170.6W) cannot be drawn: the WX map is a fixed Gulf box with an 11-point self-intersecting polygon as \"land\". In my run the real list appeared 32.5 s after load and is never refreshed while WX stays open.\n4. SHIP has a data bug and a false title. The 700-vessel cap evicts the lowest MMSI, not the oldest (1454 of 1454 evictions were below the held minimum). It shows all vessel types, not tankers, with zero vessels in the Persian Gulf, Singapore or East Asia. 98.4% of dots are painted on ellipse \"continents\". If AIS is silent it shows 140 synthetic ships while the status bar says LIVE.\n5. SAT shows the real image after 4.4 s, but it is a least-cloud mosaic of the last 75 days labelled \"LIVE\" with no date, stretched about 1.9x horizontally. Until it arrives (or forever on failure) a fabricated tank farm with \"EST. UTILISATION 61.1%\" is shown.\n6. NEWS headlines are 7 templates with invented sources and timestamps from a simulated clock (13:39:55Z shown at real 07:53:36Z). ECO is 8 hard-coded rows (FOMC 5.25% vs real 4.00%, ECB 3.75% vs real 2.50%).\n7. Backend routes that would feed these modules return a bare 500: /api/news, /api/calendar (LSE daily quota 12,498,946 of 12,500,000 rows used by 07:50 UTC), /api/filings (function does not exist), /api/trade (bad parameter), /api/weather (429).\n8. These six modules are not the source of slowness: ticks cost 0.2-1.9 ms, no long tasks, no leak after 600 switches. They feel dead because there is no interaction at all: zero event listeners on any canvas, no hover, zoom or pan, and rail selection is ignored.\n9. Legibility: canvas text is 9-11 px, table headers are 10 px at 2.48:1 contrast, land vs ocean contrast is 1.09:1, HUD text overflows its boxes, and ECO headers sit about 95 px away from their values.\n10. Working real replacements were tested and are in the recipes: NHC position and track, Marketaux recent news, FRED release calendar and series, EIA stocks, EDGAR 8-K, GIBS tiles, a 55 KB coastline file, Comtrade without partnerCode.",
+ "not_checked": [
+  "Windows rendering: everything was driven in headless Chromium on Linux; the serif-font problem from the brief was not re-verified, and real GPU frame rates on the owner's PC were not measured.",
+  "Why GDELT fails (connection reset after 12 s): could be this host's network egress or GDELT; not distinguished.",
+  "Whether the Open-Meteo 429, World Bank 502 and IMF 403 also occur from the owner's PC (they may be specific to this machine's shared IP).",
+  "What consumed the LSE daily row quota: the page's 5-second quote poll is a candidate but this was not proven; the LSE economic_calendar payload shape could not be inspected because of the 429.",
+  "AISStream ShipStaticData / tanker filtering: not tested (no own AISStream connection allowed).",
+  "The 10-minute vessel expiry path: not waited for; read from code only.",
+  "Copernicus failure path (missing credentials or HTTP error) in the browser: read from code only; Catalog API for a true acquisition date not tested; the proposed shifted Cushing bbox not fetched.",
+  "WX with zero or several real NHC systems: only the single active system today was seen; the multi-row and empty-list drawing was read from code only. NHC cone KMZ was not parsed (only TRACK).",
+  "WX landfall state, SPLC 'ports offline' state and the LANDFALL headline: unreachable in practice, so never seen rendered.",
+  "A live CL/WTI futures quote from LSE or any other free source: not checked.",
+  "Providers not exercised: bls, census, firms, laborcurrent, usda, datagov, dol, courtlistener, openfda, equities_fallback, fmp.earnings_calendar, lse.series/options/markets; EIA refinery runs series; Comtrade with descriptions enabled.",
+  "Rate-limited APIs: Marketaux 2 requests (budget used), FMP 1 request; Alpha Vantage, LaborCurrent and API Ninjas were not called.",
+  "Keyboard-only and touch interaction, and screen sizes below 1000x600.",
+  "A second backend instance was not started; the SIM-only page (no gateway) was not separately audited."
+ ],
+ "findings": [
+  {
+   "auditor": "front-geo-macro",
+   "area": "WX",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "The hurricane on the map is the simulator's; its position is just seconds since page load (explains the owner's two screenshots)",
+   "evidence": "stepStorm() moves STORM by -0.8905 deg lon and +0.3025 deg lat per 650 ms tick with no bounds and no LIVE check. Sampled in the browser with LIVE.on=true: 17.6N 84.7W at 1.5 s, 26.4N 110.5W at 20 s, 53.0N 188.9W at 78 s, 69.4N 237.0W at 113 s, 97.8N 320.7W (impossible) at 174 s, category 5. The owner's positions invert exactly: 30.9N 123.9W is step 56 (30 s after load), 57.9N 203.1W is step 145 (88 s after load). Every reload restarts at 14N 74W, so two tabs never agree. The storm crosses the map's west edge (100W) at step 30, 13 s after load; afterwards the map is empty but the HUD keeps counting. Name, category (1+floor(t/55)), mph, track line, cone and spiral are all simulated. WX is also the boot page (go('WX'), line 941), so this is the first thing shown.",
+   "where": "terminal/web/openterm.html:184-202 (STORM, stepStorm), 209, 547-565, 941, 948",
+   "fix": "In LIVE mode never call stepStorm() or draw STORM. Draw LIVE.storms (real lat/lon/intensity/heading/speed/updated) as the storm markers, with the NHC track from track_kmz. If there are none, show \"No active tropical cyclones (NHC, updated hh:mm)\". Keep KESTREL only in SIM mode under a visible SIMULATION banner."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "WX",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "Real NHC storms are only a text line; the map's fixed Gulf box cannot show where real storms are",
+   "evidence": "/api/storms returned 1 system in 0.38 s: TS Pena, 9.8N 170.6W, 40 kt, 1002 mb, heading 270 at 15 kt, updated 2026-11-12T03:00Z, plus cone and track KMZ URLs. The page prints only \"TS Pena 9.8N 170.6W 40kt\" in a 10 px box bottom-left (screenshot s1920/WX_t100.png). geo() hard-codes lon -100..-60, lat 8..36, so Pena, every East/Central Pacific storm and Atlantic storms east of 60W are off-map. Heading, speed, pressure, updated time, cone and track are fetched and never displayed. A null lat/lon would print \"0.0N 0.0E\".",
+   "where": "terminal/web/openterm.html:533 (geo bbox), 570-575; terminal/backend/providers/nhc.py:9-25",
+   "fix": "Use a pannable/zoomable map with a real coastline, default view fitted to the active storms (or the Atlantic/East Pacific basin when none). Plot each storm at its real position with name, class, wind, pressure, motion and advisory time. Add a backend route that unzips track_kmz/cone_kmz and returns forecast points and cone polygon as JSON."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "WX",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "Real storm list arrived 32.5 s after load and is never refreshed while WX stays open; no timestamp, silent on failure",
+   "evidence": "Request log in run 1: /api/storms first fired 32.5 s after navigation (LIVE.storms was null at 1.5, 6 and 20 s) because liveBootstrap awaits 11 sequential /api/candles calls before liveLoadStorms. 7 of those returned 500 in that run. The next /api/storms came only when I re-entered WX at 114 s. LIVE.loadStorms is called only from MODREG.WX.show and throttled to 60 s; the tick handler never calls it. Errors are swallowed by catch(e){} so a failed fetch shows nothing.",
+   "where": "terminal/web/openterm.html:577, 883-896",
+   "fix": "Fetch storms immediately on connect in parallel (Promise.all), refresh every 5-10 min from the tick while WX is open, show \"NHC advisory <updated> \u00b7 fetched <hh:mm:ss>\", and show an explicit error or stale badge on failure."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "WX",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "\"CL CRUDE WTI $73 +1.4%\" panel is a random walk, about 27% away from the real price",
+   "evidence": "LIVE_REST (lines 862-865) has no CL entry and LIVE.px.CL was undefined in the browser, so INST.CL.px is seeded at 72.1 and random-walks plus the fake storm drift (INST.CL.scen). The page showed $73.08 to $75.01. FRED DCOILWTICO via /api/macro returned 99.64 for 2026-11-03 (107.56 on 10-30). The % change is against px0, a simulated seed. Selecting another instrument in the rail leaves this panel on CL (FOCUS changed to NG, WX has no sel handler).",
+   "where": "terminal/web/openterm.html:198-200, 214-215, 567-569, 862-865",
+   "fix": "In LIVE show a real crude value with its source and date (FRED daily spot via /api/macro, labelled \"FRED spot, <date>\", or a real futures quote if LSE offers one), or \"no live source\". Never apply STORM scen drift in LIVE. Compute change from the real previous close."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "WX",
+   "category": "layout",
+   "severity": "high",
+   "title": "The map is not a map: 11-point self-intersecting \"land\" polygon, mislocated ports, window-dependent stretch, unlabelled grid",
+   "evidence": "land[] is 11 hand-typed points including a segment from (-76,35) to (-97,26) that cuts across itself. It renders as a dart shape (s1920/WX_t6.png). There is no Mexico, Yucatan, Cuba, Florida outline or Caribbean. HOUSTON is plotted at 94.1W (the city is about 95.3W), PORT ARTHUR at 93.3W (real about 93.9W). The two labels overlap at both sizes: markers 24 px apart at 1366, HOUSTON label 37.8 px wide. Projection is linear lon/lat stretched to the panel: 29.5 px/deg lon vs 23.9 px/deg lat at 1366x768, 43.4 vs 35.0 at 1920x1080, so shapes change with window size. Grid lines have no lat/lon labels. Contrast: land vs ocean 1.09:1, grid 1.12:1, coast stroke 1.68:1. No scale, legend or source label.",
+   "where": "terminal/web/openterm.html:532-546",
+   "fix": "Replace with a real basemap: Natural Earth land (world-atlas land-110m.json, 55 KB, tested) drawn in a fixed-aspect projection, or GIBS tiles. Add labelled graticule, correct port coordinates with label collision handling, a legend and a source line. Raise land/ocean contrast to at least 1.6:1 fill and 3:1 coastline."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "WX",
+   "category": "broken",
+   "severity": "medium",
+   "title": "HUD status is permanently \"OVER WATER \u2014 APPROACHING\"; landfall can never trigger; heading is a constant; text overflows the box",
+   "evidence": "Replaying stepStorm: minimum distance to the target (-94,29) is 7.77 deg at step 25, but landfall needs under 1.4, so STORM.landfall is never true (false at every sample up to 174 s). The LANDFALL headline and SPLC \"ports offline\" state are unreachable, and CL pressure peaks at 0.136. The HUD still said \"APPROACHING\" at 69.7N 237.9W. \"HEADING NW @ 11 kt\" is STORM.spd*20, a constant. measureText: the status line is 210 px in a box with 202 px inner width, and is visibly past the border in screenshots.",
+   "where": "terminal/web/openterm.html:189-201, 559-565",
+   "fix": "Remove with the simulated storm in LIVE. For real storms print NHC movementDir/movementSpeed. Size HUD boxes from measureText instead of fixed 210 px."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "WX",
+   "category": "interaction",
+   "severity": "medium",
+   "title": "No interaction on the WX map at all",
+   "evidence": "CDP DOMDebugger.getEventListeners on #mod-WX canvas returned []. Wheel, drag and double-click with ticks frozen left the canvas bitmap byte-identical. cursor is 'auto', no title or aria-label. Clicking NG in the rail changed only the FOCUS label.",
+   "where": "terminal/web/openterm.html:529-578",
+   "fix": "Add wheel zoom, drag pan, hover tooltip on storms and ports (name, wind, pressure, advisory time), click a storm to show forecast track and cone, and a reset-view button."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SAT",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "Until the real image arrives (4.4 s; forever if Copernicus fails) LIVE mode shows a fabricated tank farm with invented numbers",
+   "evidence": "s1920/SAT_before.png: 24 random circles with HUD \"TANKS OBSERVED 24 / EST. UTILISATION 61.1% (roof-shadow model)\". tanks[] is 24 rnd() entries and utilisation is the mean of random fills, animated by STORM.t. The only disclaimer is one 10 px #7d8ba0 line that is 336 px wide in a 242 px box, so it runs outside the panel. LIVE.satimg was set 4373 ms after go('SAT'). If /api/satellite_image returns ok:false or throws, catch(e){} leaves the synthetic view indefinitely with no error; retry happens only on a later show() after 120 s.",
+   "where": "terminal/web/openterm.html:583, 606-621, 897-899",
+   "fix": "In LIVE never draw the synthetic farm. Show \"Loading Sentinel-2\u2026\" then the image, or an explicit error with a retry button. Remove the fake tank count and utilisation; if a number is wanted, show EIA Cushing stocks with its date."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SAT",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "Image labelled \"SENTINEL-2 TRUE COLOR \u00b7 LIVE\" is a least-cloud mosaic of the last 75 days with no date",
+   "evidence": "copernicus.py:98 sets the default window to now minus 75 days and line 120 sets mosaickingOrder \"leastCC\". The response I fetched carried time_range 2026-08-29 to 2026-11-12, and the UI ignores it. The overlay text is hard-coded 'SAT \u00b7 SENTINEL-2 TRUE COLOR \u00b7 LIVE' / 'Cushing OK oil terminal \u00b7 Copernicus'. The image is fetched once per page load (guard !LIVE.satimg) and never refreshed.",
+   "where": "terminal/web/openterm.html:598-604, 897-899; terminal/backend/providers/copernicus.py:94-121",
+   "fix": "Drop \"LIVE\". Label it \"Sentinel-2 L2A \u00b7 least-cloud mosaic <from>\u2013<to>\", or better query the Catalog API for the most recent low-cloud scene and show its acquisition date. Add a manual refresh."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SAT",
+   "category": "layout",
+   "severity": "medium",
+   "title": "Real image is stretched about 1.9x, centred on the town rather than the tank farms, dark, with no scale, north arrow or zoom",
+   "evidence": "naturalWidth x Height 1024x1024 is drawn with drawImage(img,0,0,cv.width,cv.height) onto 1734x980. The bbox is 0.08 deg lon x 0.07 deg lat at 36N, about 7.2 x 7.8 km, so ground aspect is 0.92 but display aspect is 1.77: tanks render as wide ellipses (s1920/SAT_after.png). In the raw PNG (/tmp/tmp.nuZbCJUSqB/sat.png) the frame is centred on Cushing town; tank clusters sit at the top edge, bottom edge and SE corner and are cut off. The evalscript gain is 2.5 with no gamma, so the scene is dark. 7 m/px is requested from 10 m data. There is no site selector; the bbox is hard-coded.",
+   "where": "terminal/web/openterm.html:599, 898; terminal/backend/app.py:198; terminal/backend/providers/copernicus.py:28-39",
+   "fix": "Letterbox the image at its true ground aspect (or request w/h matching the panel and bbox aspect). Move or enlarge the bbox to cover the terminals south of town. Apply gain plus gamma. Add scale bar, north arrow, bbox coordinates, wheel zoom and drag pan, and a site picker (Cushing, LOOP, Houston Ship Channel, Rotterdam)."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SAT",
+   "category": "performance",
+   "severity": "low",
+   "title": "No server-side cache: every page load re-runs a 3-3.6 s Copernicus Process request and ships 2.07 MB of base64 JSON",
+   "evidence": "Two consecutive curls to /api/satellite_image: 3.60 s and 2.95 s, 2,072,962 bytes each, identical size. In the browser the image appeared 4.4 s after opening SAT, with one 55 ms long task on decode at 2560x1440 DPR 1.5. Each call consumes Copernicus processing units.",
+   "where": "terminal/backend/app.py:197-205; terminal/backend/providers/copernicus.py:83-160",
+   "fix": "Cache the PNG by (bbox, w, h, day) on disk or in memory for hours. Serve it as image/png from a URL the page uses in <img>/drawImage instead of base64 in JSON."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SHIP",
+   "category": "broken",
+   "severity": "high",
+   "title": "700-vessel cap evicts the numerically lowest MMSI, not the oldest; \"VESSELS TRACKED 700\" is the cap, not a count",
+   "evidence": "Line 913 does delete LIVE.ships[Object.keys(LIVE.ships)[0]]. MMSIs are integer-like keys, so Object.keys returns them in ascending numeric order (verified sortedAsc=true). In a 60 s run 2154 unique vessels arrived (about 37 msg/s) and 700 were held. All 1454 evicted vessels had an MMSI below the held minimum (255806227); 0 were evicted above it. Flags with MID below 255 (UK 232-235, Germany 211/218, Greece 237-241, Netherlands 244-246, Malta 248/249 and others) are deleted as soon as they arrive. The HUD count sits at exactly 700 after about 20 s.",
+   "where": "terminal/web/openterm.html:913, 646-652, 662",
+   "fix": "Keep a Map in insertion order and evict by oldest update time, or raise the cap to several thousand (canvas handles it; SHIP tick is 1.9 ms at 700). Show \"N vessels heard in last 10 min\" from the real set and state the cap if one applies."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SHIP",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "Title \"GLOBAL TANKER AIS\" is false: all vessel types, and no coverage of the main tanker regions",
+   "evidence": "The backend subscribes to FilterMessageTypes [\"PositionReport\"] over the whole globe with no ship-type field (ais.py:17-19, 21-29). Samples on screen: \"KNRM-GR. VAN BYLANDT\", \"TX42 RES NOVA\", \"THALASSA\", none identifiable as tankers. Of 2154 unique vessels in 60 s: 1484 (69%) in North Sea/Baltic, 49 in the US Gulf box, 0 in the Persian Gulf, 0 in Singapore/Malacca, 0 in China/Japan/Korea. Longitude histogram: 1683 in 0..30E, 234 in -30..0, 211 in the Americas, 26 in 30..60E, none east of 60E.",
+   "where": "terminal/backend/providers/ais.py:17-29; terminal/backend/stream_hub.py:247-254; terminal/web/openterm.html:660",
+   "fix": "Rename to \"AIS vessel positions (AISStream terrestrial coverage)\". To show tankers, also subscribe to ShipStaticData and keep MMSIs with AIS type 80-89. Show a coverage note; where there is no receiver coverage, say so instead of implying a global picture."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SHIP",
+   "category": "layout",
+   "severity": "high",
+   "title": "World map is six ellipses; 98.4% of real vessels are drawn on \"land\"",
+   "evidence": "blobs[] at line 641 are 6 ellipses. The \"Europe\" one is centred 18E 50N with radii 70 deg lon x 30 deg lat, spanning 52W..88E and 20N..80N. Testing the 700 held vessels against the ellipse equations: 98.4% fall inside a blob (s1920/SHIP.png shows North Sea traffic in the middle of a continent-sized oval). Three hard-coded dashed \"lanes\" are still drawn in LIVE. Projection is lon/lat stretched to the panel with lat clipped to -60..75. No graticule labels, place names or ports. Contrast: land vs ocean 1.52:1, grid 1.24:1.",
+   "where": "terminal/web/openterm.html:630-644",
+   "fix": "Draw real coastlines (Natural Earth 110m/50m) in a fixed-aspect projection, remove the fake lanes in LIVE, add labelled graticule and key ports/chokepoints, and open on the region where data exists."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SHIP",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "With no AIS data the module silently shows 140 synthetic ships while the status bar says LIVE",
+   "evidence": "liveShips is falsy when LIVE.ships is empty, which falls to the synthetic branch. Reproduced by closing the page's WS and clearing LIVE.ships: s1366/SHIP_noAIS_stillLIVE.png shows \"VESSELS TRACKED 140\", amber and cyan dots marching along the dashed lanes, and footer \"backend: AISStream.io live feed\", while the status bar reads \"LIVE \u00b7 localhost:8080\". The legend (underway/moored) does not match the synthetic colours (VLCC/AFRA). The same happens in the first seconds after connect, when AISSTREAM_API_KEY is unset, and 10 minutes after the feed stops (expiry at line 649).",
+   "where": "terminal/web/openterm.html:631, 646-658, 662-665",
+   "fix": "In LIVE never draw the synthetic fleet. Show \"AIS feed: connecting / no data for N s / disabled (no key)\" using /api/stream_status, and mark the last-message age on screen."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SHIP",
+   "category": "interaction",
+   "severity": "medium",
+   "title": "Vessels are 2.6 px dots with no hover, click, zoom, pan, heading or trail",
+   "evidence": "getEventListeners on #mod-SHIP canvas returned []; wheel, drag and double-click left the bitmap unchanged. Each vessel is fillRect(px-1,py-1,2.6,2.6). name, cog and sog are received and stored but never shown. Moored-dot contrast on the land colour is 3.08:1. AIS sog 102.3 (\"not available\") is treated as underway: 12 such vessels in the 60 s sample. No timestamp of the last AIS message.",
+   "where": "terminal/web/openterm.html:648-652, 659-665",
+   "fix": "Add zoom and pan, hover tooltip (name, MMSI, SOG, COG, age), click to pin, heading tick from cog, short trail, treat sog>=102.3 as unknown, and show last-update age."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SPLC",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "The whole supply-chain graph is hard-coded; nothing on it is data",
+   "evidence": "nodes[] (8) and edges[] (9) are literals. The moving yellow dots are (STORM.t*.02+e[0]*.2)%1 and imply flow, but no volume, price, capacity or date exists anywhere. The only dynamic state (ports offline, red dashed edges, \"FLOW REROUTED\") depends on STORM.landfall, which is never true (min distance 7.77 > 1.4). No /api call exists for this module and no source or timestamp is shown. s1920/SPLC.png is identical in SIM and LIVE.",
+   "where": "terminal/web/openterm.html:673-699",
+   "fix": "In LIVE either label it \"schematic \u00b7 no live data\" with the animation off, or attach real figures to nodes: EIA weekly stocks and refinery runs via /api/eia, crude import/export values via /api/trade once fixed, each with period and source."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SPLC",
+   "category": "layout",
+   "severity": "medium",
+   "title": "Eight 84x32 boxes with 9 px text on a 1734x980 panel; flow dots do not follow the curves; no legend, units or interaction",
+   "evidence": "Node boxes are roundRect(cx-42,cy-16,84,32) with font 9px; \"Corpus Christi\" is 75.6 px in an 84 px box. The 8 boxes cover about 1.3% of the 1920 panel (s1920/SPLC.png). Edges are bezier curves but dots are interpolated linearly between endpoints (line 690), so they float off the line (dot at about (1282,463) in the screenshot). Edge colour contrast is 2.36:1. Colour coding (purple/cyan/amber/red/green) has no legend. Canvas has 0 listeners.",
+   "where": "terminal/web/openterm.html:680-699",
+   "fix": "Scale nodes and fonts with the panel (at least 12 px text), move dots along the bezier, add a legend and per-node value/unit/date, hover and click for detail."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "NEWS",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "No real headline ever reaches the screen: 7 templates, invented sources, simulated timestamps",
+   "evidence": "The page never requests /api/news (only /api/health, candles, quote, storms, satellite_image, options and gex appear in the file and in the request log). HEADLINES is filled by tick() every 3 sim ticks (about 2 s) from 7 templates with a random source tag from ['WIRE','ECO','OPEC','RUMOUR','FLOW','GOVT'] and the word rises/slips chosen from simulated px vs px0. On screen in LIVE: \"[FLOW] Crude rises as Gulf storm risk builds, refiners hedge\" (the storm is fictional), \"[GOVT] slips chip names bid into close\", \"[GOVT] Equities rises; energy sector leads\". Row colour is fixed per template, not per direction. Timestamps come from the simulated header clock (13:38:15Z shown when real UTC was 07:53:36Z); the 8 seeded rows show \"--:--:--\". Rows are not links.",
+   "where": "terminal/web/openterm.html:704-722",
+   "fix": "In LIVE replace with a real feed: new backend route on Marketaux (tested, returns current articles) with GDELT as secondary, plus EDGAR 8-K. Show real published time, source domain, clickable URL and fetch time. Show \"news feed unavailable\" on failure. Keep templates only in SIM mode."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "NEWS",
+   "category": "interaction",
+   "severity": "medium",
+   "title": "Table is fully rebuilt every 650 ms: text selection is lost and rows slide under the reader",
+   "evidence": "render() sets wrap.innerHTML on every tick. The first <tr> node is replaced each tick (sameNode=false, old node detached). A text selection made on a row was empty 1.5 s later. With the list scrolled to 300 px, scrollTop stayed 300 but the row under a fixed point changed from \"filler row 42\" to \"filler row 45\" in 6.2 s. There are 0 <a> elements and no filter, search or per-symbol view; rail selection is ignored. Header cells are 10 px #4b5668 on #0e1420 (2.48:1).",
+   "where": "terminal/web/openterm.html:717-719",
+   "fix": "Render only when HEADLINES changes, prepend a row instead of rebuilding, pause auto-insert while the user has scrolled or selected (show \"N new\"), make rows links, and add a filter by selected instrument."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "ECO",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "Economic calendar is 8 hard-coded rows labelled \"today\"; values are stale or invented",
+   "evidence": "ev[] is a literal and MODREG.ECO has only show, no tick and no fetch. innerText was identical after 4 s and is the same in SIM and LIVE. Compared with real data fetched today: \"FOMC Rate Decision 5.25%\" vs FRED DFEDTARU 4.00 (2026-11-11); \"ECB Deposit Rate 3.75%\" vs FRED ECBDFR 2.50; \"EIA Crude Inventories -2.1M, prior -4.8M\" vs EIA PET.WCESTUS1.W 409,760 kbbl on 2026-10-30 from 410,625 (-0.9M) and 412,517 (-1.9M prior). No date, no timezone on the times, no source. The \"beat\" colouring is parseFloat(actual)>parseFloat(fcst) on strings like '+35K'.",
+   "where": "terminal/web/openterm.html:726-737",
+   "fix": "In LIVE build the table from real sources: schedule from FRED releases/dates (tested) or LSE economic_calendar when quota allows; actual and prior from FRED and EIA series with their observation dates; FCST as \"\u2014\" unless a consensus source exists (FMP economic-calendar is paid: 402). Show date, timezone, source and fetch time. Show \"calendar unavailable\" on failure."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "ECO",
+   "category": "layout",
+   "severity": "medium",
+   "title": "Column headers do not line up with their values; captions are low contrast",
+   "evidence": "th is text-align:right, td has none. Measured text boxes at 1366 px: ACTUAL header x=948-986 vs value 854-880; FCST 1095-1120 vs 1002-1029; PRIOR 1222-1254 vs 1136-1163; IMP 1331-1350 vs 1270-1288. Visible in s1920/ECO.png. Caption \".hint\" is 10 px #4b5668 on #06080c (2.70:1) and th is 10 px at 2.48:1. Eight rows occupy the top 20% of the panel; the rest is empty.",
+   "where": "terminal/web/openterm.html:71-73, 87, 731-735",
+   "fix": "Right-align numeric td (or left-align those th), raise header and caption colour to at least #8a97ab (over 4.5:1) and 11-12 px, group by day with a \"now\" marker and countdown to the next event."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "high",
+   "title": "/api/news returns a bare 500 after 12 s",
+   "evidence": "curl /api/news?limit=8 gave 500 in 12.3 s with body \"Internal Server Error\". Calling gdelt.news directly: URLError [Errno 104] Connection reset by peer after 12.05 s; a direct curl to api.gdeltproject.org also failed in 12.2 s from this host. app.py maps only RuntimeError to 503 (_need_key), so every upstream failure is an opaque 500.",
+   "where": "terminal/backend/app.py:234-236; terminal/backend/providers/gdelt.py:6-13",
+   "fix": "Wrap provider calls: return 502 with {source, error} JSON, add a short timeout and a cache, and fall back to Marketaux (key present, tested working) when GDELT fails."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "high",
+   "title": "/api/calendar returns 500: the LSE daily row quota is exhausted (12,498,946 of 12,500,000 by 07:50 UTC)",
+   "evidence": "curl /api/calendar?region=US gave 500 in 3.4 s. Direct call lse.economic_calendar('US'): LSEError [429] \"Your plan allows 12,500,000 rows a day; 12,498,946 are used and this export would read 38,524. It resets at 00:00 UTC\". In my first browser run 7 of 8 LSE /api/candles bootstrap calls and 14 of 67 /api/quote polls also returned 500. The page polls /api/quote for 8 LSE symbols every 5 s per open tab (livePoll), each a lse.candles(limit=2) call. I did not prove what consumed the quota.",
+   "where": "terminal/backend/app.py:143-148, 216-218; terminal/web/openterm.html:923-926",
+   "fix": "Return the 429 reason to the client as 429/503 JSON. Cache /api/quote and /api/calendar server-side (calendar for hours, daily-bar quotes for minutes). Slow the page poll to 60 s or more and skip it when the tab is hidden. Surface \"LSE quota exhausted until 00:00 UTC\" in the UI."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "medium",
+   "title": "/api/filings always 500: edgar.latest_filings does not exist",
+   "evidence": "curl /api/filings gave 500 in 2 ms. Python: AttributeError: module 'providers.edgar' has no attribute 'latest_filings'. edgar.py defines only recent_8k() and cik_to_ticker(). edgar.recent_8k(5) works (0.52 s, 9 current 8-K filers).",
+   "where": "terminal/backend/app.py:238-240; terminal/backend/providers/edgar.py",
+   "fix": "Implement latest_filings(q, forms), or point the route at recent_8k() joined with cik_to_ticker()."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "medium",
+   "title": "/api/trade always 500: Comtrade rejects partnerCode=all",
+   "evidence": "curl /api/trade gave 500. Direct: HTTP 400 {\"error\":\"Invalid parameter value\", \"memberNames\":[\"partnerCode\"]}. app.py passes \"all\" as partner. The same preview URL without partnerCode returned 46 rows in 2.6 s (partner 0 = World, primaryValue 172,426,221,223 USD for US crude imports 2023); partnerDesc was null.",
+   "where": "terminal/backend/app.py:259-261; terminal/backend/providers/comtrade.py:7-20",
+   "fix": "Omit partnerCode when partner is \"all\" and request descriptions so partner names are filled."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "medium",
+   "title": "/api/weather 500 (Open-Meteo 429); /api/worldbank, /api/imf, /api/rigcount and /api/sentinel also unusable",
+   "evidence": "/api/weather: 500; direct call returns HTTP 429 \"Daily API request limit exceeded\" (may be specific to this machine's shared IP). /api/marine works (0.49 s, wave 0.28 m). /api/worldbank: 500 (upstream 502). /api/imf: 500 (upstream 403 Access Denied). /api/rigcount: 200 but ok:false (403; the default URL is an index page, not a workbook). /api/sentinel: ok:false (SENTINELHUB_INSTANCE_ID unset). /api/eurostat, /api/eia, /api/macro, /api/storms, /api/satellite and /api/satellite_image returned 200.",
+   "where": "terminal/backend/app.py:182-185, 225-227, 243-249, 269-271",
+   "fix": "Uniform error envelope with upstream status, per-route caching, a browser-like User-Agent for IMF, and a real Baker Hughes workbook URL or remove the route."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "BACKEND",
+   "category": "other",
+   "severity": "low",
+   "title": "The running 8080 process predates the latest stream_hub.py",
+   "evidence": "/api/stream_status feeds lack the keys events, empty_sessions and last_event_at that HEAD's stream_hub._st() defines. The process started 07:01; stream_hub.py mtime is 07:38; HEAD commit is 07:45. All three feeds reported live with 3 reconnects each.",
+   "where": "terminal/backend/stream_hub.py:70-88; process uvicorn app:app --port 8080",
+   "fix": "Restart the gateway after the fixes so the reviewed reconnect logic is actually what runs (I did not restart it)."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SHELL",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "Header clock is simulated in LIVE (and stamps NEWS rows); bottom strip is tagged \"LIVE\" unconditionally",
+   "evidence": "updateHeader shows DAY0 + T*5 s: 13:39:55Z displayed when real UTC was 07:53:36Z, running about 7.7x real time (5 sim seconds per 650 ms). pushNews copies that clock into every headline. Line 846 sets #newsTag to 'LIVE' at boot regardless of mode. The strip shows prices, not news, and the scrolling text runs under the red tag (\"AELVE\" overlap visible in s1920/WX_t100.png).",
+   "where": "terminal/web/openterm.html:162, 235-236, 705, 846",
+   "fix": "Use the real clock in LIVE (and label a sim clock as SIM). Set the tag from LIVE.on. Clip the track so it does not pass under the tag."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "SHELL",
+   "category": "wrong-or-stale-data",
+   "severity": "medium",
+   "title": "Rail and ticker mix real prices with simulated baselines (seen while auditing my modules)",
+   "evidence": "With LSE candles failing but some /api/quote calls succeeding, the ticker showed \"AAPL 356.13 +30.22%\", \"NVDA 158.76 +14.91%\", \"XOM 167.38 +41.04%\": a real last price divided by a simulated px0. Sparklines for those rows went flat (s1920/WX_t100.png, s1920/NEWS.png). Not investigated further; outside my module scope.",
+   "where": "terminal/web/openterm.html:266, 841, 889-892, 925",
+   "fix": "Only compute change when both price and reference are real (previous close from the same source); otherwise show \"\u2014\" and mark the row SIM or STALE."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "WX/SAT/SHIP/SPLC",
+   "category": "legibility",
+   "severity": "medium",
+   "title": "Canvas text is 9-11 px in fixed-width boxes that the text overflows; low-contrast secondary text",
+   "evidence": "Canvas fonts in code: 9 px (WX port labels, SPLC node labels), 10 px (all HUD body lines), 11 px (HUD titles), 14 px (CL price only), with no scaling for panel size (1734x980 at 1920x1080). measureText vs box inner width: WX status 210 px in 202; SAT \"EST. UTILISATION\u2026\" 264 in 242; SAT synthetic note 336 in 242. DOM: th 10 px #4b5668 (2.48:1), .hint 10 px (2.70:1), inactive sub-tabs (2.59:1), status-bar text 10 px #4b5668. Body text #d6e0ee is fine (15:1); dim #7d8ba0 is 5.8:1. Canvas font strings name only 'JetBrains Mono' with no fallback, which the brief already established renders serif on Windows.",
+   "where": "terminal/web/openterm.html:10 (--faint), 71, 87, 545, 559-575, 601-603, 616-621, 659-665, 692-698",
+   "fix": "Minimum 12-13 px for body and 11 px for captions; replace --faint for text with a colour of at least 4.5:1; use a font stack in canvas (e.g. '12px \"JetBrains Mono\",Consolas,Menlo,monospace') with the web font loaded; size HUD boxes from measured text; scale with panel and devicePixelRatio."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "area": "WX/SAT/SHIP/SPLC",
+   "category": "performance",
+   "severity": "low",
+   "title": "Canvases are reallocated every tick, but these modules are not the cause of sluggishness",
+   "evidence": "WX, SHIP and SPLC set cv.width/height on every render (6.8 MB backing store at 1920x1080, 27.3 MB at 2560x1440 DPR 1.5). Measured tick cost: WX 1.28 ms avg / 1.8 max, SHIP 1.89 / 3.6, SPLC 0.32, NEWS 0.21 at 1920; WX 1.71, SHIP 1.44 at 2560x1440@1.5. No long tasks except one 55 ms on SAT image draw. After 600 module switches heap went 8.08 to 8.21 MB, DOM nodes 1220 to 1218, listeners 86 to 85: no leak. Headless software rendering, not the owner's GPU. No console errors from these modules; the only errors were 500s from /api/quote and /api/candles and the blocked lightweight-charts script.",
+   "where": "terminal/web/openterm.html:535, 634, 681",
+   "fix": "Resize canvases only when panel size or DPR changes; redraw static layers (basemap, graticule) to an offscreen canvas once."
+  }
+ ],
+ "recipes": [
+  {
+   "auditor": "front-geo-macro",
+   "need": "Real active tropical cyclones on the WX map (position, class, wind, pressure, motion, advisory time)",
+   "source": "NOAA NHC CurrentStorms.json via backend",
+   "how": "GET /api/storms (nhc.active_storms()). Use storms[].name, classification, lat, lon, intensity_kt, pressure_mb, heading_deg, speed_kt, updated.",
+   "tested": true,
+   "result": "200 in 0.38 s. 1 system: TS Pena, 9.8N 170.6W, 40 kt, 1002 mb, heading 270 at 15 kt, updated 2026-11-12T03:00Z.",
+   "caveats": "NHC covers Atlantic, East and Central Pacific only (no West Pacific typhoons). Advisories update every 3-6 h, so refresh every 5-10 min and show the 'updated' time."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Real forecast track and cone for a storm (replaces the simulated track line and cone)",
+   "source": "NHC storm_graphics KMZ (URL comes in /api/storms as track_kmz / cone_kmz)",
+   "how": "Fetch storms[].track_kmz, unzip, read the .kml, parse <coordinates> (lon,lat,0 triples). Needs a new backend route returning JSON points; the same approach applies to cone_kmz.",
+   "tested": true,
+   "result": "TRACK kmz 7,897 bytes in 0.48 s; KML held 7 coordinate blocks, first: -170.6,9.8 / -172.7,9.9 / -175.6,10.0 / -178.5,10.1 / -180.9,10.3.",
+   "caveats": "Longitudes can pass -180 (-180.9) and must be wrapped. Cone KMZ was not parsed."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Real coastline for the WX and SHIP maps",
+   "source": "Natural Earth via world-atlas (jsDelivr), or vendor the file into terminal/web",
+   "how": "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/land-110m.json (TopoJSON; decode with topojson-client or pre-convert to GeoJSON) and draw polygons with a fixed-aspect projection.",
+   "tested": true,
+   "result": "200 in 0.14 s, 55,207 bytes, type Topology.",
+   "caveats": "Not served by the backend today. For offline use, copy it next to openterm.html. 110m is coarse for Gulf-coast zoom; use 50m there."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Real satellite basemap or wide-area cloud imagery (WX/SAT)",
+   "source": "NASA GIBS WMTS (no key)",
+   "how": "GET /api/satellite for tile_template, then tiles at .../MODIS_Terra_CorrectedReflectance_TrueColor/default/<YYYY-MM-DD>/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg",
+   "tested": true,
+   "result": "/api/satellite 200 in 3 ms. A dated tile (2026-11-10, z3) returned 200 image/jpeg, 21,903 bytes in 0.55 s.",
+   "caveats": "The template returned by the backend uses date 'default'; I tested an explicit date only. MODIS is daily, about 250 m; use yesterday's date."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Real crude price for the WX \"CL CRUDE WTI\" panel",
+   "source": "FRED DCOILWTICO (daily WTI spot) via backend",
+   "how": "GET /api/macro?series_id=DCOILWTICO&limit=3; use the last obs value and date.",
+   "tested": true,
+   "result": "200 in 0.36 s: 2026-10-30 = 107.56, 11-02 = 100.06, 11-03 = 99.64.",
+   "caveats": "Daily spot lagged about a week, not a live future. Label with its date. A live CL futures quote from a free source was not found in the backend (LSE commodity symbols not checked, quota exhausted); if none exists, show \"no live source\"."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Sea state and weather at a point (WX overlays)",
+   "source": "Open-Meteo marine and forecast via backend",
+   "how": "GET /api/marine?lat=27&lon=-90&hours=24 (marine[].time, wave_m, period_s); GET /api/weather?lat=..&lon=..&hours=..",
+   "tested": true,
+   "result": "/api/marine 200 in 0.49 s: wave 0.28 m, period 4.4 s at 2026-11-12T07:00. /api/weather 500: Open-Meteo returned 429 \"Daily API request limit exceeded\".",
+   "caveats": "The 429 may be specific to this machine's shared IP. Cache server-side."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Real satellite image of an oil terminal (SAT)",
+   "source": "Copernicus Sentinel-2 L2A via backend",
+   "how": "GET /api/satellite_image?bbox=w,s,e,n&w=1024&h=1024; use png_base64, bbox and time_range.",
+   "tested": true,
+   "result": "200 in 2.95-3.60 s, 1,554,583-byte PNG (2.07 MB as base64), time_range 2026-08-29 to 2026-11-12, bbox -96.80,35.95,-96.72,36.02. Displayed in the page 4.4 s after opening SAT.",
+   "caveats": "It is a least-cloud mosaic over 75 days, not a dated scene. Show the time range, or add a Catalog query for the acquisition date (not tested). No server cache. The default bbox is centred on the town, not the tank farms."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Real storage figure to replace the fake \"EST. UTILISATION\" (SAT) and feed SPLC nodes",
+   "source": "EIA weekly series via backend",
+   "how": "GET /api/eia?series_id=PET.W_EPC0_SAX_YCUOK_MBBL.W&length=3 (Cushing stocks, kbbl); GET /api/eia?series_id=PET.WCESTUS1.W&length=3 (US commercial crude stocks).",
+   "tested": true,
+   "result": "Cushing: 27,250 kbbl on 2026-10-30 (26,970 and 27,594 the two prior weeks), 1.5 s. US crude: 409,760 / 410,625 / 412,517 kbbl.",
+   "caveats": "Weekly, in thousand barrels; show the period date. Refinery runs (PET.WCRFPUS2.W) is named in eia.py but was not tested."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Live vessel positions (SHIP)",
+   "source": "AISStream via the gateway /ws",
+   "how": "WebSocket /ws events with type 'vessel': mmsi, name, lat, lon, sog, cog.",
+   "tested": true,
+   "result": "About 37 vessel messages/s; 2,154 unique MMSIs in 60 s; ais feed 'live' in /api/stream_status. Coverage: 1,484 North Sea/Baltic, 49 US Gulf, 0 Persian Gulf / Singapore / East Asia.",
+   "caveats": "All vessel types. A tanker filter needs ShipStaticData (AIS ship type 80-89) added to FilterMessageTypes; not tested because I was told not to open an AISStream connection. No free source in the backend covers the Middle East or Asia: show \"no AIS coverage\" there rather than synthetic ships."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Crude trade flows for SPLC (who the US imports from)",
+   "source": "UN Comtrade public preview",
+   "how": "comtradeapi.un.org/public/v1/preview/C/A/HS?reporterCode=842&cmdCode=2709&flowCode=M&period=2023 with no partnerCode. Use data[].partnerCode, primaryValue, qty.",
+   "tested": true,
+   "result": "46 rows in 2.6 s; partner 0 (World) primaryValue 172,426,221,223 USD. /api/trade as written returns 500 because partnerCode=all is rejected with 400.",
+   "caveats": "Annual and lagged (2023). partnerDesc came back null, so request descriptions or map codes. No free real-time pipeline or port flow source exists in the backend; SPLC should be labelled schematic."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Real headlines for NEWS",
+   "source": "Marketaux /v1/news/all (key present)",
+   "how": "marketaux._get(search='crude oil | OPEC', language='en', limit=N, published_after='<yesterday>T00:00'); use data[].title, published_at, source, url. Needs a new /api route with caching.",
+   "tested": true,
+   "result": "With published_after: 118 found; e.g. \"OPEC+ oil output in October nears pre-Iran war rate\" (rte.ie, 2026-11-11T16:42Z), \"Brent Crude Price $92.53: Lowest Settle Since August\" (2026-11-11T06:54Z). Without published_after the same search returned 2021 articles (relevance order).",
+   "caveats": "About 100 requests/day on the free tier: cache at least 15 minutes. I used the 2 requests allowed for this audit. Existing provider functions return only sentiment; a headline function must be added."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Secondary news source",
+   "source": "GDELT via /api/news",
+   "how": "GET /api/news?query=...&limit=...",
+   "tested": true,
+   "result": "500 after 12.3 s; the provider raised URLError connection reset; a direct curl to api.gdeltproject.org also failed from this host.",
+   "caveats": "Could be this host's egress or GDELT itself; do not rely on it as the only feed."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Corporate event stream for NEWS",
+   "source": "SEC EDGAR current 8-K feed",
+   "how": "edgar.recent_8k(count) returns [{company, cik}]; join with edgar.cik_to_ticker().",
+   "tested": true,
+   "result": "0.52 s; 9 current filers, e.g. Spero Therapeutics, Aptera Motors, Ashford Hospitality Trust.",
+   "caveats": "The /api/filings route is broken (calls a function that does not exist). The feed gives company and CIK only, no headline text or time."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Real economic calendar schedule (ECO)",
+   "source": "FRED releases/dates (key present)",
+   "how": "api.stlouisfed.org/fred/releases/dates?file_type=json&realtime_start=<today>&include_release_dates_with_no_data=true&sort_order=asc with the FRED key; use release_dates[].date and release_name. Needs a new provider function and route.",
+   "tested": true,
+   "result": "0.65 s; today's entries include Business Formation Statistics, Chicago Fed National Financial Conditions Index, Commercial Paper.",
+   "caveats": "Dates and names only: no release time, forecast or importance. Filter to a whitelist of market-moving releases. LSE economic_calendar is the intended source but returned 429 today (quota). FMP economic-calendar returned 402 (paid). No free consensus-forecast source was found, so FCST should show \"\u2014\"."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Real actual/prior values for ECO rows (policy rates, CPI)",
+   "source": "FRED series via backend",
+   "how": "GET /api/macro?series_id=DFEDTARU|ECBDFR|CPIAUCSL&limit=3; last obs is the actual, previous is the prior.",
+   "tested": true,
+   "result": "DFEDTARU 4.00 (2026-11-11); ECBDFR 2.50 (2026-11-11); CPIAUCSL 334.131 / 336.298 / 337.476 for Aug-Oct 2026 (Oct m/m +0.35%).",
+   "caveats": "CPI is an index level, so compute m/m and y/y. Show the observation date."
+  },
+  {
+   "auditor": "front-geo-macro",
+   "need": "Real clock for the header and news timestamps",
+   "source": "Browser clock",
+   "how": "In LIVE use new Date() / Date.now() instead of DAY0 + T*5.",
+   "tested": false,
+   "result": "Not a data source; the current header showed 13:39:55Z when real UTC was 07:53:36Z."
+  }
+ ]
+}

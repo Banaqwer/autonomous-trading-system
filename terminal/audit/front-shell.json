@@ -1,0 +1,562 @@
+{
+ "auditor": "front-shell",
+ "summary": "Scope: SHELL + LIVE layer + MON, CHRT, TNT, HELP. Verified in Chromium (1920x1080, 1366x768, plus 1024/420 spot checks) against http://localhost:8080; LSE-backed calls were replayed from fixtures captured once from the real gateway to protect the shared key.\n1) \"LIVE\" is mostly not live. 12 of 23 instruments (CL NG GC HG RB US10Y US2Y DE10Y SPX NDX VIX RUT) stay on the random-walk simulator with hard-coded seeds far from reality (CL 73 shown vs 86.45 real, SPX 5,865 vs 7,619, gold 2,685 vs ~4,040). Clock, VOL, BID/ASK, DAY RANGE, CHG/%CHG baselines and all TNT fills/P&L are also fabricated or wrong.\n2) The hurricane discrepancy is fully explained: the simulated storm position is a linear function of page uptime (lat=14+0.3025*t, lon=-74-0.8905*t). The owner's two readings are t=56 and t=145 ticks (about 30 s and 88 s after page load). It is unbounded: lat 675N after ~22 min.\n3) The LIVE layer is fragile: the label turns green before any real data, the WebSocket only opens after 11 sequential REST calls (11-12 s normally), and the page polls LSE at 96 req/min against a 60 calls/min free plan. The SDK then sleeps on 429, gateway calls hang 15-40 s or return bare 500, and bootstrap stalled (no WS, frozen crypto, simulated FX) while still showing LIVE.\n4) The indicator never goes stale: 15 s with the backend unreachable still shows green LIVE. SOL never updates; BTC/ETH flip between Binance spot and Deribit perp (~$77 apart).\n5) CHRT is blank (library is not on cdnjs at all). With the library supplied, it still fails for BTC/ETH/AAPL/FX because the candle store is corrupted in LIVE (simulator appends future-dated candles, 1m klines pushed into 1h series, LSE candles lack time/vol).\n6) Legibility: 9.5-11 px text everywhere; all secondary text is #4b5668 at 10 px with contrast 2.5-2.7:1; numeric columns are left-aligned under right-aligned headers; below ~1124 px width the right edge is cut off.\n7) Interaction: MON rows are inert, the '/' shortcut steals the key from other inputs, 25% of sub-tab clicks are lost to a 650 ms rebuild, the command line rejects tickers, and several TNT controls are dead.\n8) Performance of shell/MON/TNT/HELP is fine (60 fps, no long tasks, no leak), so the sluggishness comes from other modules; only the render-blocking 3.6 MB Plotly load is a shell cost.\n9) Real sources exist and were tested for nearly every simulated value (LSE futures/indices/commodities, FRED yields, Binance 24h ticker and book); only DE10Y and non-crypto bid/ask have no free source.\nScreenshots: /tmp/claude-0/-home-user-autonomous-trading-system/18267061-1306-5187-a1cb-8d8f25130090/scratchpad/tmp.IY2IxpCLIv/shots/",
+ "not_checked": [
+  "Windows rendering (serif canvas font, Consolas fallback for DOM text): no Windows machine; relied on the established finding.",
+  "livePoll behaviour with no LSE key (expected 96 failing 503 calls/min): code read only, no keyless backend was started.",
+  "Whether the owner's own PC hit LSE throttling: the 8080 server logs were not accessible, and the stalled bootstrap I observed happened while other auditors were loading the same backend. The 96 req/min vs 60 calls/min arithmetic is measured.",
+  "CHRT with the library supplied for USDJPY, GBPUSD, NVDA, TSLA, XOM and ETH individually (same code paths as the tested AAPL/EURUSD/BTC).",
+  "Long-session CHRT behaviour (hours) and the 400-candle cap.",
+  "LSE real-time tick stream (lse.stream, capabilities tick:true) as a replacement for polling: not tested.",
+  "Freshness of LSE index and equity data during US market hours (audit ran at about 07:20-07:45 UTC with the US market closed).",
+  "Tiingo and Alpha Vantage fallbacks via /api/equity_quote: not called (rate-limit rule).",
+  "FRED DCOILWTICO as a crude source and any FRED series for the Bund yield: not called.",
+  "Tape speed on monitors above 60 Hz and timer throttling in background tabs: code read only.",
+  "Mobile layout (the @media max-width:620px rule) and touch interaction.",
+  "Behaviour with several tabs open at once (each adds 96 LSE calls/min by the same code): not run."
+ ],
+ "findings": [
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "12 of 23 instruments stay on the random-walk simulator in LIVE mode, with stale hard-coded seeds",
+   "evidence": "After 85 s connected, LIVE.px held only BTC, ETH, SOL, AAPL, NVDA, TSLA, XOM, EURUSD, USDJPY, GBPUSD, AUDUSD. CL, NG, GC, HG, RB, US10Y, US2Y, DE10Y, SPX, NDX, VIX, RUT were still produced by step() (I.px*=exp(gauss...)). Shown vs real (LSE/FRED, fetched during audit): CL 72.68 vs 86.45; NG 3.01 vs 3.296; GC 2,675 vs 4,040.5; HG 4.10 vs 6.27; RB 2.03 vs 2.6254; US10Y 4.31 vs 4.88 (FRED DGS10); US2Y 4.52 vs 4.56; SPX 5,877 vs 7,619.38; NDX 21,256 vs 28,374; VIX 14.55 vs 17.49; RUT 2,329 vs 2,846. These rows look identical to live rows in the rail, MON, tape and FOCUS readout.",
+   "where": "terminal/web/openterm.html:147-154 (UNIV seeds), 165-181 (seed), 214-215 (step), 862-865 (LIVE_REST covers only 8 symbols)",
+   "fix": "In LIVE mode never run the random walk. Extend the symbol map to LSE futures/indices/commodities and FRED (see recipes). Any instrument without a live value shows '\u2014' with a 'NO LIVE SOURCE' or 'DELAYED D-1' badge. Add a per-row source/age marker."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "Simulated hurricane engine keeps running in LIVE; its position is a function of page uptime (explains the owner's two screenshots)",
+   "evidence": "step() calls stepStorm() every 650 ms regardless of LIVE.on. Measured STORM at t=28: 22.47N 98.93W; at t=183: 69.36N 236.97W. This matches lat=14+0.3025*t, lon=-74-0.8905*t exactly. The owner's readings 30.9N/123.9W and 57.9N/203.1W correspond to t=55.9 and t=145.1 ticks, i.e. about 30 s and 88 s after each page load. Fast-forwarding 2000 more steps gives lat 675N, lon -2019.8, cat 5, landfall never true, CL scen 0. The boot sequence also lands on WX and pre-steps the storm 10 times.",
+   "where": "terminal/web/openterm.html:184-202 (STORM/stepStorm), 209 (called from step), 941 (go('WX') at boot), 948 (10 pre-steps)",
+   "fix": "Do not run stepStorm() or the scenario drift when LIVE.on. Remove the storm coupling to CL/RB/XOM and the LANDFALL headline in LIVE. Boot into MON, not WX. In SIM mode clamp the track and label it SIMULATION."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "broken",
+   "severity": "critical",
+   "title": "LIVE label turns green before any real data; the WebSocket opens only after 11 sequential REST calls, and one slow call freezes everything",
+   "evidence": "Timeline: at t+1 s label 'LIVE \u00b7 localhost:8080' with zero live prices. Symbols arrive one by one; WebSocket opened at t+11-12 s, first message at 12.5 s. In the unmodified run against the real gateway, bootstrap stalled after NVDA: for 16 s+ no WS was opened (0 messages), 0 poll requests in the next 30 s, BTC frozen at 73534.1, GBPUSD still simulated, label LIVE throughout. A direct curl of /api/candles?symbol=TSLA at that moment timed out at 40 s. Other auditors were loading the same backend at the time, so I cannot isolate the page's own contribution.",
+   "where": "terminal/web/openterm.html:869-880 (liveConnect awaits liveBootstrap before liveOpenWS/livePoll), 883-894 (sequential awaits)",
+   "fix": "Open the WS first, then bootstrap all symbols in parallel with a per-request timeout (AbortController, ~8 s). Show CONNECTING until the first real tick arrives. Track per-symbol state (live / delayed / no data) instead of one global flag."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "backend-error",
+   "severity": "critical",
+   "title": "Page polls LSE at 96 requests/min against a 60 calls/min plan; SDK then sleeps on 429 and gateway calls hang or return 500",
+   "evidence": "Measured 96 /api/quote requests in 60 s from one tab (8 symbols every 5 s; each call ~0.9 s so cycles overlap). LSE usage() reports plan 'free', calls_per_minute 60, rows used today 4,478,223 of 12,500,000. The SDK (lse/data3.py:152-164) sleeps for Retry-After, up to 2 minutes, on 429. Observed: /api/quote?symbol=AAPL 14.97 s, /api/candles AAPL 32.3 s (normal 0.95 s), TSLA candles >40 s, /api/quote?symbol=EUR_USD returned 500 after 3.8 s. Each call builds a new LSE() client; the gateway has no cache. livePoll also ignores the LSE key check, so without a key it would send 96 failing calls/min (code read, not run).",
+   "where": "terminal/web/openterm.html:923-926 (livePoll); terminal/backend/app.py:129-134 (quote); terminal/backend/providers/lse.py:10-22",
+   "fix": "Cache quotes in the gateway (one shared LSE client, TTL 15-60 s by asset class) and add a batch endpoint /api/quotes?symbols=... so the page makes one call. Poll at most once per 15 s, skip a cycle while the previous is running, and stop when the tab is hidden. Construct LSE(wait_for_limit=False) and return 429/503 quickly."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "LIVE indicator never goes stale: backend unreachable for 15 s still shows green LIVE",
+   "evidence": "With the browser context set offline and the WS closed for 15 s, the label stayed 'LIVE \u00b7 localhost:8080' with a green dot, LIVE.on true, ws.readyState 3, and BTC frozen at 73493.86. The WS was retried every 2.5 s silently (opened count rose to 6). Poll errors are swallowed. The page never reads /api/stream_status. A bad URL (http://localhost:9) silently falls back to 'SIM \u00b7 synthetic' with no error text.",
+   "where": "terminal/web/openterm.html:909-921 (ws.onclose only retries), 923-926 (catch{}), 928-938 (setLiveUI), 873-874",
+   "fix": "Track last-message time per feed. Show LIVE (green) only if data is under ~5 s old, STALE (amber, with age) otherwise, DISCONNECTED (red) when the WS is down and polls fail. Poll /api/stream_status every 10 s. Show a visible error on a failed connect."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "BTC and ETH price flips between Binance spot and Deribit perpetual mark price",
+   "evidence": "TERM_OF maps both BTCUSDT and BTC-PERPETUAL to 'BTC', and both trade and ticker events write LIVE.px. Sampling LIVE.px.BTC every 50 ms for 5 s gave 9 unique values ranging 73520.66 to 73598.39, e.g. 73521.07 -> 73598.38 -> 73521.05: two instruments about $77 apart alternating on one row. In 60 s there were 241 Binance BTC trades and 141 Deribit BTC tickers. During the TNT test INST.BTC.px was ~73,495 while the Binance book was 73,575.93/73,575.94.",
+   "where": "terminal/web/openterm.html:859 (TERM_OF), 914-915",
+   "fix": "Use only Binance trade/kline events for the spot rows. If the perp is wanted, add a separate BTC-PERP instrument fed by the Deribit ticker."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "SOL is labelled live but never updates after page load",
+   "evidence": "The hub subscribes only BTCUSDT and ETHUSDT; 60 s of WS traffic contained no SOL event. LIVE_REST has no SOL entry. LIVE.px.SOL was 82.82 at t+12 s and still 82.82 at t+112 s while Binance moved 82.83 -> 82.80. It stays at the last 1h candle close from bootstrap for as long as the tab is open.",
+   "where": "terminal/backend/stream_hub.py:251 (binance_syms); terminal/web/openterm.html:885-888, 862-865",
+   "fix": "Add 'SOLUSDT' to binance_syms in run_hub (the front-end TERM_OF already maps it)."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "MON",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "CHG and %CHG use the wrong baseline: first candle of the bootstrap window, not the previous close",
+   "evidence": "liveBootstrap sets px0=candles[0].close: 300 hours back for crypto, 250 trading days back for LSE symbols. MON showed AAPL +82.65 / +30.22% (px0 273.48 from 2025-11-13); the real day-on-day change from LSE daily candles is 348.782 -> 356.1301 = +2.11%. XOM showed +40.43%, EURUSD -4.51%, BTC -4.33% (Binance 24h chg_pct was -0.38%). For simulated rows the baseline is the first point of the fake seed path. The same wrong value colours the rail prices and sparklines and feeds the tape percentages.",
+   "where": "terminal/web/openterm.html:887, 891 (px0), 314 (MON), 266-269 (rail), 841 (tape)",
+   "fix": "Store prevClose per instrument: Binance ticker/24hr chg_pct for crypto; candles[-2].close of the 1d series for LSE symbols. Label the column 'CHG 1D' (or '24H' for crypto)."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "MON",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "BID and ASK are fabricated for every instrument, including crypto where a real book is streaming",
+   "evidence": "step() sets bid/ask = px*(1 -/+ (2+rnd()*3)*1e-4) each tick. Observed INST.BTC bid/ask 73,572.13 / 73,640.94 (a $69 spread) while LIVE.book.BTC top of book was 73,608.25 / 73,608.26. AAPL shows 355.98/356.22 while the US market is closed. LSE markets() reports quotes:false and book:false for the free stock, FX, futures, index and commodity markets.",
+   "where": "terminal/web/openterm.html:216 (step), 318 (MON columns)",
+   "fix": "Crypto: use LIVE.book[sym].bids[0][0] / asks[0][0] from the WS (or bid/ask from /api/quote). All others: show '\u2014'; there is no free quote source."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "broken",
+   "severity": "high",
+   "title": "Candle store is corrupted in LIVE mode by three independent bugs",
+   "evidence": "(a) step() appends a synthetic candle with time = last+86400 every 6 ticks to every instrument, live ones included: after ~85 s BTC had 20 candles dated in the future. (b) The WS handler pushes 1-minute klines into the 1h series: BTC ended with 18 non-ascending timestamps, alternating 2026-11-13T07:30Z (fake) and 2026-11-12T07:30Z (real 1m). (c) LSE candles have keys open, high, low, close, volume, trades, date, timestamp, symbol, with no 'time' or 'vol'; they are assigned as-is, so step() then creates entries with time:null (C.time+86400 = NaN).",
+   "where": "terminal/web/openterm.html:219-221 (step), 916 (kline handler), 890-891 (LSE candles assigned raw); terminal/backend/app.py:127",
+   "fix": "Skip the candle block in step() when the instrument is live. Normalise LSE candles in the gateway to {time: epoch seconds, open, high, low, close, vol}. Keep one series per timeframe; fetch 1m history if 1m klines are streamed, or aggregate into the current 1h bar."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "Header clock is simulated: starts at 13:30:00Z on a hard-coded date and runs about 7.7x real time",
+   "evidence": "updateHeader shows DAY0+T*5 seconds with DAY0=Date.UTC(2026,10,11,13,30). Observed 13:30:05Z one second after load, 13:32:30Z at t+20 s, 13:40:15Z when real UTC was 07:30. It resets on every reload. Nothing on screen shows real time or data age.",
+   "where": "terminal/web/openterm.html:162, 235-236",
+   "fix": "In LIVE show the real UTC clock (new Date()) and add a 'last tick' age readout. Keep the simulated clock only in SIM mode, labelled SIM."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "fake-data-in-live",
+   "severity": "medium",
+   "title": "Header 'VOL' is the simulated VIX with a % sign",
+   "evidence": "#hVol = fmt(INST.VIX.px,1)+'%'. It showed 14.6% while VIX is not in LIVE.px; LSE indices VIX last close was 17.49 (2026-11-11). VIX is index points, not percent, and the label 'VOL' reads as volume.",
+   "where": "terminal/web/openterm.html:234, 100",
+   "fix": "Feed from LSE indices VIX (or FRED VIXCLS), label 'VIX 17.49', and show '\u2014' when no source is available."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "other",
+   "severity": "low",
+   "title": "Header label 'FLOATY' is not a recognisable term",
+   "evidence": "The header shows 'P/L', 'FLOATY', 'VOL'. FLOATY is the unrealised P/L of the paper positions (unreal()).",
+   "where": "terminal/web/openterm.html:99, 233",
+   "fix": "Rename to 'UNREAL' or 'OPEN P/L' and mark both header P/L figures as PAPER."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "MON",
+   "category": "wrong-or-stale-data",
+   "severity": "medium",
+   "title": "'DAY RANGE' bar and rail sparklines are built from a 260-tick buffer seeded with simulated prices",
+   "evidence": "I.hist is seeded with 260 simulated points and appended every 650 ms. In LIVE: AAPL hist min/max 227.93-356.13 (seed vs real), BTC 73,520-100,320, SOL 82.97-231.4. The marker therefore sits pinned at one end and sparklines show a step then a flat line (visible in MON_1920x1080.png). Even in SIM it is the last ~2.8 minutes, not a day. For LSE symbols the same value is pushed every tick, so the sparkline is flat.",
+   "where": "terminal/web/openterm.html:168-169 (seed hist), 217 (push per tick), 315 (range), 240-246, 273-277 (sparklines)",
+   "fix": "Use real day high/low: Binance ticker high/low for crypto, the 1d candle high/low for LSE symbols. Rebuild hist from real intraday closes at bootstrap; draw nothing for instruments without real history."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "MON",
+   "category": "legibility",
+   "severity": "medium",
+   "title": "Live, polled-daily and simulated rows are indistinguishable; no source, timestamp or delay marker; units missing",
+   "evidence": "The MON table has columns TICKER, NAME, LAST, CHG, %CHG, BID, ASK, DAY RANGE only. Rows mix real-time crypto, a polled LSE daily-candle close and simulator output, with no marker. Yields show as 4.3175 with no %; FX change prints at 2 decimals (GBPUSD '+0.00', EURUSD '-0.05'); the tape and FOCUS readout print FX as 'EURUSD 1.11' and 'AUDUSD 0.68'.",
+   "where": "terminal/web/openterm.html:313-321 (MON), 141 (sgn fixed 2 dp), 819 and 841 (fmt(I.px,2))",
+   "fix": "Add SRC and AGE/TIME columns (BINANCE RT, LSE 1D, FRED D-1, NO SOURCE). Add a per-instrument decimals setting used by every formatter (FX 4-5 dp, yields 3 dp with %)."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "MON",
+   "category": "layout",
+   "severity": "medium",
+   "title": "Numeric columns are left-aligned under right-aligned headers; half the panel is empty at 1080p",
+   "evidence": "th has text-align:right, td has none. In MON_1920x1080.png the header 'LAST' sits at x~797-822 while its values start at x~613, and decimal points do not line up. The table uses 457 px of the 980 px panel height with 11 px text and 19 px rows; table width 1718 px for 8 columns.",
+   "where": "terminal/web/openterm.html:71-73 (th/td CSS), 313-321",
+   "fix": "Set td{text-align:right} with .l for text columns. Raise table text to 13-14 px with ~24 px rows, or use the spare height for more columns/groups. Cap column widths so headers sit over values."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "MON",
+   "category": "interaction",
+   "severity": "medium",
+   "title": "MON rows are inert: no click-to-select, no sort, no highlight of the focused instrument, no tooltips; text selection is wiped every 1.3 s",
+   "evidence": "Clicking the TSLA row left SEL unchanged; double-click did nothing. th cursor is auto with no onclick. 0 title attributes. After a rail click on AAPL no MON row is highlighted (MODREG.MON has no sel handler). Selecting the BTC price cell gave an empty selection 2 s later because render() replaces wrap.innerHTML every 2 ticks (about 1,700 nodes added and removed per 13 s). Scroll position is preserved (150 -> 150), and hover styling survives the rebuild.",
+   "where": "terminal/web/openterm.html:312-323",
+   "fix": "Build rows once and update cell text in place. Add row click (select) and double-click (open CHRT), header click to sort, and a .sel class on the focused row."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "legibility",
+   "severity": "medium",
+   "title": "Secondary text is 10 px at 2.5-2.7:1 contrast; nothing in the shell exceeds 12 px",
+   "evidence": "Computed styles: header keys (P/L, FLOATY, VOL) 10 px rgb(75,86,104) on rgb(12,17,26), contrast 2.55; inactive sub-tabs 10 px, 2.59; table headers 10 px, 2.48; hints, ticket labels and HELP footnote 10 px, 2.70; status label 10 px, 2.55; rail categories 9.5 px; rail and table cells 11 px; menu 11 px; body 12 px; tape tag white on red 3.24. WCAG AA requires 4.5:1 for text this size.",
+   "where": "terminal/web/openterm.html:10 (--faint #4b5668), 19, 27, 31, 36, 43, 47-48, 61, 68, 71, 73, 79, 87",
+   "fix": "Raise the base to 13-14 px (rail/table 13 px, headers 12 px, nothing under 11 px). Replace --faint for text with at least #8a97ab (>=4.5:1) and keep --faint for borders only. Load the mono font as a web font or vendor it."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "layout",
+   "severity": "medium",
+   "title": "Below about 1124 px width the right edge of the terminal is cut off with no scrollbar",
+   "evidence": "At viewport widths 1100, 1024 and 900 the document scrollWidth stayed 1124 with body overflow hidden. MON_1024x720.png shows the clock, VOL value, FOCUS price, DAY RANGE column, tape and the DISCONNECT button clipped. A 1366 px laptop at 125% Windows scaling has a ~1093 px CSS viewport, at 150% ~911 px.",
+   "where": "terminal/web/openterm.html:19 (overflow:hidden), 23-32 (.top/.menu/.tstat), 60-68 (.status), 89 (only a 620 px breakpoint)",
+   "fix": "Let the menu scroll or collapse into an overflow dropdown, give .tstat and the status controls flex-shrink with a compact mode under 1200 px, and set min-width:0 on the grid children."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "interaction",
+   "severity": "medium",
+   "title": "The '/' shortcut steals the key from every other input",
+   "evidence": "The window keydown handler prevents default and focuses #cmd whenever '/' is pressed outside #cmd. Typing '/x' in the backend URL box left it unchanged, moved focus to #cmd and put 'x' there. Typing 'a/b' in the ticket instrument box gave 'NVDAa' with 'b' in #cmd. A URL cannot be typed into the connect field.",
+   "where": "terminal/web/openterm.html:837",
+   "fix": "Ignore the shortcut when the event target is an input, select, textarea or contentEditable element."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "interaction",
+   "severity": "medium",
+   "title": "Sub-tab bar is rebuilt every 650 ms, so about a quarter of clicks on it are lost; FOCUS readout lags",
+   "evidence": "renderSub() does innerHTML='' and recreates the tabs on every sim tick. With a 150 ms press at random phases, 18 of 24 clicks on the BOOK sub-tab switched module (6 lost). Rail rows are not rebuilt and scored 24/24. After a rail click the FOCUS readout still showed 'CL' until the next tick.",
+   "where": "terminal/web/openterm.html:815-820, 945, 256",
+   "fix": "Build the sub-tabs once per go() and update only the FOCUS text node per tick. Call the FOCUS update from the rail click handler."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "interaction",
+   "severity": "medium",
+   "title": "Command line accepts only module names: tickers are 'UNKNOWN FUNCTION', and the placeholder can stick on an error",
+   "evidence": "'AAPL', 'CL', 'BTC CHRT', 'N', 'TOP', 'QUOTE', 'LIVE', 'SIM' all return UNKNOWN FUNCTION. flashCmd saves the current placeholder and restores it after 1.4 s, so three quick errors left the placeholder permanently on 'UNKNOWN FUNCTION: CL'. go() sets curMod and the menu highlight before M.show(), so a throwing module (CHRT) leaves a blank panel and an uncaught error. No history, autocomplete or Esc. Aliases exist in code (DELT, TKT, WEATHER, STORM, CHART, OPT, VOL, SURFACE, SHIPS, TANKER, SUPPLY, MONITOR, ?, H, plus a meaningless SAT2) but are not documented.",
+   "where": "terminal/web/openterm.html:821-836",
+   "fix": "Parse '<TICKER> [FUNCTION]': if the token is in INST, set SEL and optionally go(). Keep the original placeholder in a constant. Wrap M.show() in try/catch and render an error state in the panel. Add up/down history and list aliases in HELP."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "fake-data-in-live",
+   "severity": "medium",
+   "title": "Tape tag is hard-coded 'LIVE' in every mode, and the tape repeats the simulated and mis-based values",
+   "evidence": "Line 846 sets #newsTag to 'LIVE' unconditionally at boot. After DISCONNECT the status reads 'SIM \u00b7 synthetic' while the red tag still says LIVE. The tape lists all 23 instruments, including the 12 simulated ones, with the wrong-baseline percentages (AAPL +30.22%).",
+   "where": "terminal/web/openterm.html:846, 840-843",
+   "fix": "Drive the tag from connection state (LIVE / STALE / SIM). Include only instruments with a real value, or mark the others."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "layout",
+   "severity": "low",
+   "title": "Tape text scrolls over the LIVE tag; the tape is blank about 53 s of every 193 s cycle at 1920 px",
+   "evidence": "elementFromPoint at the tag position returns #newsTrack; the clip tape_tag.png shows quote text drawn through the LIVE tag. Track scrollWidth 5029 with padding-left 1920 px, speed 0.6 px per animation frame: a 193 s cycle with a 53 s empty stretch at 60 Hz. Speed depends on monitor refresh rate (code read). animTicker reads scrollWidth every frame.",
+   "where": "terminal/web/openterm.html:56-59 (CSS), 844-845 (animTicker)",
+   "fix": "Give the tag position:relative with z-index and clip the track in its own overflow:hidden wrapper. Duplicate the content for a seamless loop, drop padding-left:100%, and animate by elapsed time with a cached width."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "CHRT",
+   "category": "broken",
+   "severity": "critical",
+   "title": "CHRT is a blank panel with no message; the chart library is not hosted on cdnjs at all",
+   "evidence": "The cdnjs URL returns 404 for both .js and .min.js, and the cdnjs API answers 'Library not found' for lightweight-charts. go('CHRT') throws 'ReferenceError: LightweightCharts is not defined' at build() after the menu has already switched, leaving an empty black panel at both viewports (CHRT_1366x768.png). The failed script tag is render-blocking. jsDelivr serves the same 4.1.3 file (200, 160,943 bytes).",
+   "where": "terminal/web/openterm.html:129, 330, 348",
+   "fix": "Vendor lightweight-charts 4.1.3 into terminal/web and load it from /app (no CDN dependency), or switch to the jsDelivr URL. Guard build() and render 'Chart library failed to load' in the panel on failure."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "CHRT",
+   "category": "broken",
+   "severity": "high",
+   "title": "With the library supplied, CHRT still fails for BTC, ETH, equities and FX, and shows the previous instrument's axes under the new FOCUS",
+   "evidence": "Served the jsDelivr 4.1.3 build via request interception. BTC: 'Cannot update oldest data' and 'Value is null' (4 non-ascending candle times within seconds). AAPL and EURUSD: 'TypeError: Cannot read properties of undefined (reading \"year\")' because all 256 candle times are null. In CHRT_lwc_AAPL.png the header says FOCUS AAPL 356.13 but the price axis is 71,600-83,600 with price tags 73,979.73 / 73,552.35 and a May-Nov time axis left over from earlier instruments. Only USDJPY, GBPUSD, NVDA, TSLA, XOM were not individually opened (same code path as AAPL/EURUSD).",
+   "where": "terminal/web/openterm.html:342-350 (load/tick), plus the candle-store bugs at 219-221, 890-891, 916",
+   "fix": "Fix the candle store (see that finding). In load(), validate and sort candles, drop entries without a numeric time, and on failure clear all series and show an error overlay instead of leaving stale axes."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "CHRT",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "CHRT draws fabricated candles in LIVE: simulated history for 12 instruments, and future-dated synthetic bars appended to real series",
+   "evidence": "For CL (and every simulated instrument) all 180+ daily candles come from seed(), and a new 'day' is appended every 6 ticks: the last candle date moved from 2026-11-14 to 2026-11-19 in 20 s of wall time (real date 2026-11-12). For SOL the chart shows real 1h Binance candles followed by a flat tail of synthetic bars out to 20 Nov (CHRT_lwc_SOL.png). Volume for simulated bars is |gauss|*800 per tick.",
+   "where": "terminal/web/openterm.html:171-178 (seed candles), 219-221 (step), 343-346 (load)",
+   "fix": "In LIVE, chart only instruments with real candles (crypto via Binance, others via LSE). Show 'no live history for this instrument' otherwise. Never append simulator bars to a live series."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "CHRT",
+   "category": "missing-feature",
+   "severity": "medium",
+   "title": "Chart has no title, timeframe, legend, OHLC readout, MA label, source or timeframe selector; window resize resets zoom",
+   "evidence": "With the library loaded the CHRT panel's DOM text is empty: no symbol name, no '1H'/'1D' label (crypto is 1h, LSE daily, sim pseudo-daily, with nothing on screen saying so), no crosshair OHLC/volume readout, no 'MA20' label, no data-source tag. Axis font is 10 px. Wheel zoom and drag pan work and persist across ticks (range 0-181 -> 42-143 -> 31-132), but any window resize calls show() -> load() -> fitContent() and resets the view to 0-183.",
+   "where": "terminal/web/openterm.html:330-350, 849",
+   "fix": "Add an overlay legend (symbol, timeframe, source, O/H/L/C/V from subscribeCrosshairMove, MA20), timeframe buttons wired to /api/candles?timeframe=, a 12 px axis font, and on resize call only chart.applyOptions({width,height})."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "TNT",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "Order ticket is an unlabelled paper simulator in LIVE: fills at fabricated bid/ask, P/L on simulated prices, plus a scripted hurricane 'trade story'",
+   "evidence": "BUY 1 BTC filled at 73,522.90 (the fabricated ask) while the real Binance book was 73,575.93 / 73,575.94. BUY 1000 CL filled at 73.19 on the simulated CL price (real ~86.45); the header showed P/L +55,301.32 and later -81,393.28, all from the random walk. The positions panel always shows 'SCENARIO: a hurricane is tracking toward Gulf oil ports (see WX). Buy CL before the market prices it in.' and 'Use the ticket, or the trade story below'. Nothing says PAPER or SIMULATED.",
+   "where": "terminal/web/openterm.html:752-764 (trade), 228-233 (unreal/header), 769-771 (scenario text)",
+   "fix": "Label the module 'PAPER TRADING' permanently. Fill crypto at the real top of book and others at last real price with a 'no quote, filled at last' note. Refuse orders on instruments with no live price in LIVE. Remove the scenario text in LIVE."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "TNT",
+   "category": "interaction",
+   "severity": "medium",
+   "title": "Ticket controls are dead or misleading: SIDE and ORDER TYPE ignored, negative quantity flips side, hidden multipliers, Enter does nothing",
+   "evidence": "SIDE=SELL then pressing BUY bought (the select is never read). ORDER TYPE=LIMIT filled instantly at market; there is no limit-price field. Quantity -5 with BUY printed 'BUY 5 CL' but created a -5 short. Quantity 0 printed 'BUY 0 CL @ 73.42'. Enter in the quantity field placed no order. Default quantity 1000 with a hidden x1000 commodity multiplier is 1,000,000 bbl (-$21k to -$50k instantly from the fake spread). mult() is x1000 commodities, x1 crypto, x100 everything else including FX, yields and indices, and is shown nowhere. FX prints at 2 decimals ('SELL 1000 EURUSD @ 1.11', entry 1.11, mark 1.11, P/L -54.48). No flatten/close button, no order blotter, positions are lost on reload.",
+   "where": "terminal/web/openterm.html:744-750 (form), 752-764 (trade), 229 (mult), 766-771 (renderPos)",
+   "fix": "Remove SIDE (the buttons decide) or wire it. Add a limit-price field and resting orders, or remove LIMIT. Validate qty>0. Show contract size, notional and currency before submit. Use per-instrument decimals. Add Enter-to-submit with confirm, a close button per position, and persist positions in localStorage."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "TNT",
+   "category": "wrong-or-stale-data",
+   "severity": "low",
+   "title": "Header P/L and the positions table disagree; rail highlight lags after a trade",
+   "evidence": "The header updates every tick while the positions table re-renders every 3rd tick. One capture showed position U.P/L -21,492.95 while header P/L read +55,301.32. After trading CL the rail still highlighted BTC until the next tick (SEL='CL', highlighted row 'BTC').",
+   "where": "terminal/web/openterm.html:775 (tick T%3), 762-763, 223",
+   "fix": "Compute P/L once per tick and render header and table from the same snapshot. Call renderRail() and renderSub() at the end of trade()."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "HELP",
+   "category": "wrong-or-stale-data",
+   "severity": "medium",
+   "title": "HELP contradicts the screen: 'All data is a synthetic simulation' beside a green LIVE, 'every instrument, live', and names that differ from the menu",
+   "evidence": "Static HTML. The footnote (10 px, contrast 2.70) reads 'All data is a synthetic simulation; the Python backend in /terminal wires these same screens to real open data' while the status bar shows LIVE. The MON row says 'every instrument, live' (12 of 23 are simulated). The index lists GREEKS and TNT but the menu buttons read DELT and TKT. Nothing on aliases, the '/' shortcut, the GO LIVE control, or which module uses which source. HELP is in no sub-tab group, so the sub-bar is empty.",
+   "where": "terminal/web/openterm.html:780-800, 806",
+   "fix": "Generate HELP from MODREG plus a per-module source table with live status (from /api/health and /api/stream_status): real / delayed / simulated / no source. Document aliases and shortcuts; use the same labels as the menu."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "fake-data-in-live",
+   "severity": "medium",
+   "title": "DISCONNECT leaves a hybrid state, and disconnecting during bootstrap still opens the WebSocket",
+   "evidence": "After DISCONNECT the label reads 'SIM \u00b7 synthetic' but 11 LIVE.px entries are kept and the simulator random-walks from the last real prices (AAPL 356.47 -> 356.26) on top of real candle history, appending time:null candles. The poll interval is never cleared (it only early-returns). Clicking GO LIVE twice 30 ms apart ended in 'SIM \u00b7 synthetic' with one WebSocket open, because the first liveConnect continued into liveOpenWS after the second click had disconnected.",
+   "where": "terminal/web/openterm.html:881 (liveDisconnect), 869-880, 923",
+   "fix": "On disconnect, clear the poll timer, mark every value as 'last real value, disconnected' and stop the random walk on real series. Guard liveConnect with a connection token checked after each await."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "medium",
+   "title": "/api/candles and /api/quote return a bare 500 for any LSE error; symbols are not market-qualified",
+   "evidence": "/api/candles?symbol=SPX -> 500 'Internal Server Error' (SDK error: 'SPX exists in [indices, uk_stocks]; pass market='). DE10YB/EUR, USB10Y/USD, USB02Y/USD -> 500 (SDK 404 'No stored data'). /api/quote?symbol=EUR_USD -> 500 under throttling. _need_key only converts RuntimeError. /api/candles?symbol=GOLD returned close 37.05, a different instrument from the gold future (market='futures' gives 4040.5). /api/quote for LSE returns only 'last' with no timestamp, so the page cannot show data age. Field names differ by source (binance time/vol, lse timestamp/volume).",
+   "where": "terminal/backend/app.py:35-39, 123-134; terminal/backend/providers/lse.py:20-22",
+   "fix": "Catch the SDK error type and map it to 404/429/502 with a JSON detail. Add a market parameter and a server-side symbol table (terminal symbol -> LSE symbol + market). Normalise candles to one schema and return last, prev_close, high, low, timestamp from /api/quote."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "performance",
+   "severity": "low",
+   "title": "Shell, MON, TNT and HELP are cheap; the only shell-level cost is the render-blocking 3.6 MB Plotly load",
+   "evidence": "MON/TNT/HELP: 60 fps, p99 frame about 21 ms, 0 long tasks in 13 s each. step() averaged 3.46 ms on MON, 1.83 ms on TNT, 1.53 ms on HELP. 450 module switches: heap 11.3 MB -> 11.3 MB, 29 canvases, listeners 61 -> 56. Idle 60 s on MON: heap flat. Per 13 s about 1,700 DOM nodes are replaced (MON table, 23 sparkline canvases every 2.6 s, tape, sub-bar), which is wasteful but not slow. Page load: plotly.min.js 3,598,158 bytes (839 KB transferred), render-blocking, 498 ms here, loaded on every page view; the 404 chart script is also blocking. The 'can barely move it' symptom was not reproducible in these modules.",
+   "where": "terminal/web/openterm.html:129-130 (blocking scripts), 263-279 (rail), 312-321 (MON), 840-845 (tape)",
+   "fix": "Load Plotly with defer or lazily on first VOLS/GREEKS/GEX open, and vendor both libraries locally. Update table cells and sparklines in place."
+  },
+  {
+   "auditor": "front-shell",
+   "area": "SHELL",
+   "category": "other",
+   "severity": "low",
+   "title": "Page renders in quirks mode; rows and tabs are not keyboard-reachable",
+   "evidence": "document.compatMode is 'BackCompat' (the file starts with <meta charset>, no doctype); no lang attribute and no viewport meta. Rail rows and sub-tabs are spans/divs with tabIndex -1; ArrowDown does not move the selection; Tab only walks the 17 menu buttons. '.rail .cat{position:sticky}' has no top, so category headers do not stick.",
+   "where": "terminal/web/openterm.html:1-3, 43, 253-256, 817",
+   "fix": "Add <!doctype html>, <html lang=\"en\"> and a viewport meta. Make rows and tabs buttons or role=button with tabindex=0, add Up/Down to move the selection, and add top:0 to the sticky category."
+  }
+ ],
+ "recipes": [
+  {
+   "auditor": "front-shell",
+   "need": "Crypto last price, 24h change %, real bid/ask and day high/low (MON row, rail, tape) for BTC, ETH, SOL",
+   "source": "Binance via gateway REST",
+   "how": "GET /api/quote?symbol=BTC (or ETH, SOL). Use last, chg_pct, bid, ask, high, low, volume.",
+   "tested": true,
+   "result": "BTC: last 73570.87, chg_pct -0.381, bid 73570.81, ask 73570.82, high 74811.45, low 73390.13, 0.73 s. SOL: last 82.91, chg_pct 0.06, 0.73 s.",
+   "caveats": "REST snapshot; use the WS for tick-by-tick. This is a 24h rolling change, so label it '24H'."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "Streaming crypto spot price (BTC, ETH)",
+   "source": "Gateway /ws (Binance aggTrade)",
+   "how": "WebSocket /ws; use only events with type 'trade', src 'binance', sym BTCUSDT or ETHUSDT; field px. Ignore src 'deribit' ticker events for the spot row.",
+   "tested": true,
+   "result": "241 BTCUSDT and 157 ETHUSDT trade events in 60 s; first message about 60 ms after the socket opens.",
+   "caveats": "Deribit ticker (BTC-PERPETUAL mark price) is a different instrument, about $77 away during the test. Show it as a separate PERP row if wanted."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "Real best bid/ask for crypto (MON BID/ASK, TNT fill price)",
+   "source": "Gateway /ws (Binance depth20@100ms)",
+   "how": "WebSocket /ws events with type 'book', sym BTCUSDT or ETHUSDT: bids[0][0] and asks[0][0]. The page already stores them in LIVE.book[base].",
+   "tested": true,
+   "result": "597 BTC and 577 ETH book events in 60 s; top of book 73608.25 / 73608.26 while the page displayed a fabricated 73572.13 / 73640.94.",
+   "caveats": "No SOL until SOLUSDT is added to the hub."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "Live SOL price",
+   "source": "Binance via stream hub",
+   "how": "Add 'SOLUSDT' to binance_syms in run_hub() (terminal/backend/stream_hub.py:251). The front-end TERM_OF already maps SOLUSDT -> SOL. Interim: poll /api/quote?symbol=SOL.",
+   "tested": false,
+   "result": "Hub change not applied (read-only audit). The /api/quote?symbol=SOL fallback was tested: 82.91, 0.73 s.",
+   "caveats": "Adds three more streams (aggTrade, depth, kline) to the single Binance connection."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "Crypto candle history for CHRT",
+   "source": "Binance via gateway",
+   "how": "GET /api/candles?symbol=BTC&timeframe=1h&limit=300 -> candles[{time (epoch s), open, high, low, close, vol}]. For live updates request timeframe=1m, since the WS kline events are 1-minute bars.",
+   "tested": true,
+   "result": "SOL 1h returned bars at 1794463200 and 1794466800 (the current hour), 0.75 s. BTC 300 bars start 2026-10-30T20:00Z.",
+   "caveats": "WS klines are 1m; do not append them to a 1h series."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "US equity last, previous close (for real CHG), day high/low (AAPL, NVDA, TSLA, XOM)",
+   "source": "London Strategic Edge via gateway",
+   "how": "GET /api/candles?symbol=AAPL&timeframe=1d&limit=2. Use candles[-1].close/high/low as last and day range, candles[-2].close as previous close. Fields are timestamp (ISO), volume, date; convert to time = Date.parse(timestamp)/1000 and vol = volume.",
+   "tested": true,
+   "result": "AAPL 2026-11-10 close 348.782; 2026-11-11 close 356.1301, high 357.71, low 345.5112 -> +2.11% (page showed +30.22%). 0.85 s unthrottled, 15-32 s when throttled.",
+   "caveats": "Free plan: 60 calls/min and a daily row quota (4.48M of 12.5M used). Cache in the gateway and batch."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "Equity intraday bars and near-real-time last",
+   "source": "London Strategic Edge via gateway",
+   "how": "GET /api/candles?symbol=AAPL&timeframe=1m&limit=N",
+   "tested": true,
+   "result": "Last bar 2026-11-12T00:59:00Z, close 356.1301 (end of the extended session), 1.17 s.",
+   "caveats": "Same rate limit. The LSE tick stream (capabilities tick:true) was not tested."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "FX last and change (EURUSD, USDJPY, GBPUSD, AUDUSD)",
+   "source": "London Strategic Edge via gateway",
+   "how": "GET /api/candles?symbol=EUR_USD&timeframe=1d&limit=2 for last and previous close; timeframe=1m for intraday. Symbols use underscores: EUR_USD, USD_JPY, GBP_USD, AUD_USD.",
+   "tested": true,
+   "result": "EUR_USD 1d: 2026-11-11 close 1.10894, 2026-11-12 (in progress) 1.1075 at 07:22Z then 1.10733 at 07:28Z. A 1m bar stamped 07:24Z was returned at 07:24Z (SDK direct).",
+   "caveats": "No bid/ask on the free plan (quotes:false). FX volume is 0."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "CL (WTI crude) price",
+   "source": "London Strategic Edge futures CRUDEOIL",
+   "how": "GET /api/candles?symbol=CRUDEOIL&timeframe=1d&limit=2 (or 1m). Alternative symbol WTICO/USD (URL-encode the slash).",
+   "tested": true,
+   "result": "CRUDEOIL 86.37 (11-09), 86.45 (11-10); last 1m bar 2026-11-10T21:59Z = 86.45. WTICO/USD 86.96. 0.79 s.",
+   "caveats": "Delayed: at 2026-11-12 07:24Z the newest bar was 2026-11-10 21:59Z (SDK message: 'a trading day is stored after it ends'). Label as delayed D-1/D-2."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "NG, HG, RB prices",
+   "source": "London Strategic Edge futures NATGAS, COPPER, GASOLINE",
+   "how": "GET /api/candles?symbol=NATGAS|COPPER|GASOLINE&timeframe=1d&limit=2",
+   "tested": true,
+   "result": "NATGAS 3.296, COPPER 6.27, GASOLINE 2.6254 (all dated 2026-11-10), about 0.8 s each.",
+   "caveats": "Same one-to-two-day delay as CRUDEOIL."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "GC (gold) price",
+   "source": "London Strategic Edge futures GOLD (market=futures) or commodities XAU/USD",
+   "how": "SDK: candles('GOLD','1d',market='futures') or candles('XAU/USD','1d'). The gateway must pass market=; add a market query parameter to /api/candles.",
+   "tested": true,
+   "result": "SDK direct: GOLD futures 4040.5 (11-09 bar); XAU/USD 4032.5, last 1m bar 2026-11-10T21:59Z.",
+   "caveats": "Through the gateway today, /api/candles?symbol=GOLD returns 37.05, a different instrument. Delayed about a day."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "SPX, NDX, RUT index levels",
+   "source": "London Strategic Edge indices",
+   "how": "GET /api/candles?symbol=NDX|RUT&timeframe=1d&limit=2 works now. SPX needs market='indices' (SDK: candles('SPX','1d',market='indices')).",
+   "tested": true,
+   "result": "NDX 28374.25, RUT 2846.26 (2026-11-11) via gateway. SPX 7619.38 (2026-11-11; 1m bar 21:04Z) via SDK with market='indices'.",
+   "caveats": "Gateway /api/candles?symbol=SPX returns 500 (symbol also exists in uk_stocks). Data is the last cash close; freshness during US hours not checked (market was closed)."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "VIX for the header 'VOL' and the VIX row",
+   "source": "London Strategic Edge indices VIX (or FRED VIXCLS)",
+   "how": "GET /api/candles?symbol=VIX&timeframe=1d&limit=2, or GET /api/macro?series_id=VIXCLS&limit=2",
+   "tested": true,
+   "result": "LSE VIX 19.46 (11-10), 17.49 (11-11); 1m bar 2026-11-11T21:15Z = 17.49. FRED VIXCLS 19.46 (11-10).",
+   "caveats": "FRED is one business day behind. Display as index points, not percent."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "US10Y and US2Y yields",
+   "source": "FRED DGS10 / DGS2 (or LSE index TNX for the 10-year)",
+   "how": "GET /api/macro?series_id=DGS10&limit=2 and series_id=DGS2 -> obs[-1].value in percent. Alternative: /api/candles?symbol=TNX&timeframe=1d&limit=2, close divided by 10.",
+   "tested": true,
+   "result": "DGS10 4.88 (2026-11-09), DGS2 4.56 (2026-11-09). TNX 49.83 = 4.983% (2026-11-10).",
+   "caveats": "FRED is daily with a 1-3 business day lag; label 'D-1 close'. LSE futures US10Y/US2Y are prices (106.14), not yields."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "DE10Y (Bund 10Y yield)",
+   "source": "none found",
+   "how": "LSE indices lists DE10YB/EUR but candles() returns 404 'No stored data'. Show an explicit 'NO LIVE SOURCE' state for this row.",
+   "tested": true,
+   "result": "SDK: LSEError 404 for DE10YB/EUR at 1d; gateway returns 500.",
+   "caveats": "A monthly FRED series may exist but was not tested and would not be a live quote."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "Bid/ask for equities, FX, futures, indices",
+   "source": "none on the free plan",
+   "how": "LSE markets() reports quotes:false and book:false for US_STOCKS, FOREX, FUTURES, INDICES, COMMODITIES (L1 candles/ticks only). Show '\u2014'.",
+   "tested": true,
+   "result": "markets() output: only XNAS and XCME have book/quotes, and both are allowed:false on this key.",
+   "caveats": "Tiingo IEX and Alpha Vantage fallbacks (/api/equity_quote) were not called."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "Honest connection/feed status for the LIVE indicator",
+   "source": "Gateway",
+   "how": "GET /api/stream_status -> feeds.{binance,deribit,ais}.{state, seconds_since_message, healthy, last_error}. Combine with a client-side last-message timestamp per source.",
+   "tested": true,
+   "result": "All three feeds 'live', seconds_since_message 0.0-0.1, clients count returned; responds in milliseconds.",
+   "caveats": "Covers WS feeds only; REST sources (LSE, FRED) need their own last-success time tracked client-side or added to the endpoint."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "Header clock",
+   "source": "Browser",
+   "how": "new Date().toISOString().slice(11,19)+'Z' updated once per second, plus the age of the newest data event.",
+   "tested": false,
+   "result": "Not applicable (no backend call).",
+   "caveats": "Keep the simulated clock only in SIM mode."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "Chart library for CHRT",
+   "source": "jsDelivr or a vendored local copy",
+   "how": "https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js, or copy that file into terminal/web and load /app/lightweight-charts.standalone.production.js.",
+   "tested": true,
+   "result": "jsDelivr 200, 160,943 bytes; unpkg 200. Served to the page via interception: version 4.1.3 loads, CL and SOL charts render, zoom and pan work.",
+   "caveats": "A local copy removes the CDN dependency. The cdnjs API reports the library does not exist there."
+  },
+  {
+   "auditor": "front-shell",
+   "need": "TNT order execution and P/L",
+   "source": "none (paper trading only)",
+   "how": "No broker is wired. Keep it as a paper blotter marked PAPER; mark-to-market from real prices only (crypto WS book, LSE last for others) and refuse instruments with no live price.",
+   "tested": false,
+   "result": "Not applicable.",
+   "caveats": "Any 'fill' is hypothetical; show the price source used on each fill."
+  }
+ ]
+}

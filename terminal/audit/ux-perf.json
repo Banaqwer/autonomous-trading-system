@@ -1,0 +1,344 @@
+{
+ "auditor": "ux-perf",
+ "summary": "Audited in headless Chromium (Playwright) against http://localhost:8080/app/openterm.html at 1366x768, 1920x1080, 2560x1300; nothing in the repo was touched; my own backend (port 8237, AIS key empty) was started and stopped.\n1. \"LIVE\" is not truthful. It is set once after /api/health and never revoked: I killed the backend under an open page and 45 s later the status still read \"LIVE \u00b7 localhost:8237\" with a green dot, the red LIVE tag stayed, 12 instruments kept random-walking, 11 froze silently, OPTS/GEX still said \"LIVE (Deribit)\". Nothing on screen marks a value as real, simulated or stale. The header clock is simulated too (13:53:45Z shown at real 08:46:23 UTC, 7.7x speed).\n2. Even with a healthy backend, most of the screen is simulated in LIVE mode: 12 of 23 instruments, the whole BOOK/HEAT/FOOT/NEWS/ECO/VOLS/GREEKS/SPLC content, the WX storm. The real Binance book is received and thrown away (real BTC bid/ask 73619.14/73619.15 vs displayed 73603.67/73633.12). The owner's two WX screenshots are the same simulation 36 s and 94 s after page load (derived from lines 189-191).\n3. Live data is also corrupted or mislabelled: the sim loop injects a fake future-dated candle every 3.9 s into live candle arrays (47 bad BTC candles in 3 min); %CHG is vs 300 hours / 250 days ago; SHIP evicts the lowest MMSI, so 0 of 4,911 European vessels seen were kept.\n4. Legibility: 95% of all text runs are under 12 px (9/9.5/10/11 px), nothing scales with the viewport (identical px at 1366 and 2560), and every use of --faint (#4b5668: all table headers, labels, inactive tabs, hints, status) is 2.5-2.7:1. At 1920x1080, 56-94% of most modules is empty.\n5. Windows font problem reproduced: with \"JetBrains Mono\" blocked, all 14 canvas font assignments and the Plotly text fall back to a proportional serif (measured width identical to Times New Roman); the page ships no font.\n6. \"Can barely move it\": the 6 canvas modules have zero mouse/wheel/keyboard listeners (no pan, zoom, hover, tooltip); CHRT is dead; VOLS/GREEKS freeze 1.1-1.5 s on open and 0.4-0.6 s on every watchlist click, rotating at ~3 fps (software GL here); per-tick innerHTML rebuilds destroy text selection and lose 17% of sub-tab clicks. Steady-state frame time was a clean 16.7 ms on every module on this machine; at 4x CPU throttle every module gets about one 50-100 ms long task per second.\n7. No leak found: heap 6.7 -> 7.3 MB and DOM nodes constant over 3 min on SHIP and MON; 60 module switches added 1.3 MB.\n8. /api/quote and /api/candles for LSE symbols returned HTTP 500 after ~3.8 s when called directly; one open tab issues ~80 quote requests/min, overlapping up to 8 at a time when slow, with errors swallowed.\nScripts and raw data: /tmp/claude-0/-home-user-autonomous-trading-system/18267061-1306-5187-a1cb-8d8f25130090/scratchpad/tmp.htOYXirqHQ (lib.js, t1_legibility.js .. t7_misc.js, legibility.json, perf.json, shots_1920/, shots_font/, shots_layout/).",
+ "not_checked": [
+  "Real Windows machine and real GPU: the font fallback was reproduced on Linux by blocking the family (falls to Liberation/DejaVu Serif, metrics equal to Times New Roman); 3D drag and open timings were measured on software WebGL (SwiftShader) and will differ on a GPU.",
+  "CHRT legibility, interaction and performance: the chart library does not load, so the module could not be rendered.",
+  "Contrast of VOLS/GREEKS 3D axis text: it is drawn in WebGL; size and family were read from Plotly's layout (12 px Open Sans stack, #7d8ba0), not pixel-measured.",
+  "Real behaviour of the 8 LSE-backed rows in the browser: /api/quote and /api/candles returned 500 on my 3 direct calls and I did not investigate the backend cause; all browser runs used stubbed LSE responses to respect rate limits.",
+  "Runs longer than 3 minutes (hours-long sessions) and more than 60 module switches.",
+  "Real browser zoom via Ctrl +/-: emulated with deviceScaleFactor 1.25/1.5 and a proportionally smaller CSS viewport.",
+  "Browsers other than Chromium; screen-reader behaviour (only counted ARIA attributes).",
+  "SAT module with a dead backend (my browser stub served a cached image) and the age/date of the Sentinel image shown.",
+  "Whether SHIP vessels are actually tankers (backend filter) and AIS behaviour on my own backend (AIS key was deliberately empty).",
+  "Pixel-level measure of how much of each module visibly changes per second.",
+  "Alpha Vantage, Marketaux, LaborCurrent, FMP, API Ninjas and other provider endpoints: not called (outside this scope)."
+ ],
+ "findings": [
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "LIVE badge and status never reflect the real connection; backend death is invisible",
+   "evidence": "Started own backend on :8237, loaded page, SIGKILLed backend. At +5 s, +20 s, +45 s: LIVE.on=true, status text 'LIVE \u00b7 localhost:8237', dot rgb(31,191,117) green, #newsTag 'LIVE', button 'DISCONNECT', no text matching stale/offline/reconnect/error anywhere. WebSocket silently re-opened 19 times in 45 s (19 console errors only). Prices: 11 symbols frozen at last value (BTC 73502.27 unchanged), 12 kept moving (CL,NG,GC,HG,RB,US10Y,US2Y,DE10Y,SPX,NDX,VIX,RUT). OPTS header still 'LIVE (Deribit)'. In SIM mode (API blocked) the red tag bottom-left still says 'LIVE'. GO LIVE to a dead URL returns to 'SIM \u00b7 synthetic' with no error message. The page never calls /api/stream_status.",
+   "where": "terminal/web/openterm.html:846 (newsTag='LIVE' unconditional), :873-875 (LIVE.on set once), :919 (onclose retry, no UI), :928-938 (setLiveUI), :214-215 (sim continues)",
+   "fix": "Introduce one connection state machine (SIM / CONNECTING / LIVE / DEGRADED / OFFLINE) driven by ws open/close, per-feed last-message age and a 5 s poll of /api/stream_status. Badge text and colour come from that state only. On ws close or feed silence beyond a threshold, grey out affected values and show their age; show a visible error when GO LIVE fails. Remove the unconditional LIVE tag."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "In LIVE mode 12 of 23 instruments, the header VOL figure and the clock are simulated, with no marker",
+   "evidence": "LIVE.px only ever contains BTC, ETH, SOL, AAPL, NVDA, TSLA, XOM, EURUSD, USDJPY, GBPUSD, AUDUSD. The other 12 kept random-walking after the backend was killed. Header clock showed 13:53:45Z while real UTC was 08:46:23: it is DAY0 + T*5 s, i.e. 5 simulated seconds per 650 ms tick (7.7x). VOL in the header is the simulated VIX. BOOK tape rows and NEWS rows are stamped with this fake clock.",
+   "where": "openterm.html:214-215 (step), :234-236 (updateHeader), :162 (DAY0), :858-865 (live symbol lists)",
+   "fix": "When LIVE.on, never run the random walk: a symbol without a live source shows '\u2014' and a NO FEED tag. Add a per-row source and age indicator. Clock must be real UTC (new Date()). Keep the simulator only behind an explicit SIM/DEMO state with a full-width banner."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "WX",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "The hurricane is a page-load-relative animation; both owner screenshots are the same simulation 58 s apart",
+   "evidence": "Per tick the storm moves lon -0.8905\u00b0, lat +0.3025\u00b0 (lines 189-191), starting 14N 74W plus 10 pre-steps. 30.9N 123.9W = tick 56 (36 s after load); 57.9N 203.1W = tick 145 (94 s after load); both match the owner's values exactly. It leaves the fixed map window (lon -100..-60) about 12 s after load, and longitude runs past 180W. My 1920x1080 capture after ~60 s shows 40.6N 152.4W with no storm on the map, 82% of the panel detail-free. HUD says 'HEADING NW @ 11 kt' constantly. The real NHC system (TS Pena 9.8N 170.6W, 40 kt) is only a text line bottom-left. The page boots on WX.",
+   "where": "openterm.html:184-202, :548-565, :570-575, :941, :948",
+   "fix": "In LIVE mode do not step or draw STORM. Plot LIVE.storms at their real lat/lon with advisory time and age, auto-fit the map extent to them, and show 'no active systems' when empty. Sim storm only in an explicitly labelled demo state."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "BOOK / HEAT / FOOT / NEWS / ECO / VOLS / GREEKS / SPLC",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "Eight modules are fully synthetic in LIVE mode and say nothing about it",
+   "evidence": "BOOK with BTC selected: displayed best bid/ask 73,603.67 / 73,633.12 (spread 31.48, sizes change randomly every tick: '73,765.63 22' -> '73,772.68 9' 700 ms later) while LIVE.book.BTC held the real 73619.14 / 73619.15. ~20 book messages/s are received and stored but never rendered. HEAT is rnd() noise (lines 384-386). FOOT bid/ask volumes are re-rolled with gauss() on every render (421-422). NEWS is 7 templates with random source tags such as [RUMOUR] (707-715). ECO is 8 hard-coded rows titled 'today' (727-731). VOLS/GREEKS use a formula surface (293-299). HELP says 'Market monitor \u2014 every instrument, live'.",
+   "where": "openterm.html:360-375, :917, :384-386, :421-422, :707-715, :727-731, :293-299, :782",
+   "fix": "Render BOOK and HEAT from LIVE.book and the trade stream for symbols that have it. For every module or symbol without a live source in LIVE mode, show an explicit 'NO LIVE SOURCE' empty state instead of generated numbers. Wire NEWS and ECO to the existing /api/news and /api/calendar or hide them."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "broken",
+   "severity": "critical",
+   "title": "Two render-blocking CDN scripts: CHRT is dead, and a stalled CDN stops the whole app from booting",
+   "evidence": "go('CHRT') threw 'LightweightCharts is not defined' 4 of 4 times in the switch loop; afterwards the menu highlights CHRT over an empty panel (0 children) with no message. With cdnjs requests held open, after 8 s the page had 0 menu buttons and 0 rail rows (app script never ran). With cdnjs aborted, the app boots but VOLS/GREEKS/GEX throw 'Plotly is not defined' and stay blank. Plotly is 820 kB transferred / 3.5 MB decoded.",
+   "where": "openterm.html:129-130 (script tags before the app script), :330, :348, :476",
+   "fix": "Vendor both libraries into terminal/web/vendor/ (served by the existing /app static mount), load with defer, and guard each module: if the library is missing, draw an in-panel error instead of throwing."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "Simulator injects fake future-dated candles into live candle arrays",
+   "evidence": "After 3 min in LIVE mode: INST.BTC.cndl had 47 candles dated in the future and 47 out-of-order timestamps (last three: 2026-11-12T08:46Z, 2026-11-13T08:46Z, 2026-11-12T08:46Z). INST.AAPL.cndl had 44 future candles running to 2026-12-27 and beyond. Cause: every 6th tick step() pushes {time: last+86400} for every symbol, live or not, and on other ticks overwrites the last real candle's high/low/close and adds random volume.",
+   "where": "openterm.html:218-221; ws kline append at :916",
+   "fix": "Skip lines 218-221 for any symbol with a live price. Live candles come only from REST bootstrap and kline messages; insert by time and cap length in the ws handler."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "MON",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "CHG/%CHG, DAY RANGE and sparklines use wrong baselines for live symbols",
+   "evidence": "BTC px0 equals the close of the first of 300 hourly candles (2026-10-30T21:00Z, 300 h back), so the '%CHG' column showed -4.15%. For LSE symbols px0 is the close 250 daily candles back (the earlier capture showed XOM +40.43%, NVDA -14.61% as CHG). I.hist is the seeded simulation: BTC hist starts at 96,921 (sim base 97,250) and ends at the real 73,541; AAPL starts 229.3 and ends 356.1. So every live sparkline is fake history ending in a cliff, and 'DAY RANGE' is min/max of that array.",
+   "where": "openterm.html:887, :891 (px0), :165-169 (seed hist), :314-315 (range), :266, :276",
+   "fix": "Set px0 to the previous session close (24 h-ago close for crypto). At bootstrap replace I.hist with real closes. Compute day range from today's high/low. Label the column with its period."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHIP",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "Vessel cap evicts the lowest MMSI, not the oldest: European vessels never appear",
+   "evidence": "In 180 s the page saw 5,953 distinct vessels; 4,911 had MMSI starting with 2. Of the 700 retained, none started with 2 (kept: 3xx 293, 4xx 37, 5xx 139, 6xx 166, 7xx 65); lowest kept MMSI 366695940 vs lowest seen 3638. Object.keys on integer-like keys returns ascending numeric order, so ids[0] is the smallest MMSI. 'VESSELS TRACKED 700' is the cap, reached within 20 s. The vessel handler costs 0.08 ms per message (Object.keys over 700 entries, ~40 times/s).",
+   "where": "openterm.html:913, :649, :662",
+   "fix": "Use a Map (insertion order) and evict by oldest timestamp, or drop the cap and expire by age only. Show 'N shown / M seen in last 10 min'. Do not call Object.keys per message."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "high",
+   "title": "/api/quote and /api/candles for LSE symbols returned HTTP 500 after ~3.8 s",
+   "evidence": "curl localhost:8080/api/quote?symbol=AAPL -> 'Internal Server Error' 500 in 3.91 s; symbol=EUR_USD -> 500 in 3.76 s; /api/candles?symbol=AAPL&timeframe=1d&limit=250 -> 500 in 3.72 s (3 requests total; cause not investigated). The page swallows these (catch(e){}), so the 8 LSE-backed rows would stay at their last value under a LIVE label.",
+   "where": "terminal/backend/app.py:137-148; openterm.html:889-892, :925",
+   "fix": "Catch upstream failures in the gateway and return a structured 502/503 with a reason. In the page, count failures per symbol and mark the row stale."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "performance",
+   "severity": "high",
+   "title": "Quote polling: ~80 upstream calls per minute per tab, overlapping when slow",
+   "evidence": "With quotes answering instantly, one tab sent 40 /api/quote requests in 30 s. Each is an uncached lse.candles(symbol,'1d',limit=2) call, i.e. the 'live quote' is the last daily close. With responses delayed 3.8 s and failing (matching the curl result), 66 requests started in 60 s with up to 8 in flight at once, because setInterval fires every 5 s while one sequential pass takes ~30 s. No UI indication.",
+   "where": "openterm.html:923-926; app.py:143-148",
+   "fix": "One in-flight guard, a batch endpoint (/api/quotes?symbols=...), server-side cache with a TTL of at least 60 s for daily closes, exponential backoff on error, and a stale marker in the UI."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "legibility",
+   "severity": "high",
+   "title": "95% of all text is under 12 px and nothing scales with the viewport",
+   "evidence": "Across 17 modules at 1920x1080: 3,941 text runs, 3,761 (95.4%) under 12 px. Sizes used: 9 px (496 runs), 9.5 (110), 10 (422), 11 (2,733), 12 (157), 13.3 (19), 14 (4). 82 of 99 distinct styles are under 12 px. At 1366x768 and 2560x1300 the px sizes are identical (95.1% / 95.5% under 12 px); rail stays 186 px, top bar 30 px, table rows ~20 px. Plotly 3D axes are 12 px Open Sans/verdana/arial because surface3d sets no layout.font.",
+   "where": "openterm.html CSS :19, :27, :31, :36, :39, :43, :47-48, :57, :61, :68, :71, :73, :78-79, :85, :87; canvas :417, :545, :560-561, :573, :602-603, :617-618, :660-661, :692, :697; Plotly :478, :512-513, :521-522",
+   "fix": "Adopt the type scale in the recipes (13 px minimum for data, 12 px for labels) defined as CSS variables on :root with a clamp() on viewport width, and have canvas and Plotly code read the same variables."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "legibility",
+   "severity": "high",
+   "title": "--faint (#4b5668) fails contrast everywhere it is used; three other styles fail",
+   "evidence": "Measured contrast: table headers in MON/BOOK/OPTS/NEWS/ECO/TNT 10 px #4b5668 on #0e1420 = 2.48:1; inactive sub-tabs and GREEKS selector 2.59; P/L, FLOATY, VOL labels 2.60; 'RUN' and the 'LIVE \u00b7 host' status text 2.61; ticket labels and all .hint lines (OPTS/ECO headers, TNT scenario text, HELP paragraph) 2.70; FOOT title 2.70. Also: 'LIVE' tag white on #ff4d5e 3.24; command placeholder #757575 on #05070b 4.38; WX port label 3.89 where 'HOUSTON' and 'PORT ARTHUR' overlap. --dim (5.3-5.8), red (5.7-6.2), green, amber and cyan pass.",
+   "where": "openterm.html:10 (--faint), :31, :36, :61, :68, :71, :79, :87, :432, :57, :546",
+   "fix": "Replace --faint with #8593a8 (5.3-6.4:1 on all four backgrounds) and lift --dim to #a3b0c2 (7.5-9.1:1). LIVE tag: dark text on the red, or white on #c8102e (5.9:1). Set ::placeholder to the new faint. Offset the port labels."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "legibility",
+   "severity": "high",
+   "title": "Canvas and Plotly text fall back to a proportional serif when JetBrains Mono is not installed",
+   "evidence": "Launched Chromium with a fontconfig that rejects JetBrains Mono and Inter. Canvas measureText('POSITION   40.6N 152.4W  il1') with font '10px JetBrains Mono' = 127.77 px, identical to '10px serif' and '10px \"Times New Roman\"' (168.0 when installed; 168.57 for monospace); no longer fixed pitch. Plotly SVG text resolved to Liberation Serif. DOM text is fine (falls to DejaVu Sans Mono here, Consolas on Windows) because --mono has fallbacks. document.fonts.size is 0 (no @font-face) and document.fonts.check() returns true in both cases, so it cannot be used as a test. Screenshot: shots_font/blocked_FOOT.png.",
+   "where": "Canvas assignments without fallback: openterm.html:417, :545, :560, :561, :569, :573, :602, :603, :617, :618, :660, :661, :692, :697. Plotly: :478, :512, :521 (titles at :513, :522 inherit). :331 already has a fallback.",
+   "fix": "Ship the font: put JetBrainsMono Regular and Bold woff2 in terminal/web/vendor/fonts, declare @font-face, and build every canvas/Plotly font string from one constant with a monospace fallback stack. Wait for document.fonts.load() before the first canvas draw and redraw on loadingdone."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "VOLS / GREEKS",
+   "category": "performance",
+   "severity": "high",
+   "title": "3D modules freeze the page on open and on every watchlist click; GREEKS surface is all zeros",
+   "evidence": "Menu click to next paint: VOLS 1,464 ms (long tasks 1,437 + 499 ms), GREEKS 1,080 ms (1,050 + 410). Each watchlist click while on VOLS: 408-448 ms; on GREEKS 408-568 ms; each GREEKS surface-selector click 384-416 ms. Drag-rotate: median frame 333 ms (VOLS) and 317 ms (GREEKS), about 3 fps; this ran on software WebGL (SwiftShader), so a real GPU will be faster. GREEKS delta z ranges 0 to 7.8e-85 over all 78 cells because bs() is called with strike k*S where k is already an absolute strike.",
+   "where": "openterm.html:472-483 (surface3d), :486-487, :494 (k*S), :495-496",
+   "fix": "Line 494: pass k, not k*S. Update with Plotly.restyle of z only instead of a full react with layout, debounce sel() redraws, and show a loading state. Set layout.font so axes use the terminal font."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "WX / SHIP / HEAT / FOOT / SPLC / SAT / MON",
+   "category": "interaction",
+   "severity": "high",
+   "title": "Canvas modules accept no input at all: no pan, zoom, hover, tooltip or click",
+   "evidence": "CDP getEventListeners on each module panel and its whole subtree returned NONE for WX, SHIP, HEAT, FOOT, SPLC, SAT and MON; cursor is 'auto'; 0 title attributes. Window has only keydown and resize from the page. MON table rows are not clickable (only the left rail is). A vessel dot on SHIP is 2.6 px with no name or hit-test although name/cog/sog are stored.",
+   "where": "openterm.html:381, :410, :530, :582, :628, :672 (canvases created with no handlers); :651 (dot size); :311-323 (MON rows)",
+   "fix": "Add a shared view transform per map canvas with wheel-zoom, drag-pan and double-click reset, plus hover hit-testing that shows a tooltip (vessel name/speed/age, storm advisory, heat cell price/size). Make MON rows select the instrument on click."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "interaction",
+   "severity": "high",
+   "title": "Per-tick innerHTML rebuilds destroy selection and hover and lose clicks",
+   "evidence": "MON: triple-click selected 6 characters, selection length 0 after 2 s; the hovered <tr> was no longer in the document after 1.5 s. Sub-tab bar is rebuilt every 650 ms: with a 120 ms mouse press, 4 of 24 clicks on the BOOK tab did nothing (17%). Rebuild schedule from the code: subbar every tick; MON table every 2 ticks; BOOK both tables every tick; OPTS every 4 ticks; NEWS every tick even with no new headline; TNT positions every 3 ticks; ticker text every 2 ticks; 23 sparkline canvases destroyed and recreated every 4 ticks (7.7 canvas creations/s measured). Main canvases are resized (full clear) on every render in HEAT, WX, SHIP, FOOT, SPLC. Scroll position and input focus did survive (OPTS scrollTop 120 held; #tQty and #cmd kept focus).",
+   "where": "openterm.html:945 and :815-820 (renderSub), :321-323, :368, :374, :376, :451, :466-468, :718-719, :772-775, :840-843, :271-277, :383, :412, :535, :634, :681",
+   "fix": "Build rows once and update only the text of cells whose value changed. Build the subbar in go() and update only the price span per tick. Keep one persistent sparkline canvas per row. Resize a canvas only when the panel size changes (as SAT already does at :597)."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "performance",
+   "severity": "medium",
+   "title": "Steady state is 60 fps here, but at 4x CPU throttle every module has about one long task per second",
+   "evidence": "Unthrottled, 6 s per module: p50/p95/max frame time 16.7/16.8/16.8 ms on all 17 modules, 0 long tasks (one 412 ms task on GREEKS). step() averages 1.3-3.3 ms, 13.2 ms on HEAT. At 4x CPU throttle, 5 s per module: MON 5 long tasks (max 78 ms), WX 6 (96), SHIP 5 (100), NEWS 6 (93), HELP 5 (55), HEAT 18 long tasks totalling 1,254 ms at 45 fps with p95 50 ms. FOOT calls getComputedStyle about 340 times per render through getCss().",
+   "where": "openterm.html:207-225 (step), :263-279, :280 (getCss), :425-430, :945",
+   "fix": "Cache CSS colours once. Separate data ticks from painting: mark views dirty and paint in one requestAnimationFrame. See the rendering recipe."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "HEAT",
+   "category": "legibility",
+   "severity": "medium",
+   "title": "Heatmap has no axes, labels or legend and repaints 14,400 rectangles every tick",
+   "evidence": "The module contains no fillText call: no price scale, no time axis, no colour legend, no symbol name. HEAT.tick averages 11.9 ms (max 15.6 ms) unthrottled, the most expensive tick in the app. Content is random (see fake-data finding).",
+   "where": "openterm.html:380-406",
+   "fix": "Draw from real depth. Keep an offscreen canvas, shift it one column left per update with drawImage and paint only the new column. Add a right-hand price axis, a time axis, a colour legend and a last-price label."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "FOOT",
+   "category": "legibility",
+   "severity": "medium",
+   "title": "Footprint rows overlap into unreadable smears",
+   "evidence": "Row pitch per candle at 1920x1080: 15.9, 12, 6.4, 7, 13.7, 17.4, 3.5, 10.3, 9, 18.6, 9.3, 25.9, 3.1, 3.8 px. 5 of 14 candles have pitch under the 9 px text height, with 12 px row boxes, so numbers overprint (sampled 'background' under glyphs was other glyphs, contrast 1.02-2.0). The first candle's cells also cover the title line. Red 9 px text on the tinted cell is 4.85:1.",
+   "where": "openterm.html:415-427, :432",
+   "fix": "Use a fixed price-bucket size chosen so that row pitch is at least 14 px, aggregate ticks into buckets, show fewer candles, and reserve a header strip for the title."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "WX / SHIP",
+   "category": "legibility",
+   "severity": "medium",
+   "title": "Maps are not recognisable geography",
+   "evidence": "WX 'land' is one 11-point self-intersecting polygon (renders as a bow-tie shape, see shots_1920/WX.png); SHIP continents are 6 ellipses. No coastlines, country borders, labels or scale. SHIP is 82% detail-free blocks at 1920x1080, WX 82%.",
+   "where": "openterm.html:532-533, :542, :641-642",
+   "fix": "Vendor a Natural Earth 110m coastline GeoJSON (roughly 100-200 kB) into terminal/web/vendor and draw it once to a cached offscreen layer; add graticule labels."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "layout",
+   "severity": "medium",
+   "title": "Large screens are mostly empty; tables stretch to full width",
+   "evidence": "Share of 16 px blocks with no detail at 1920x1080: SPLC 94%, GREEKS 90%, VOLS 89%, TNT 85%, FOOT 85%, ECO 83%, WX 82%, SHIP 82%, NEWS 80%, GEX 77%, BOOK 73%, HELP 69%, OPTS 62%, MON 56%, HEAT 45%, SAT 1%, CHRT 100% (broken). Table height as share of panel: MON 47%, OPTS 52%, BOOK 43%, HELP 31%, NEWS 21%, ECO 18%, TNT 6% (38%, 43%, 35%, 25%, 18%, 15%, 5% at 2560x1300). MON columns are 166-245 px wide for 11 px text at 1920, and 352-519 px at 3840.",
+   "where": "openterm.html:70 (table width:100%), :41, :51-53 (one module fills the whole main area)",
+   "fix": "Cap data tables at a readable width or use the spare area: a 2-3 panel grid per function group (for example MON + chart + news) at 1920 px and wider. See layout rules in the recipes."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "layout",
+   "severity": "medium",
+   "title": "Below 1124 px of CSS width the right side is cut off with no scrollbar",
+   "evidence": "Document scroll width is 1124 px at viewports 1024, 911 (1366x768 at 150% zoom) and 800 wide, with body overflow hidden. At 1024: VOL and the clock are cut, the status box ends at x=1116 so the URL field and DISCONNECT button are off-screen, and MON's last column is cut. At 911x512 the rail also has 137 px hidden. 1920x1080 at 125% and 150% zoom (1536 and 1280 px) are fine. Live resize works: canvas and Plotly refit within 1 s.",
+   "where": "openterm.html:19 (overflow:hidden), :23-30 (top bar does not wrap or shrink), :60-68, :89 (only breakpoint is 620 px)",
+   "fix": "Let the menu scroll or collapse into the four groups, allow the stats block and status box to wrap or drop to icons below ~1280 px, and give the body a min-width with horizontal scroll as a last resort."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "OPTS / GEX",
+   "category": "wrong-or-stale-data",
+   "severity": "medium",
+   "title": "Options data is fetched only when the module is opened, then shown as LIVE indefinitely",
+   "evidence": "LIVE.loadOptions is called only from show() and sel(); tick re-renders the same LIVE.opt every 4 ticks. With the backend dead the header still read 'OPTIONS CHAIN \u00b7 BTC \u00b7 LIVE (Deribit) \u00b7 spot 73,473.37' and GEX 'LIVE Deribit \u00b7 spot 73,473'. With CL focused the module shows the BTC chain while the sub-bar says 'FOCUS CL'. No timestamp is displayed.",
+   "where": "openterm.html:468, :525, :901-908, :460, :522",
+   "fix": "Refresh every 10-15 s while the module is visible, print 'as of HH:MM:SS' and switch the label to STALE past a threshold. State explicitly when the focused symbol has no options source."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "interaction",
+   "severity": "medium",
+   "title": "Keyboard: most controls are unreachable and '/' cannot be typed into the API URL field",
+   "evidence": "Tab order is the 17 menu buttons, command input, GO, API field, button. 0 of 23 watchlist rows, 0 of 4 sub-tabs and 0 of 4 GREEKS selectors are focusable. ArrowDown, ArrowRight, PageDown, F2, Esc and 'j' do nothing. Typing BTC + Enter in the command line gives 'UNKNOWN FUNCTION: BTC' (no way to pick an instrument by keyboard). Typing '/x' in #liveApi left its value unchanged, moved focus to the command line and put 'x' there (global '/' handler). #cmd has outline:none. 0 role/aria attributes, 0 label[for].",
+   "where": "openterm.html:837 (global '/' handler), :253-256, :817, :492-495, :821-835, :65",
+   "fix": "Ignore the '/' shortcut when focus is in any input/select. Make rail rows and tabs buttons (or tabindex=0 with Enter/Space). Add Up/Down to move the selected instrument, accept tickers and 'TICKER FUNCTION' in the command line, and add visible focus styles and ARIA roles."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "legibility",
+   "severity": "low",
+   "title": "Bottom ticker is a slow price crawl under a red LIVE tag",
+   "evidence": "Speed 33 px/s; the track has padding-left 100% (1,920 px) and is 5,062 px long, so one full cycle takes 212 s at 1920 px and the last symbol appears 95 s after the first. Content is the same 23 prices as the rail, including the 12 simulated ones. The text is rebuilt with innerHTML every 1.3 s.",
+   "where": "openterm.html:56-59, :115, :840-846",
+   "fix": "Either remove it (it duplicates the rail) or use it for real headlines. If kept, duplicate the content for a seamless loop without the 100% padding and update values in place."
+  },
+  {
+   "auditor": "ux-perf",
+   "area": "SHELL",
+   "category": "legibility",
+   "severity": "low",
+   "title": "Unclear labels in the chrome",
+   "evidence": "Header label 'FLOATY' for unrealised P/L; 'VOL 14.6%' is the simulated VIX; menu shows 'DELT' for the GREEKS module and 'TKT' for TNT while HELP lists GREEKS and TNT; menu order (MON CHRT NEWS ECO WX BOOK ...) does not match the four sub-bar groups; status text reads 'LIVE \u00b7 localhost:8080' in 10 px at 2.61:1.",
+   "where": "openterm.html:98-101, :806-812",
+   "fix": "Rename to UNREAL P/L and VIX, use one name per function everywhere, and order the menu by group."
+  }
+ ],
+ "recipes": [
+  {
+   "auditor": "ux-perf",
+   "need": "Type scale and colour tokens legible on a 1920-2560 px desktop",
+   "source": "Measured contrast on the page's four backgrounds (#06080c, #0b0f16, #0e1420, #14202f)",
+   "how": "On :root: --fs-data: clamp(13px, 0.72vw, 16px) (table cells, rail, canvas HUD body); --fs-label: clamp(12px, 0.65vw, 14px) (headers, tabs, status); --fs-title: clamp(14px, 0.8vw, 18px); --fs-key: clamp(18px, 1.1vw, 24px) (focused price); line-height 1.45; table row height at least 24 px. Remove every 9, 9.5, 10 and 11 px size. Colours: --fg #d6e0ee; --dim #a3b0c2; --faint #8593a8; --up #2fd68a (or keep #1fbf75); --down #ff6b78; --amber #f7a700; --cyan #35c3e0. Use --faint only for secondary labels, never below 12 px. LIVE/OFFLINE tags: dark text #06080c on the colour chip. Canvas and Plotly read the same values through one helper, e.g. cfont(px, weight) returning `${weight} ${px}px \"JetBrains Mono\",\"Cascadia Mono\",Consolas,\"DejaVu Sans Mono\",monospace`.",
+   "tested": true,
+   "result": "Contrast computed: --fg 12.3-15.0:1; new --dim #a3b0c2 7.5-9.1:1; new --faint #8593a8 5.3-6.4:1 (current #4b5668 is 2.2-2.7:1); --down #ff6b78 6.0-7.3:1 (current 5.1-6.2); #2fd68a 8.7-10.6; amber 8.2-10.0; cyan 7.9-9.6; #06080c on #ff4d5e 6.2:1 (white on it is 3.24); placeholder #8593a8 on #05070b 6.5:1.",
+   "caveats": "The clamp() values are a proposal; only the colours were computed, the scale was not rendered."
+  },
+  {
+   "auditor": "ux-perf",
+   "need": "Ship the font so canvas, Plotly and DOM text are identical on Windows and offline",
+   "source": "terminal/web served by the existing StaticFiles mount at /app (app.py:291-296)",
+   "how": "Add terminal/web/vendor/fonts/JetBrainsMono-Regular.woff2 and -Bold.woff2 (OFL licence). In the page: @font-face{font-family:\"JetBrains Mono\";src:url(vendor/fonts/JetBrainsMono-Regular.woff2) format(\"woff2\");font-weight:400;font-display:swap} plus the 700 face. Before the first canvas draw: await Promise.all([document.fonts.load('13px \"JetBrains Mono\"'), document.fonts.load('700 13px \"JetBrains Mono\"')]); also document.fonts.addEventListener('loadingdone', redrawCurrentModule). Replace all 14 canvas font strings and the 3 Plotly family strings with the fallback stack constant; set Plotly layout.font for every chart including the 3D scenes.",
+   "tested": true,
+   "result": "Tested the fallback half only: with JetBrains Mono blocked, canvas font '10px \"JetBrains Mono\",monospace' measured 168.57 px = the monospace width (fixed pitch), versus 127.77 px (serif) for the current '10px JetBrains Mono'. The @font-face half was not built.",
+   "caveats": "document.fonts.check() returned true even with the font blocked and no @font-face, so use document.fonts.load() and not check()."
+  },
+  {
+   "auditor": "ux-perf",
+   "need": "Rendering architecture that removes jank and stops destroying hover/selection/clicks",
+   "source": "openterm.html step loop (:207-225, :945) and per-module tick functions",
+   "how": "1) Data layer: ws messages and REST polls only write to a store and set dirty flags (px[sym], book[sym], ships, storms); no DOM or canvas work in onmessage. 2) One requestAnimationFrame loop paints only the visible module and only dirty parts, capped per view (tables 4 Hz, maps 10 Hz, book 10 Hz). 3) Tables: create rows once keyed by symbol/strike; per paint update textContent/class only for cells whose value changed. 4) Shell: build the sub-bar in go() only; update the focus price span in place; one persistent sparkline canvas per rail row, redrawn in place. 5) Canvases: set width/height only in a ResizeObserver callback; static layers (basemap, graticule, HUD frame) cached in an offscreen canvas; HEAT scrolls by drawImage and paints one new column. 6) Plotly: Plotly.react only on symbol or parameter change, restyle for data-only updates, never on a timer. 7) Cache CSS colours once at start instead of getComputedStyle per draw.",
+   "tested": false,
+   "result": "Not implemented (read-only audit). Baseline it must beat: 17% of sub-tab clicks lost, MON selection cleared within 2 s, 7.7 canvas creations/s, HEAT tick 11.9 ms, about one 50-100 ms long task per second on every module at 4x CPU throttle, VOLS watchlist click 408-448 ms.",
+   "caveats": "SAT (:597) already resizes only on size change and caches its base layer; use it as the pattern."
+  },
+  {
+   "auditor": "ux-perf",
+   "need": "Honest connection and freshness state in the chrome",
+   "source": "GET /api/stream_status on the gateway plus the page's own websocket events",
+   "how": "Poll /api/stream_status every 5 s: fields ok, clients, feeds.{binance,deribit,ais}.{state, healthy, seconds_since_message, reconnects, last_error, retry_in}. Combine with ws.onopen/onclose and a per-symbol lastUpdate timestamp written wherever LIVE.px is set. States: SIM (banner across the top), CONNECTING, LIVE (all used feeds healthy), DEGRADED (name the feed), OFFLINE (ws closed for more than 5 s or the poll fails twice). Per value: grey it and show its age when older than a per-source threshold (crypto 5 s, daily closes show the close date). Stop the simulator for all symbols while not in SIM.",
+   "tested": true,
+   "result": "Endpoint returned e.g. binance: state live, healthy true, seconds_since_message 0.0, reconnects 3; deribit 0.2 s; ais 0.0 s; clients 0. On my own backend with the AIS key empty it reported ais 'disabled' and ok:false while binance/deribit were 'connecting'.",
+   "caveats": "Only the endpoint was exercised; the state machine is a design. /api/health also embeds a short stream summary."
+  },
+  {
+   "auditor": "ux-perf",
+   "need": "Layout rules for 1920-2560 px wide desktops",
+   "source": "Measured panel sizes: main area 1734x980 at 1920x1080, 2374x1200 at 2560x1300",
+   "how": "Rail 240-280 px with 24 px rows. Main area becomes a CSS grid of panels instead of one full-bleed module: at 1600 px and wider, two columns (for example MON table max-width 900 px beside chart, news below); at 2400 px and wider, three columns. Numeric tables: max-width about 1100 px, columns sized to content, right-aligned tabular numbers, sticky header. Every canvas gets axes/legend and a 32 px header strip with title, source and as-of time. Below 1280 px: collapse the menu into the four groups and wrap the stats block; set body min-width 1024 px with horizontal scroll instead of clipping.",
+   "tested": false,
+   "result": "Not built. Baseline: tables occupy 6-52% of panel height at 1920x1080 and 56-94% of most modules is detail-free; clipping starts below 1124 px.",
+   "caveats": ""
+  },
+  {
+   "auditor": "ux-perf",
+   "need": "Remove the CDN dependency",
+   "source": "cdnjs script tags at openterm.html:129-130",
+   "how": "Download plotly.min.js 2.27.0 (or a smaller partial bundle with only surface and bar traces) and the lightweight-charts 4.1.3 standalone build into terminal/web/vendor/, reference them as vendor/... with defer, and move app start into a DOMContentLoaded handler. Guard: if (!window.Plotly) show an in-panel message for VOLS/GREEKS/GEX; same for LightweightCharts in CHRT.",
+   "tested": false,
+   "result": "Verified the failure modes only: CDN stalled -> 0 menu buttons after 8 s; CDN aborted -> 'Plotly is not defined'; lightweight-charts URL already fails today. Plotly weighs 820 kB compressed / 3.5 MB decoded.",
+   "caveats": "I did not test an alternative download URL for lightweight-charts."
+  },
+  {
+   "auditor": "ux-perf",
+   "need": "Reproduce the Windows font fallback and the measurements",
+   "source": "Playwright scripts in /tmp/claude-0/-home-user-autonomous-trading-system/18267061-1306-5187-a1cb-8d8f25130090/scratchpad/tmp.htOYXirqHQ",
+   "how": "cd into that directory and run NO_PROXY=localhost,127.0.0.1 node <script>. t2_font.js launches Chromium with env FONTCONFIG_FILE=fc/fonts.conf (a fontconfig that includes /etc/fonts/fonts.conf and adds <rejectfont> for JetBrains Mono and Inter). t1_legibility.js hooks CanvasRenderingContext2D.fillText and walks DOM/SVG text to produce legibility.json; t3_perf.js and t3b_input.js give frame, long-task and Event Timing numbers; t4_soak.js is the 3-minute soak; t5_layout.js covers sizes, zoom and keyboard; t6_honesty.js spawns and kills a backend on :8237; t7_misc.js covers polling, data semantics and CDN failure. lib.js stubs LSE quote/candle routes in the browser so the scripts do not hit LSE.",
+   "tested": true,
+   "result": "All scripts ran to completion; outputs are quoted in the findings.",
+   "caveats": "Because LSE routes are stubbed with synthetic values, LSE-backed rows in these runs do not show real prices."
+  }
+ ]
+}

@@ -18,3 +18,5 @@ node_modules/
 .next/
 # archives / scratch
 *.tar.gz
+# runtime caches
+terminal/backend/.cache/

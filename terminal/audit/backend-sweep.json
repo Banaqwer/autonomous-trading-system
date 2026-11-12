@@ -1,0 +1,463 @@
+{
+ "auditor": "backend-sweep",
+ "summary": "Backend audit of http://localhost:8080 on 2026-11-12 07:49-08:03 UTC. Every route was called with defaults plus variations, all 29 provider files were read, and the server log (8,507 lines) was analysed.\n\n1. The page exhausts the LSE daily quota by itself. One page load reads about 2.04M of the 12.5M rows/day (four FX `1d&limit=250` candle calls at about 510k rows each), and the 5-second quote poll reads about 381k rows/min. Usage stood at 12,499,998 of 12,500,000 by 07:59 UTC. Until 00:00 UTC every FX quote, intraday candle and the economic calendar returns a bare 500, and the front-end swallows it, so \"LIVE\" prices silently freeze.\n2. Zero-quota replacements were tested and work: `LSE.preview(market, symbol, '1m')` returned bars under a minute old and consumed 0 rows, and the LSE WebSocket delivered live EUR/USD and USD/JPY ticks.\n3. Eight routes were failing: `/api/filings` (always, missing function), `/api/trade` (always, bad parameter), `/api/news` (GDELT 429), `/api/imf` (403), `/api/calendar` (quota), `/api/grade` (Yahoo 429), `/api/weather` (4 of 7 calls), and `/api/rigcount` (200 but never any data).\n4. Several 200 responses carry wrong or stale data:\n   - `/api/factors` mixes 99 annual rows into the monthly series.\n   - `/api/options` and `/api/gex` cover only the four nearest daily expiries (0-3 days), which produces a gamma spike; SOL is empty.\n   - `/api/eurostat` ends at 2025-12.\n   - `/api/equity_quote` returns `last: null`.\n   - `/api/quote` for equities returns yesterday's close with no timestamp.\n5. What is real and fresh: Binance candles/quote/book/trades, `/ws` (66 msgs/s, 93 ms trade lag, 497 real vessels in 12 s), Deribit chain values, `/api/storms` (TS Pena 9.8N 170.6W, identical to NHC and stable across calls), FRED, EIA, USDA, World Bank and the Sentinel-2 image.\n6. `/api/health` always reports `ok: true`, lists three failing sources as live, watches 10 of 30 configured keys and knows nothing about the LSE quota.\n7. Robustness: there is no cache, rate limit or parameter clamp on any route; CORS is `*` with no auth, and this instance is bound to 0.0.0.0. Unhandled upstream errors return plain-text 500s without a CORS header. No key values were found in responses or the server log.\n8. The running process (started 07:01) is older than the code on disk (`stream_hub.py` 07:38, `app.py` 07:40). The 24 existing tests pass but cover only the stream hub and `/ws`.\n\nTwo things I did that you should know about: while listing key names my script printed the contents of `config.py` into my own tool output (no values are reproduced in this report); and an import check created ten gitignored `.pyc` files under `providers/__pycache__`, which I removed, leaving `git status` clean.",
+ "not_checked": [
+  "LSE intraday candles (1m/5m/1h) for equities, FX, commodities, indices and yields through /api/candles: the daily row quota was exhausted, so only daily bars and the error paths could be exercised.",
+  "Whether the LSE 1d bar updates intraday during US market hours (the audit ran 07:49-08:03 UTC with US equities closed).",
+  "/api/calendar payload shape: LSE economic_calendar returned 429 (row quota); a narrower start/end window was not tested.",
+  "Whether IMF DataMapper (403), GDELT (429), Yahoo (429, behind /api/grade) and Open-Meteo (intermittent 429) fail the same way from the owner's network; this environment uses a shared proxy egress IP.",
+  "Threadpool starvation under the LSE per-minute limit: inferred from SDK code and one logged 47 s wait, not reproduced.",
+  "Non-crypto /api/options (LSE) content beyond the first and last rows of the AAPL chain (1,432 rows, 577 KB; those two rows had iv/delta/gamma null); the share of rows with greeks was not measured.",
+  "Marketaux with a recency sort or filter (the 2-request budget was used).",
+  "Alpha Vantage, API Ninjas and LaborCurrent: not called. FMP called once.",
+  "Provider functions reachable only from quantpad (census, dol, datagov, courtlistener, laborcurrent, usda.cold_storage/crop_stocks/mars_reports, firms beyond one call): read but not exercised live.",
+  "The successor Eurostat dataset code for euro-area HICP was not looked up or tested.",
+  "Cause of the periodic WebSocket feed drops (three per feed in 48 minutes).",
+  "Behaviour of the committed stream_hub.py/app.py in a live process: no second backend instance was started; the on-disk code was exercised only through the 24 unit tests.",
+  "Long-run memory growth of the server process (single RSS reading of about 108 MB after 48 minutes).",
+  "AISStream key and connection limits: no separate AISStream connection was opened, per the rules."
+ ],
+ "findings": [
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:lse",
+   "category": "backend-error",
+   "severity": "critical",
+   "title": "The page's own LIVE bootstrap and 5 s quote poll exhaust the LSE daily row quota; FX, intraday and calendar then return 500 until 00:00 UTC",
+   "evidence": "LSE usage(): plan free, per_day 12,500,000 rows, used_today 12,499,998 at 07:59 UTC, calls_per_minute 60. Measured cost: candles(AAPL,1d,limit=2) = 6 rows; EUR_USD 1d limit=2 'would read 7,983'; EUR_USD 1d limit=250 'would read 509,140-511,563' (server log); AAPL 1h limit=3 'would read 2,828'; calendar US 'would read 38,524'. The page calls /api/candles?symbol={EUR_USD,USD_JPY,GBP_USD,AUD_USD}&timeframe=1d&limit=250 on every load (about 2.04M rows) and /api/quote for 8 symbols every 5 s (4 FX x 7.95k x 12/min = about 381k rows/min, and 96 calls/min against a 60/min plan). Server log since 07:01: 23 successful FX-250 candle calls + 81 successful FX quotes = about 12.4M rows. After that: /api/quote?symbol=EUR_USD -> 500 in 3.98 s, /api/candles AAPL 1h -> 500 in 3.72 s, /api/calendar -> 500 in 3.30 s. The log holds 26 candle 500s, 22 quote 500s, and one '[429] Your plan allows 60 API calls a minute; try again in 47 s'.",
+   "where": "terminal/backend/app.py:137-148 (candles, quote), terminal/backend/providers/lse.py:19-21,38-40; callers terminal/web/openterm.html:862-865, 889-892, 923-926",
+   "fix": "1) Quotes: stop using candles(sym,'1d',limit=2). Use LSE.preview(market, symbol, '1m') (0 rows, tested) behind a 15-30 s per-symbol server cache, or add an 'lse' feed to stream_hub using LSE.stream_async (tested) and push ticks over /ws. 2) Daily history: fetch once per symbol per day with an explicit start= and cache in memory or on disk. 3) Clamp limit (e.g. 1000 or less) and whitelist timeframes. 4) Catch LSEError: 429 -> HTTP 503 with a Retry-After and JSON detail, 404 -> 404, 400 -> 400. 5) Add LSE usage (used_today/per_day) to /api/health so the UI can show 'quota exhausted' instead of a frozen price."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "broken",
+   "severity": "high",
+   "title": "/api/filings always returns 500: edgar.latest_filings does not exist",
+   "evidence": "GET /api/filings and /api/filings?q=Apple&forms=8-K -> 500 in 0.00-0.01 s. Server log: \"AttributeError: module 'providers.edgar' has no attribute 'latest_filings'\". edgar.py defines only recent_8k() and cik_to_ticker().",
+   "where": "terminal/backend/app.py:238-240; terminal/backend/providers/edgar.py",
+   "fix": "Implement edgar.latest_filings(q, forms). With q: EDGAR full-text search https://efts.sec.gov/LATEST/search-index?q=\"<q>\"&forms=8-K&dateRange=custom&startdt=..&enddt=.. (tested: 73 hits for Apple, first hit Apple Inc. 8-K filed 2026-11-02, items 2.02/9.01, 1.46 s). Without q: recent_8k() joined with cik_to_ticker() (tested: 9 rows in 0.22 s). Cache for 60 s and send the SEC_USER_AGENT header."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:comtrade",
+   "category": "broken",
+   "severity": "high",
+   "title": "/api/trade always returns 500: partnerCode=all is rejected by UN Comtrade",
+   "evidence": "/api/trade (defaults) and /api/trade?year=2022&flow=X -> 500. Direct call to the same URL: HTTP 400 {\"error\":\"Invalid parameter value\",\"details\":[{\"memberNames\":[\"partnerCode\"],\"errorMessage\":\"The field partnerCode is invalid\"}]}. Same URL without partnerCode: 200, 46 rows, 1.11 s, but partnerDesc and flowDesc are null in the preview payload.",
+   "where": "terminal/backend/app.py:259-261 (passes \"all\"); terminal/backend/providers/comtrade.py:7-20",
+   "fix": "Omit partnerCode when partner is 'all'. Read partnerCode/primaryValue/qty and map partnerCode to a name with a static ISO-numeric table (the preview returns null descriptions). Cache for 24 h because the data is annual."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:gdelt",
+   "category": "backend-error",
+   "severity": "high",
+   "title": "/api/news returns 500: GDELT answers 429 with a plain-text body and nothing caches or falls back",
+   "evidence": "/api/news -> 500 after 9.58 s. Direct GDELT call: HTTP 429 after 11.98 s, body 'Please limit requests to one every 5 seconds...'. An earlier failure in the server log was JSONDecodeError at gdelt.py:11 (non-JSON body parsed as JSON). The marketaux.py provider exists but no route uses it.",
+   "where": "terminal/backend/app.py:234-236; terminal/backend/providers/gdelt.py:6-14",
+   "fix": "Cache per query for 5 minutes and serialize GDELT calls to at most one per 5 s. Treat a non-JSON body or 429 as upstream-throttled, serve the last good cache marked stale, and otherwise return a JSON 503. Add Marketaux as fallback (it took 28.3 s on a 'search' query here and returned a 6-month-old first article with default sort, so it needs a sort/published_after parameter and a timeout above 20 s, itself cached for 15 min given about 100 requests/day)."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:french",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "/api/factors monthly datasets append annual rows to the monthly series",
+   "evidence": "/api/factors (default, limit 360) returned 261 rows with 6-digit dates (200501..202609) followed by 99 rows with 4-digit dates (1927..2025); rows[260] = 202609 Mkt-RF -1.07, rows[261] = 1927 Mkt-RF 29.44, last row = 2025 Mkt-RF 13.3. With limit=3 the response is annual only (2023, 2024, 2025). momentum_monthly does the same (2024, 2025). Cause: cells[0][:6].isdigit() is true for '2025'.",
+   "where": "terminal/backend/providers/french.py:23-33",
+   "fix": "Stop parsing at the first line containing 'Annual', or require len(cells[0]) == 6 for monthly files and 8 for daily. Return dates as ISO strings. Cache the parsed file for 24 h (it is re-downloaded on every request)."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:deribit",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "/api/options and /api/gex use only the four nearest daily expiries (0-3 days), giving a degenerate surface and a 0DTE gamma spike; SOL is empty",
+   "evidence": "At 07:58 UTC: BTC chain 208 rows with expiries 2026-11-12 08:00Z (0.00 d, 54 rows), +1.00 d, +2.00 d, +3.00 d; ETH 220 rows, same four expiries. 61 of 208 BTC rows have open_interest 0. GEX BTC: 33 strikes, sum -55.44, max |g| 23.05 at one strike (T is clamped to 1e-4 years for the contract expiring in 2 minutes). /api/options?underlying=SOL -> 200 chain [] and /api/gex -> spot null: Deribit get_instruments currency=SOL returns [], while currency=USDC lists 702 SOL_USDC-* options. GEX 'spot' is the first row's futures-implied underlying (73,572.93) and not the index (73,560.49).",
+   "where": "terminal/backend/providers/deribit.py:30-51 (max_expiries=4), 53-72; terminal/backend/app.py:164-174",
+   "fix": "Select expiries across the curve (drop anything under about 6 h to expiry, then take 8-10 spanning dailies, weeklies, monthlies and quarterlies, or return all and let the UI choose). Return dte and an as-of timestamp. For SOL use currency=USDC filtered on the SOL_USDC- prefix (those marks are quoted in USDC, not coin). Use get_index_price for spot. Cache the chain for 5-10 s and derive GEX from the cached chain: today /api/options plus /api/gex is four Deribit calls per 8 s UI refresh."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "high",
+   "title": "Any upstream or input error becomes a plain-text 500 with no CORS header and no reason",
+   "evidence": "All of these returned 'Internal Server Error' as text/plain: /api/candles?timeframe=bogus; /api/candles?symbol=btc&timeframe=1H; /api/candles?symbol=DOGE (LSE 404 'not in the catalogue'); /api/quote?symbol=ZZZZNOTREAL; /api/macro?series_id=NOPE_XYZ; /api/factors?dataset=nope (KeyError); /api/book?limit=-5; /api/weather?hours=100000; /api/weather?lat=999 (12.05 s). curl with an Origin header on a 500 shows no access-control-allow-origin (present on 200s), so a page on another origin sees an opaque network error. Server log also shows LSE 400 for SPX (\"exists in ['indices','uk_stocks']; pass market=\") and 404 for USB10Y/USD, USB02Y/USD, DE10YB/EUR.",
+   "where": "terminal/backend/app.py:35-39 (_need_key only maps RuntimeError) and every route handler",
+   "fix": "Add one exception handler: urllib HTTPError/URLError/timeout -> 502 or 503 JSON {source, upstream_status, detail}; LSEError -> its own status; KeyError/ValueError on inputs -> 400. Validate with Query(ge=, le=) and Literal enums (timeframe, dataset, layer). Register the handler so CORS headers are present on error responses. Accept a market= parameter for LSE symbols."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:openmeteo",
+   "category": "backend-error",
+   "severity": "high",
+   "title": "/api/weather fails intermittently (4 of 7 calls returned 500, up to 12 s)",
+   "evidence": "Seven calls within about 90 s: default -> 500 (0.47 s), 500 (0.18 s), 500 (12.06 s), then 200 (0.48 s); lat=51.5 -> 200; lat=29.76 -> 500 (12.05 s). Server log tracebacks at openmeteo.py:13: 3x 'HTTP Error 429: Too Many Requests' and 3x 'Connection reset by peer'. A direct curl to the same Open-Meteo URL returned 200 in 0.17 s, so the upstream was reachable. The 429s may be specific to this environment's shared egress IP; that was not checked from another network.",
+   "where": "terminal/backend/providers/openmeteo.py:11-14; terminal/backend/app.py:182-189",
+   "fix": "Cache by (round(lat,1), round(lon,1), hours) for 10-15 min, retry once on connection reset, serve the stale cache on 429, and validate the lat/lon/hours ranges."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "/api/health reports ok:true and a hardcoded 'live' list regardless of reality",
+   "evidence": "Health returned ok:true and no_key_live including 'sec-edgar', 'gdelt' and 'un-comtrade' while /api/filings, /api/news and /api/trade were all 500. It watches 10 key names; config.py sets 30. Four watched names are not configured at all (USDA_API_KEY, FINNHUB_API_KEY, TWELVEDATA_API_KEY, SENTINELHUB_INSTANCE_ID): USDA_API_KEY shows false although /api/usda works through NASS_API_KEY. 24 configured names are not reported (among them CDSE_CLIENT_ID/SECRET, which /api/satellite_image needs, and MARKETAUX, FMP, FIRMS, BLS). LSE_API_KEY shows true with the quota exhausted, and the page gates its LSE calls on that flag (openterm.html:889).",
+   "where": "terminal/backend/app.py:41-53",
+   "fix": "Report per-source status from real last-call results (last_ok_at, last_error, latency), not from a constant list. Include LSE usage/quota. Report every key each route needs (NASS or USDA, CDSE pair). Set ok to false or add a 'degraded' list when a source is failing."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "other",
+   "severity": "high",
+   "title": "No auth, CORS *, no cache, no rate limit and unclamped parameters on routes that spend keyed quotas",
+   "evidence": "The process command line is 'uvicorn app:app --host 0.0.0.0 --port 8080' (README and RESUME document the default 127.0.0.1). CORS allow_origins=['*'] is confirmed by the response header, so any web page open in the user's browser can call localhost:8080. /docs and /openapi.json return 200. Routes that hit a keyed or limited upstream on every request with no cache: /api/candles, /api/quote, /api/options (non-crypto), /api/calendar (LSE); /api/macro (FRED); /api/eia; /api/usda; /api/equity_quote (Tiingo); /api/satellite_image (Copernicus processing units; w and h are accepted up to the upstream cap of 2500); /api/news (GDELT 1 request per 5 s). limit is passed to LSE unclamped while the plan's per_export is 2,500,000 rows. Not found: key values in any sampled response or in the server log (28 secret values checked programmatically, 0 hits); the config.py path-traversal attempts under /app returned 404.",
+   "where": "terminal/backend/app.py:29 (CORS) and all route handlers; launch command of the running instance",
+   "fix": "Bind to 127.0.0.1 unless LAN access is wanted. Set allow_origins to the page's own origin. Add a small TTL cache and a per-upstream token bucket in one shared fetch helper. Clamp limit, w, h, hours and length. Optionally require a local token header for anything that spends quota."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "wrong-or-stale-data",
+   "severity": "medium",
+   "title": "Non-crypto /api/quote returns yesterday's daily close as 'last' with no timestamp, and candle/quote schemas differ by source",
+   "evidence": "/api/quote?symbol=AAPL -> {source:'lse', symbol:'AAPL', last:356.1301}: this is the 2026-11-11 daily close (the same value as the last row of /api/candles AAPL 1d), with no time, bid/ask or change, and the page polls it every 5 s as live. Crypto quote returns {symbol:'BTCUSDT', last, chg_pct, bid, ask, high, low, volume}. Candle schemas: Binance rows are {time (epoch s), open, high, low, close, vol}; LSE rows are {open, high, low, close, volume, trades, date, timestamp, symbol} with no 'time' and no 'vol'. The LSE timestamp is inconsistent (2026-11-11T09:00:00Z on one AAPL row, 2025-11-13T05:00:00Z on an NVDA row). The page stores d.candles unchanged (openterm.html:887, 891) and the WS kline handler compares last.time.",
+   "where": "terminal/backend/app.py:137-148",
+   "fix": "Normalize in the gateway: candles -> {time: epoch seconds, open, high, low, close, vol} for every source; quote -> {symbol, last, ts, chg_pct, prev_close, source, stale}. Feed non-crypto quotes from LSE preview 1m or the LSE stream so 'last' has a real timestamp."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:equities_fallback",
+   "category": "wrong-or-stale-data",
+   "severity": "medium",
+   "title": "/api/equity_quote returns last:null and chg_pct:null",
+   "evidence": "/api/equity_quote -> {source:'tiingo', symbol:'AAPL', last:null, chg_pct:null} in 0.19 s. Direct Tiingo IEX response at the same time: last null, tngoLast 355.63, prevClose 348.x, timestamp 2026-11-11T21:00:00+00:00 (market closed). Tiingo is used because FINNHUB and TWELVEDATA keys are not set; the code reads only 'last' and hardcodes chg_pct None.",
+   "where": "terminal/backend/providers/equities_fallback.py:21-24",
+   "fix": "Use last or tngoLast, compute chg_pct from prevClose, and return the Tiingo timestamp. Fall through to the next provider when the value is None."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:intl_macro",
+   "category": "wrong-or-stale-data",
+   "severity": "medium",
+   "title": "/api/eurostat default dataset stops at 2025-12; /api/imf returns 500; /api/oecd returns only a count",
+   "evidence": "/api/eurostat -> 348 rows, last {date:'2025-12', value:2.0}; the direct Eurostat response has 'updated':'2026-02-06T23:00:00+0100', so the default series is 10 months behind today. /api/imf -> 500; direct call to imf.org/external/datamapper/api/v1/NGDP_RPCH/USA: 403 'Access Denied' with both the openterm and a browser User-Agent (from this network). /api/oecd -> {meta:{ok:true, series:44149}} after 7.15 s (0.86 s on a later call), with no data rows.",
+   "where": "terminal/backend/providers/intl_macro.py:9-32; terminal/backend/app.py:247-257",
+   "fix": "Eurostat: move the default to the dataset that currently carries euro-area HICP (the successor code was not verified here) and return the 'updated' stamp. IMF: return a JSON 502 with the reason and cache the last good result for 24 h; verify from the owner's network. OECD: either return observations or drop the route."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:gibs",
+   "category": "broken",
+   "severity": "medium",
+   "title": "/api/satellite templates are invalid for two of four layers, and date=default yields blank tiles for the current day",
+   "evidence": "The template always uses GoogleMapsCompatible_Level9 and .jpg. Tile tests: MODIS truecolor default -> 200; VIIRS_Black_Marble Level9 jpg -> 400; GHRSST sea-surface temp Level9 jpg -> 400. Working forms: VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/..png -> 200 (35 KB); GHRSST/default/default/GoogleMapsCompatible_Level7/..png -> 200 (28 KB). MODIS tile 5/12/8: date 2026-11-12 -> 1,665 B (blank), date 2026-11-11 -> 14,380 B (real). VIIRS_SNPP truecolor at 2026-11-11 -> 404, while VIIRS_NOAA20 truecolor at 2026-11-11 -> 200 (17 KB).",
+   "where": "terminal/backend/providers/gibs.py:4-14; terminal/backend/app.py:192-195",
+   "fix": "Keep a per-layer table of {matrix set, extension, date rule}. Resolve 'default' to yesterday UTC for daily reflectance layers. Switch viirs_truecolor to VIIRS_NOAA20_CorrectedReflectance_TrueColor. Return the resolved date so the UI can label the imagery."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:copernicus",
+   "category": "performance",
+   "severity": "medium",
+   "title": "/api/satellite_image returns a 2 MB base64 JSON on every call, uncached, with no acquisition date",
+   "evidence": "Default call: 200 in 2.69 s, 2,072,962 B body (1,554,583 B PNG, 1024x1024, valid PNG signature). 256x256 for a Houston bbox: 1.37 s, 214,800 B; the image was viewed and is real Sentinel-2 imagery. time_range is always the last 75 days with mosaickingOrder leastCC, so the response cannot say which day the pixels are from. No Content-Encoding on any route (the BTC candles response is 29.7 KB uncompressed). bbox '1,2,3' and w=5000 return 200 with ok:false and the upstream error text.",
+   "where": "terminal/backend/app.py:197-205; terminal/backend/providers/copernicus.py:83-164",
+   "fix": "Cache per (bbox, w, h) for 12-24 h. Serve image/png directly with Cache-Control instead of base64 JSON. Default to 512. Validate bbox length and w/h at 2500 or less and return 400. Obtain the acquisition date (Catalog API, or a mostRecent order with a short window) and return it. Add GZipMiddleware for the JSON routes."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:bakerhughes",
+   "category": "broken",
+   "severity": "medium",
+   "title": "/api/rigcount never returns data",
+   "evidence": "/api/rigcount -> 200 {source:'https://rigcount.bakerhughes.com/static-files/', ok:false, note:'set BH_RIGCOUNT_XLSX to the weekly workbook URL', err:'HTTP Error 403: Forbidden'}. The default URL is a directory index, not a workbook. The provider's 'source' key overwrites the route's 'baker-hughes' label.",
+   "where": "terminal/backend/providers/bakerhughes.py:9-26; terminal/backend/app.py:225-227",
+   "fix": "Either resolve the current weekly workbook URL and parse the rig totals, or remove the route and its UI use. Return a 503 when there is no data, not 200 with ok:false."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "medium",
+   "title": "/api/grade returns 500 'engine not available: HTTP Error 429' and grows sys.path on every call",
+   "evidence": "/api/grade -> 500 {detail:'engine not available: HTTP Error 429: Too Many Requests'} in 0.50 s. The engine's get_data_client() defaults to Yahoo (engine/openquant/data/registry.py:11-14), which throttled this network. Line 277 runs sys.path.insert(0, ...) inside the handler on every request.",
+   "where": "terminal/backend/app.py:274-286",
+   "fix": "Insert the engine path once at import. Distinguish 'engine missing' (501) from 'data source throttled' (503). Feed the backtest from cached LSE daily bars instead of Yahoo. Cache results per (symbol, fast, slow)."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "missing-feature",
+   "severity": "medium",
+   "title": "/ws streams only BTC and ETH; SOL, FX and equities have no live feed although LSE streaming works",
+   "evidence": "12 s probe of ws://127.0.0.1:8080/ws: 796 messages (66/s, 22 KiB/s): binance book 18.9/s, vessel 41.6/s, deribit ticker 3.6/s, trade 1.4/s, kline 0.7/s; symbols were only BTCUSDT, ETHUSDT, BTC-PERPETUAL, ETH-PERPETUAL. Trade lag median 93 ms. The page lists SOL as a crypto symbol but nothing updates it after bootstrap. Deribit ticker events carry iv:null (perpetuals have no mark_iv). Vessel events have no timestamp or ship type. Separate test: LSE.stream_async(['EUR/USD','USD/JPY','AAPL','BTC/USD']) for 10 s -> 9 EUR/USD ticks, 17 USD/JPY ticks, 1 AAPL, 1 BTC/USD.",
+   "where": "terminal/backend/stream_hub.py:281-289 (run_hub defaults), 235-244",
+   "fix": "Add SOLUSDT to the Binance streams. Add an 'lse' supervised feed emitting {type:'tick', src:'lse', sym, px, bid, ask, t} for the FX and equity watchlist. Add a receive timestamp to vessel events. Consider thinning the book stream to 250 ms or more per symbol to cut main-thread JSON parsing in the page."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "other",
+   "severity": "medium",
+   "title": "The running server is older than the code on disk",
+   "evidence": "Process 616 started 07:01; stream_hub.py was modified 07:38 and app.py 07:40 (both committed in HEAD 7b1668c). Live /api/stream_status lacks the events, empty_sessions and last_event_at fields that the current stream_hub._st() defines. The logged /api/filings traceback points to app.py line 226, whereas the call is at line 240 in the file now. The instance runs without --reload.",
+   "where": "running process on :8080 vs terminal/backend/app.py and stream_hub.py",
+   "fix": "Restart the gateway after applying fixes, or run with --reload during development. Expose a version or git SHA in /api/health so the page and the owner can see which build is serving."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:lse",
+   "category": "performance",
+   "severity": "medium",
+   "title": "A new LSE client per request, with SDK retries and rate-limit sleeps inside the worker thread",
+   "evidence": "lse.py creates LSE() for every call (defaults timeout=60, retries=3, wait_for_limit=True). SDK source (lse/data3.py:151-164) sleeps for the server's Retry-After, up to two minutes, on a calls-per-minute 429. Measured: each row-quota 429 took 3.30-3.98 s before failing. The page's poll loop is a setInterval with awaits, so slow calls overlap. All REST handlers are sync def and run in the threadpool, so the event loop itself is not blocked (measured /api/health at 1-3 ms during a slow call; 6 parallel quotes finished in 0.94 s). Threadpool starvation was not reproduced.",
+   "where": "terminal/backend/providers/lse.py:10-21",
+   "fix": "Use one shared client created with wait_for_limit=False, retries 0 or 1 and a timeout near 10 s. Put a server-side cache and a 60-per-minute limiter in front of it so the browser's poll rate never reaches LSE directly."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "PROVIDER:nhc",
+   "category": "missing-feature",
+   "severity": "low",
+   "title": "/api/storms is correct but carries no forecast track geometry and covers NHC basins only",
+   "evidence": "/api/storms -> 1 storm: cp042026 'Pena', TS, lat 9.8, lon -170.6, 40 kt, 1002 mb, heading 270 at 15 kt, updated 2026-11-12T03:00:00Z (about 5 h old; advisories are 6-hourly). It matches NHC CurrentStorms.json field for field and was identical across calls, in 0.13 s. The track and cone are exposed only as KMZ URLs (cone_kmz, track_kmz). The source covers the Atlantic, East Pacific and Central Pacific only.",
+   "where": "terminal/backend/providers/nhc.py:9-25; terminal/backend/app.py:177-179",
+   "fix": "Cache for 5-10 min. Parse the forecast-track KMZ server-side into [{lat, lon, valid_time, wind_kt}] so the WX map can draw the real track and cone. When activeStorms is empty the UI should say so and not draw a synthetic storm."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "other",
+   "severity": "low",
+   "title": "Inconsistent ordering, silent truncation and slow first calls on reference routes",
+   "evidence": "Row order: /api/eia and /api/worldbank are newest-first; /api/macro, /api/eurostat and /api/factors are oldest-first. /api/candles?symbol=BTC&timeframe=2h&limit=2000 returned 1000 rows with no notice. /api/worldbank took 12.82 s on the first call and 0.16 s on the next. /api/sentinel always returns ok:false (SENTINELHUB_INSTANCE_ID is not configured). /api/usda values are strings with thousands separators ('63,395,060,000') and mix units ($, TONS) in one list. /api/marine over land returns 24 rows of nulls with 200.",
+   "where": "terminal/backend/app.py:212-257, 269-271; terminal/backend/providers/eia.py, worldbank.py, usda.py, openmeteo.py",
+   "fix": "Return every series oldest-first with ISO dates and numeric values. Report the effective limit. Cache World Bank, IMF and Eurostat for 24 h. Drop or hide /api/sentinel until it is configured. Filter USDA rows to one unit."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "other",
+   "severity": "low",
+   "title": "Ten providers are not reachable from any terminal route, and many adapters turn failures into empty results",
+   "evidence": "The import check loaded all 29 provider modules without error. Not imported by app.py or stream_hub.py: bls, census, courtlistener, datagov, dol, firms, fmp, laborcurrent, marketaux, openfda (used only by quantpad/backend/signals.py). All ten return [] or None on any exception. Routed adapters that hide failure behind 200: bakerhughes.rig_count, intl_macro.oecd, copernicus.truecolor_png and wms_template. edgar.recent_8k returns [] on error. Every network call in the routed providers has a timeout (20-60 s); ais.stream_positions (unused) has none. No provider returns fabricated values. Live probes: fmp.earnings_calendar(7) -> 8 rows; bls.series('WPUFD4') -> latest 2026-M09 159.613; openfda.recent_recalls -> rows dated 2026-11-04; firms.fires('us_gulf', days=1) -> [] (error and no-fires are indistinguishable).",
+   "where": "terminal/backend/providers/*.py",
+   "fix": "Have adapters raise a typed UpstreamError and let the gateway decide (stale cache or 503), so an empty list always means 'no data' and never 'failed'. Wire the useful ones into routes (FMP earnings for ECO, Marketaux for NEWS, FIRMS for WX)."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "other",
+   "severity": "low",
+   "title": "Existing tests pass but cover no REST route or provider",
+   "evidence": "cd terminal/backend && python3 -m pytest tests -q -p no:cacheprovider -> 24 passed, 1 DeprecationWarning, 6.13 s. test_app.py has 4 tests (health/stream_status shape, ws relay, client reaping, hub restart) and test_stream_hub.py has 20. Nothing exercises /api/filings, /api/trade or /api/factors, which is why an always-failing route and a parsing bug went unnoticed.",
+   "where": "terminal/backend/tests/",
+   "fix": "Add a smoke test per route with the provider's HTTP layer stubbed (recorded fixtures), plus unit tests for french.factors, deribit.chain/gex, comtrade.flows and the candle/quote normalization."
+  },
+  {
+   "auditor": "backend-sweep",
+   "area": "BACKEND",
+   "category": "other",
+   "severity": "low",
+   "title": "All three upstream WebSocket feeds dropped three times in 48 minutes (recovered in about 1 s each)",
+   "evidence": "/api/stream_status at 07:49: binance, deribit and ais each connects 4, reconnects 3, last_error 'ConnectionClosedError: no close frame received or sent', state live, 0 bad messages, 0 dropped events. Log shows reconnect delays of 0.5-1.0 s. The cause was not determined; this environment routes traffic through a proxy, so the drops may not occur on the owner's PC.",
+   "where": "terminal/backend/stream_hub.py (supervise); log at /tmp/claude-0/-home-user-autonomous-trading-system/18267061-1306-5187-a1cb-8d8f25130090/scratchpad/terminal.log",
+   "fix": "No code change needed for recovery. Surface reconnect counts and the last gap in the UI status line, and check whether the drops reproduce on the owner's machine."
+  }
+ ],
+ "recipes": [
+  {
+   "auditor": "backend-sweep",
+   "need": "Live quote for FX, equities and indices without spending LSE row quota",
+   "source": "LSE Data SDK: preview()",
+   "how": "from lse import LSE; LSE().preview(market, symbol, '1m') with market in {'forex','us_stocks','indices'} and symbols such as 'EUR_USD', 'AAPL', 'SPX'. Read rows[-1]: close (use as last), time ('YYYY-MM-DD HH:MM:SS', UTC), open, high, low, volume, trades.",
+   "tested": true,
+   "result": "EUR_USD at 07:59:26 UTC: 10 rows, last bar 07:59:00 close 1.10854, 0.44 s. AAPL: last bar 2026-11-12 00:59 close 356.1301. SPX: last bar 2026-11-11 21:04 close 7619.38. USD_JPY 1h: last 07:00 close 159.724. Six previews consumed 0 rows (usage unchanged at 12,499,998) and worked with the quota exhausted.",
+   "caveats": "Still counts against 60 calls/min, so cache 15-30 s per symbol server-side. Needs the market name. ('commodities','CRUDEOIL','1m') returned 404 'symbol is not available'."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Streaming ticks for FX and equities (to push over /ws)",
+   "source": "LSE WebSocket via SDK",
+   "how": "async for tick in LSE().stream_async(['EUR/USD','USD/JPY','AAPL'], reconnect=True): read tick.symbol, tick.price, tick.bid, tick.ask, tick.timestamp (ISO UTC). Stream symbols use a slash; REST symbols use an underscore.",
+   "tested": true,
+   "result": "10 s at about 08:00 UTC: USD/JPY 17 ticks (159.715), EUR/USD 9 ticks (1.10851), AAPL 1 tick (356.34), BTC/USD 1 tick (75,891.65). 4,705 symbols listed after connect.",
+   "caveats": "usage() showed connections: 1 for this plan, so run it only inside stream_hub as one supervised feed. The BTC/USD tick was about 3% away from Coinbase (73,559) and Deribit index (73,560) at the same time; keep crypto on Binance. US equities were closed during the test."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Daily history for equities, indices and commodities (CHRT)",
+   "source": "GET /api/candles (LSE)",
+   "how": "/api/candles?symbol=AAPL&timeframe=1d&limit=250. Read candles[] rows: date ('YYYY-MM-DD', use as time), open, high, low, close, volume. There is no 'time' or 'vol' field.",
+   "tested": true,
+   "result": "AAPL limit=3: 2026-11-09..2026-11-11, last close 356.1301, 1.06 s, 6 rows of quota for limit=2. NVDA limit=250: 2025-11-13..2026-11-11, 0.97 s, 40.9 KB. Tiingo prevClose for AAPL agrees with the LSE 2026-11-10 close (348.78). From the server log, these also returned 200 at 1d limit=2: COPPER, CRUDEOIL, GASOLINE, GOLD, NATGAS, NDX, RUT, VIX, TNX, WTICO/USD.",
+   "caveats": "FX 1d is very expensive (EUR_USD limit=250 reads about 510k rows, limit=2 about 7,983). SPX needs market= (400 without it). USB10Y/USD, USB02Y/USD and DE10YB/EUR returned 404. Intraday timeframes could not be verified because the quota was exhausted."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Crypto candles, quote, order book, tape (MON/CHRT/BOOK/HEAT/FOOT)",
+   "source": "GET /api/candles, /api/quote, /api/book, /api/trades (Binance)",
+   "how": "/api/candles?symbol=BTC|ETH|SOL&timeframe=1m|5m|1h|2h|4h|1d|1w&limit<=1000 -> candles[{time (epoch s), open, high, low, close, vol}]. /api/quote?symbol=BTC -> last, chg_pct (24 h), bid, ask, high, low, volume. /api/book?symbol=BTC&limit=50 -> bids[[px, qty]], asks[[px, qty]]. /api/trades?symbol=BTC&limit=50 -> trades[{price, qty, time (epoch s), buy}].",
+   "tested": true,
+   "result": "All 200 in 0.73-1.25 s. The last 1h candle was the current hour, 1m candles were current to the minute, and trade timestamps were within 1 s of now. BTC last 73,651.89 against Coinbase spot 73,559.49 (0.13% USDT basis).",
+   "caveats": "Timeframes are case-sensitive ('1H' -> 500). limit above 1000 is silently cut to 1000. Any symbol other than BTC, ETH or SOL is routed to LSE."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Real-time crypto prices, book and klines plus vessel positions",
+   "source": "WebSocket /ws",
+   "how": "ws://<host>/ws, one JSON object per message. trade {sym:'BTCUSDT', px, qty, buy, t (ms)}; book {sym, bids[[p, q]x20], asks[[p, q]x20]}; kline {sym, o, h, l, c, v, t (s, 1m bar open)}; ticker {sym:'BTC-PERPETUAL', px, t (ms)}; vessel {mmsi, name, lat, lon, sog, cog}.",
+   "tested": true,
+   "result": "66 messages/s, 22 KiB/s; trade lag median 93 ms; 497 distinct vessels in 12 s (e.g. 'BIG RON' at 50.868, -1.387).",
+   "caveats": "BTC and ETH only (no SOL). ticker.iv is always null. Vessel events have no timestamp or ship type and cover the whole globe. The running build's stream_status has no last_event_at field; use seconds_since_message."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Crypto options chain and gamma exposure (OPTS/VOLS/GREEKS/GEX)",
+   "source": "GET /api/options, /api/gex (Deribit)",
+   "how": "/api/options?underlying=BTC|ETH -> chain[{instrument, expiry (ms), strike, type ('call'|'put'), iv (percent), open_interest (contracts), mark (in coin; multiply by underlying for USD), underlying, volume}]. /api/gex?underlying=BTC -> spot, strikes[], gex[] ($M per 1% move; calls positive, puts negative).",
+   "tested": true,
+   "result": "BTC 208 rows, ETH 220 rows, 0.5-0.6 s; iv non-null on every row (BTC 25.7-84.3). GEX BTC: 33 strikes, spot 73,572.93.",
+   "caveats": "Only the four nearest daily expiries (0-3 days) are returned, so there is no usable term structure until deribit.chain is changed. SOL returns an empty chain (Deribit lists it under currency=USDC as SOL_USDC-*, 702 instruments). No greeks are returned; compute them from iv."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Active tropical cyclones (WX)",
+   "source": "GET /api/storms (NOAA NHC CurrentStorms.json)",
+   "how": "/api/storms -> storms[{id, name, classification, lat, lon, intensity_kt, pressure_mb, heading_deg, speed_kt, updated (ISO UTC), cone_kmz, track_kmz}].",
+   "tested": true,
+   "result": "One storm: TS Pena, 9.8N 170.6W, 40 kt, 1002 mb, moving 270 degrees at 15 kt, updated 2026-11-12T03:00Z; identical to NHC and to a repeat call; 0.13 s.",
+   "caveats": "NHC basins only. The track and cone are KMZ links, not coordinates. An empty list is a valid answer and should be shown as 'no active systems'."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Point weather and marine forecast (WX)",
+   "source": "GET /api/weather, /api/marine (Open-Meteo)",
+   "how": "/api/weather?lat=29.3&lon=-94.8&hours=24 -> forecast[{time ('YYYY-MM-DDTHH:MM', UTC), temp_c, wind_kt, gust_kt, precip_mm, pressure_mb}]. /api/marine?lat=27&lon=-90&hours=24 -> marine[{time, wave_m, period_s}].",
+   "tested": true,
+   "result": "When it succeeded: 24 rows starting at the current hour (Galveston 18.3 C, 4.5 kt, 1015.4 mb), 0.17-0.48 s. Marine 24 rows (wave 0.28 m), 0.48-0.67 s.",
+   "caveats": "/api/weather returned 500 on 4 of 7 calls (upstream 429 and connection resets), so retry and cache. Marine returns nulls over land."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Satellite base tiles (SAT, map layers)",
+   "source": "NASA GIBS WMTS",
+   "how": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/<YYYY-MM-DD, yesterday UTC>/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg. Also VIIRS_NOAA20_CorrectedReflectance_TrueColor (Level9, jpg), VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png, GHRSST_L4_MUR_Sea_Surface_Temperature/default/default/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png.",
+   "tested": true,
+   "result": "MODIS 2026-11-11 tile 5/12/8: 200, 14,380 B. NOAA20 2026-11-11: 200, 17,247 B. Black Marble Level8 png: 200, 35 KB. GHRSST Level7 png: 200, 28 KB.",
+   "caveats": "The current UTC date (and 'default' for daily reflectance) returns blank 1,665 B tiles early in the day. The templates /api/satellite returns for night_lights and sea_surface_temp are invalid (400). VIIRS_SNPP at 2026-11-11 returned 404."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "High-resolution Sentinel-2 image of a site (SAT)",
+   "source": "GET /api/satellite_image (Copernicus Process API)",
+   "how": "/api/satellite_image?bbox=<west,south,east,north>&w=512&h=512 -> ok, png_base64, bytes, bbox, time_range{from, to}. Use as 'data:image/png;base64,' + png_base64 when ok is true.",
+   "tested": true,
+   "result": "Default (Cushing, 1024x1024): 200 in 2.69 s, 1.55 MB PNG inside a 2.07 MB body. Houston bbox at 256x256: 1.37 s, 161 KB; visually real imagery.",
+   "caveats": "The image is a least-cloud mosaic over the last 75 days with no acquisition date. Failures arrive as 200 with ok:false and a note. w and h must be 2500 or less. Not cached."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "US macro series (ECO)",
+   "source": "GET /api/macro (FRED)",
+   "how": "/api/macro?series_id=DGS10&limit=120 -> obs[{date, value}] oldest-first; value can be null on holidays.",
+   "tested": true,
+   "result": "DCOILWTICO: 120 rows, last 2026-11-03 = 99.64, 0.34 s. DGS10: last 2026-11-09 = 4.88. CPIAUCSL: last 2026-10-01 = 337.476.",
+   "caveats": "An unknown series returns a bare 500. Daily series lag by several days at the source."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Energy fundamentals (ECO/WX oil scenario)",
+   "source": "GET /api/eia",
+   "how": "/api/eia?series_id=PET.WCESTUS1.W&length=52 -> obs[{date, value}] newest-first. Other tested ids: NG.NW2_EPG0_SWO_R48_BCF.W, PET.WCRFPUS2.W.",
+   "tested": true,
+   "result": "Crude stocks 2026-10-30 = 409,760; gas storage 2026-10-30 = 3,801; refinery runs 2026-10-30 = 14,003. 0.8-1.5 s.",
+   "caveats": "Order is the reverse of /api/macro. Latest week was 2026-10-30 on 2026-11-12."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Crop statistics",
+   "source": "GET /api/usda (NASS QuickStats)",
+   "how": "/api/usda?commodity=CORN&statistic=PRODUCTION&year=2024 -> rows[{commodity, value (string with commas), unit, year, geo}].",
+   "tested": true,
+   "result": "CORN 2024: 7 rows (e.g. 125,590,000 TONS; 63,395,060,000 $), 0.98 s. SOYBEANS YIELD 2025: 53 and 53.5 BU / ACRE.",
+   "caveats": "Several units and series are mixed in one list; pick by unit. Works through NASS_API_KEY even though health shows USDA_API_KEY false."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "World Bank indicators and euro-area HICP (ECO/SPLC)",
+   "source": "GET /api/worldbank, /api/eurostat",
+   "how": "/api/worldbank?country=US&code=NY.GDP.MKTP.CD -> rows[{date (year), value}] newest-first. /api/eurostat -> rows[{date ('YYYY-MM'), value}] oldest-first.",
+   "tested": true,
+   "result": "US GDP 2025 = 30.77e12 (60 rows; 12.82 s first call, 0.16 s after). CN CPI 2025 = 0.06%. Eurostat: 348 rows, 1997-01..2025-12.",
+   "caveats": "The Eurostat default dataset has not been updated since 2026-02-06 and stops at 2025-12, so do not label it current."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Fama-French factors",
+   "source": "GET /api/factors",
+   "how": "/api/factors?dataset=factors_daily&limit=N -> rows[{date ('YYYYMMDD'), Mkt-RF, SMB, HML, RF}]. For monthly datasets keep only rows whose date has 6 characters.",
+   "tested": true,
+   "result": "Daily: last 2026-09-30. Monthly default: 261 monthly rows up to 202609 followed by 99 annual rows.",
+   "caveats": "Monthly and momentum datasets are polluted with annual rows until french.py is fixed. The source lags about six weeks."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Company filings (NEWS/ECO) to replace the broken /api/filings",
+   "source": "SEC EDGAR",
+   "how": "Full-text search: https://efts.sec.gov/LATEST/search-index?q=\"Apple\"&forms=8-K&dateRange=custom&startdt=YYYY-MM-DD&enddt=YYYY-MM-DD with the SEC User-Agent header; read hits.hits[]._source: display_names, file_date, form, adsh, items. Latest 8-Ks: providers.edgar.recent_8k(count) -> [{company, cik}], joined with edgar.cik_to_ticker().",
+   "tested": true,
+   "result": "Search: 73 hits; first is Apple Inc. (AAPL) 8-K filed 2026-11-02, items 2.02/9.01; 1.46 s. recent_8k(5): 9 rows in 0.22 s.",
+   "caveats": "Neither is wired to a route yet. recent_8k returns [] on failure and has no filing time."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "News headlines (NEWS)",
+   "source": "Marketaux (GDELT is throttled)",
+   "how": "GET https://api.marketaux.com/v1/news/all?search=<q>&language=en&limit=3&api_token=<MARKETAUX_API_KEY>; read data[]: title, url, source, published_at, entities[].symbol, entities[].sentiment_score.",
+   "tested": true,
+   "result": "200 after 28.3 s: 3 articles, meta.found 419,929; first article published 2026-05-12 (finance.yahoo.com). An earlier attempt hit the provider's 20 s timeout.",
+   "caveats": "Default ordering is not by recency, so add a date sort/filter (not tested: the 2-request budget was used). Slow: use a timeout of 45 s or more and cache for 15 min. GDELT through /api/news returned 429 on every attempt here."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Earnings calendar (ECO)",
+   "source": "FMP via providers.fmp",
+   "how": "providers.fmp.earnings_calendar(days_ahead=7) -> [{symbol, date, eps_est, rev_est}].",
+   "tested": true,
+   "result": "8 rows in 0.14 s, e.g. BABA 2026-11-19 EPS est 1.65; WMT 2026-11-19 EPS est 0.637.",
+   "caveats": "Not wired to a route. 250 requests/day, so cache for hours. Only 8 rows came back for a 7-day window."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Trade flows (SPLC)",
+   "source": "UN Comtrade public preview",
+   "how": "https://comtradeapi.un.org/public/v1/preview/C/A/HS?reporterCode=842&cmdCode=2709&flowCode=M&period=2023 (no partnerCode); read data[]: partnerCode, primaryValue, qty, flowCode.",
+   "tested": true,
+   "result": "200, 46 rows, 1.11 s, 42 KB.",
+   "caveats": "partnerDesc and flowDesc are null in the preview, so map partnerCode to names locally. /api/trade itself is broken until partnerCode=all is removed."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Equity quote cross-check",
+   "source": "Tiingo IEX (behind /api/equity_quote)",
+   "how": "https://api.tiingo.com/iex/?tickers=AAPL&token=<TIINGO_API_KEY>; read [0].tngoLast (not last), prevClose, timestamp, open, high, low, volume.",
+   "tested": true,
+   "result": "AAPL tngoLast 355.63, timestamp 2026-11-11T21:00Z, volume 34,453,477; 'last' was null with the market closed; 0.17 s.",
+   "caveats": "/api/equity_quote currently reads 'last' and so returns null."
+  },
+  {
+   "auditor": "backend-sweep",
+   "need": "Gateway status",
+   "source": "GET /api/health, /api/stream_status",
+   "how": "/api/stream_status -> ok, clients, feeds.{binance,deribit,ais}.{state, healthy, seconds_since_message, reconnects, last_error}. /api/health -> keys_present{} and stream.feeds{}.",
+   "tested": true,
+   "result": "All three feeds live with seconds_since_message 0.0-0.1; 3 reconnects each since 07:01. Health ok:true.",
+   "caveats": "Health does not reflect REST source failures or the LSE quota; use stream_status for feed liveness only."
+  }
+ ]
+}

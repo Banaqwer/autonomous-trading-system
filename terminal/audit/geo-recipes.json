@@ -1,0 +1,260 @@
+{
+ "auditor": "geo-recipes",
+ "summary": "Scope: real geography, storms, weather/satellite layers, vessels. Read-only; repo untouched (git status clean). Scratch dir with all scripts/screenshots: /tmp/claude-0/-home-user-autonomous-trading-system/18267061-1306-5187-a1cb-8d8f25130090/scratchpad/geo.sRlv\n1. Of the geo endpoints the backend offers, the page calls only /api/storms and /api/satellite_image. /api/weather, /api/marine, /api/satellite (GIBS) and /api/sentinel are never requested, so WX shows no real wind/pressure/waves and no real cloud imagery in LIVE mode.\n2. There IS a real active system right now (NHC: TS Pena, CP042026, 9.8N 170.6W, 40 kt, advisory 22). The WX map is hard-wired to lon -100..-60 / lat 8..36, so it cannot draw it; it only appears as corner text while the simulated \"Kestrel\" animates. Real past track, forecast track, cone and wind field are all fetchable keyless as GeoJSON (NOAA ArcGIS MapServer) or KMZ; I fetched, parsed and drew them on a real coastline.\n3. \"SHIP - GLOBAL TANKER AIS\" is false twice over: the feed carries no ship type (PositionReport only; sample names include tugs, pilots, ferries) and it is not global (60 s sample: 2,342 vessels, 88.9% Europe, 26% in the Rotterdam box, 0 in the Persian Gulf, Singapore Strait or US Gulf coast). The page's 700-vessel cap also evicts by lowest MMSI, not by age: 840 of 1,679 evictions deleted the vessel that had just arrived.\n4. SAT in LIVE: a synthetic tank farm with an invented \"EST. UTILISATION 61.1%\" is shown until the real image arrives (2.7 s) and forever if it fails. The real Sentinel-2 image is labelled LIVE but is a least-cloud mosaic from a 75-day window with no date returned, is centred on Cushing town (the main tank farm lies south of the bbox), and is stretched ~1.9x horizontally. Acquisition date and cloud cover ARE obtainable (CDSE catalog, same token, 0.46 s): latest clear scenes 2026-11-09 and 11-04.\n5. providers/gibs.py is broken for 2 of its 4 layers (HTTP 400: wrong matrix set and extension) and its default date returns an all-black tile over the Americas in the UTC morning. Correct templates verified with real tiles (MODIS/VIIRS true colour, GOES IR/GeoColor at 10-min cadence, SST, Blue Marble).\n6. Basemap: world-atlas 2.0.2 (Natural Earth, public domain data; ISC package) decodes with ~25 lines and no library. countries-110m (107,761 B) is right for the global ship map; countries-50m (756,420 B) or land-50m (545,534 B) is needed for the Gulf/Atlantic storm map (110m is angular and has no Lesser Antilles). Pan/zoom verified with real mouse wheel and drag.\n7. /api/weather returned HTTP 500 plain text after 12 s here, because Open-Meteo answered 429 / connection reset to this host's shared egress IP; the route has no error handling or cache. NDBC buoy observations (keyless, one 100 KB file, 178 stations in the Gulf box) are a tested real-observation alternative.\n8. The server on :8080 was started at 07:01:44Z, before commit 7b1668c (07:45Z): /api/stream_status has no \"events\" field, so the running instance is not HEAD.",
+ "not_checked": [
+  "Open-Meteo multi-location request form and the success path of /api/weather: api.open-meteo.com answered 429 'Daily API request limit exceeded' or reset the connection for this host's shared egress IP (1 success out of 6 direct attempts); behaviour from the owner's own IP not verified.",
+  "AISStream ShipStaticData / NavigationalStatus message contents: not observed, because opening an own AISStream connection was forbidden; only the gateway's normalised vessel events were measured.",
+  "CurrentStorms.json with zero active storms and non-empty NHC 7-day outlook features: one storm was active and the outlook layers were empty, so those shapes were not seen.",
+  "NHC shapefile zips (5day_022.zip, best_track.zip) were downloaded and listed but not parsed; KMZ and ArcGIS GeoJSON were used instead.",
+  "Terms of use, rate limits and update cadence of the Esri Active Hurricanes service and of GDACS; JTWC primary feeds were not contacted.",
+  "CDSE account quota / processing-unit budget for the configured credentials; Sentinel-2 imagery for any site other than Cushing; /api/sentinel beyond its 'set SENTINELHUB_INSTANCE_ID' response.",
+  "GIBS tiles drawn inside the terminal page or fetched from a Windows browser; only direct tile downloads and a PIL montage were done. GIBS availability of dates older than those listed in capabilities not probed.",
+  "Map rendering cost on the GPU side and on low-end or Windows hardware (timings are JS-side in headless Chromium on Linux); drawing 20-30k vessel points per frame; touch/pinch input.",
+  "land-10m / countries-10m basemap files were not rendered.",
+  "Whether AISStream's ~40 msg/s is its complete global feed or a throttled share, and coverage over periods longer than 60 s (time-of-day effects).",
+  "No second backend instance was started; nothing under the repository was modified, and the server on port 8080 was not restarted, so behaviour of HEAD's stream_hub.py (newer than the running process) was not exercised."
+ ],
+ "findings": [
+  {
+   "auditor": "geo-recipes",
+   "area": "WX",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "WX map cannot display the real active storm: extent is hard-coded to the Gulf/Caribbean and real systems are text only",
+   "evidence": "openterm.html:533 geo() fixes x0=-100,x1=-60,y0=8,y1=36. GET /api/storms (200, 0.44 s) returns one real system: cp042026 Pena, TS, lat 9.8, lon -170.6, 40 kt, 1002 mb, heading 270 at 15 kt, updated 2026-11-12T03:00Z. That longitude is 70 degrees west of the map's left edge, so even if plotted it would be off-canvas. Lines ~573-577 print it as one text row in the bottom-left box while STORM (openterm.html:184, 'HURRICANE KESTREL') is drawn and animated.",
+   "where": "terminal/web/openterm.html:184, 533, 560-577",
+   "fix": "In LIVE mode never draw STORM. Replace the 11-point polygon with the vendored Natural Earth basemap and a pan/zoom view (recipe 1/2), auto-fit the view to the active system(s) from /api/storms, and draw real past track + forecast points + cone from a new /api/storm_track (recipe 4). With zero systems show the empty basin with an explicit 'NO ACTIVE TROPICAL CYCLONES - NHC, checked HH:MMZ' banner (recipe 6)."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "SHIP",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "'GLOBAL TANKER AIS' is untrue: no vessel type in the feed and coverage is 89% Europe",
+   "evidence": "Read ws://localhost:8080/ws for 60.1 s: 2,409 vessel messages (40.1/s), 2,342 unique MMSI. Every message has exactly the keys type, src, mmsi, name, lat, lon, sog, cog: no ship type, destination, draught or nav status. Names in the first 60 include CITY TUG 2, MULTRATUG 6, KOSTERFARJAN 2, F/V JULIEN COLEOU, MSC KYUNGMIN, HMM TACOMA (tugs, ferry, fishing, container ships). Regions of unique vessels: Europe/Med/Baltic 2,082 (88.9%), N America 194 (8.3%), Africa 39, S America 22, other 5. Box counts: Rotterdam/ARA 600; Persian Gulf 0; Singapore Strait 0; US Gulf coast 0. 69% have sog < 0.5 kt.",
+   "where": "terminal/web/openterm.html:660 (title), terminal/backend/providers/ais.py:19 (FilterMessageTypes=['PositionReport']), terminal/backend/stream_hub.py:_ais_events",
+   "fix": "Rename to 'AIS VESSELS - AISStream terrestrial coverage' until types exist. Subscribe to ShipStaticData as well, keep an mmsi -> {type, destination, draught} cache in the hub, add 'stype' to vessel events, and offer a TANKERS filter (AIS type 80-89) with the count shown as 'N tankers of M vessels'. State coverage honestly on the panel (receiver-based, sparse outside Europe/N America)."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "SHIP",
+   "category": "broken",
+   "severity": "high",
+   "title": "700-vessel cap evicts the lowest MMSI, not the oldest: new vessels are deleted on arrival and whole flag ranges vanish",
+   "evidence": "openterm.html:913: const ids=Object.keys(LIVE.ships); if(ids.length>700) delete LIVE.ships[ids[0]]. MMSI keys are integer-like, so Object.keys returns them in ascending numeric order (node: Object.keys({244393467:1,538000001:1,205000000:1}) -> ['205000000','244393467','538000001']). Replaying the real 60 s sample through that exact logic: 2,341 seen, 700 kept, 1,679 evictions, of which 840 deleted the vessel that had just been inserted; lowest MMSI kept = 257249000 (everything below, i.e. MIDs 201-257, is permanently invisible); first-digit-2 vessels drop from 1,926 seen to 286 kept; of the last 400 messages only 116 are on the map. It also runs Object.keys over 700 entries on every vessel message (40/s).",
+   "where": "terminal/web/openterm.html:913",
+   "fix": "Use a Map (insertion-ordered): on each message delete(mmsi) then set(mmsi, v), and evict map.keys().next().value when size exceeds the cap; that is true least-recently-updated. Raise the cap (2,300 new vessels arrive per minute; a Map of 20-30k points drawn as 2 px rects is cheap) and keep the 10-minute age-out."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "SAT",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "LIVE mode shows a synthetic tank farm with an invented utilisation figure until (or instead of) the real image",
+   "evidence": "Playwright on http://localhost:8080/app/openterm.html, LIVE.on=true: screenshot right after go('SAT') shows 24 drawn circles and 'SAT - CUSHING OK TANK FARM / TANKS OBSERVED 24 / EST. UTILISATION 61.1% (roof-shadow model)'. LIVE.satimg was set 2,722 ms later. liveLoadSat (openterm.html:~898) swallows errors (catch(e){}), so on any failure the synthetic view stays with no indication. The audit's own before/SAT.png (taken 4 s after navigation) still shows the synthetic view.",
+   "where": "terminal/web/openterm.html:580-623 (render), ~897-899 (LIVE.loadSat)",
+   "fix": "When LIVE.on, never draw the synthetic farm: show 'LOADING SENTINEL-2 ...' and, on failure, the error text and a retry. Remove the utilisation number entirely in LIVE mode (nothing computes it from imagery)."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "SAT",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "Sentinel-2 image is labelled 'LIVE' but is an undated least-cloud mosaic from a 75-day window",
+   "evidence": "providers/copernicus.py: date_from = now-75 d, mosaickingOrder 'leastCC'; the route returns time_range {from 2026-08-29, to 2026-11-12} and no acquisition date. The page prints 'SAT - SENTINEL-2 TRUE COLOR - LIVE'. CDSE catalog search for the same bbox and window (same OAuth token, 0.46 s) returned 38 products; several have cloud cover 0.0 (2026-11-09, 2026-11-04, ...), so which date the mosaic shows is not knowable from the response. Sentinel-2 revisits this site every 3-5 days (scenes on 10-15, 10-20, 10-25, 10-30, 11-01, 11-04, 11-09).",
+   "where": "terminal/backend/providers/copernicus.py:99-125; terminal/web/openterm.html:~603 (label)",
+   "fix": "Add a catalog lookup (recipe 9) to pick the newest scene with cloud cover under a threshold, request that single day, and return acquired (ISO time), cloud_cover and product id. Page label: 'SENTINEL-2 - acquired 2026-11-09 17:23Z - 3 days ago - cloud 0%'. Do not use the word LIVE for this layer."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "SAT",
+   "category": "wrong-or-stale-data",
+   "severity": "medium",
+   "title": "Default bbox is centred on Cushing town; the main tank farm is south of it",
+   "evidence": "/api/satellite_image?w=512&h=512 (200, 2.89 s, 802,253 B JSON, 601,552 B PNG, mean RGB 44/42/25 = dark, 0.3% saturated, cloud-free): the street grid of the town fills the centre and tank farms are cut off at the top and bottom edges. A date-pinned request for bbox [-96.80,35.90,-96.71,36.03] at 10 m/px (810x1443, 2.78 s, 407,285 B JPEG) shows the large tank farm between about 35.92N and 35.95N, i.e. outside the default bbox whose south edge is 35.95.",
+   "where": "terminal/backend/app.py:198 (default bbox -96.80,35.95,-96.72,36.02); terminal/backend/providers/copernicus.py:176",
+   "fix": "Default to the south terminal, e.g. bbox -96.80,35.90,-96.71,35.96 (about 8.1 x 6.7 km -> 810x667 px at 10 m/px), and raise brightness (gain 3.5 with gamma 0.8 gave mean 78/75/47 in the test)."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "SAT",
+   "category": "layout",
+   "severity": "medium",
+   "title": "Real image is stretched to the panel: square image drawn into a wide canvas (~1.9x horizontal distortion)",
+   "evidence": "openterm.html:~601 x.drawImage(LIVE.satimg,0,0,cv.width,cv.height). The image is 1024x1024 for a 7.2 km x 7.8 km bbox; the panel is roughly 1415x800 at 1600x900, so ground scale is ~197 px/km horizontally vs ~103 px/km vertically. Screenshot sat/sat_live.png shows the town grid and tanks elongated east-west.",
+   "where": "terminal/web/openterm.html:~601",
+   "fix": "Letterbox: scale = min(W/imgW, H/imgH) corrected for cos(lat), centre the image, fill the rest with the panel background; or request the image with the panel's aspect ratio and a bbox computed to match. Add wheel zoom/drag pan on the image and a scale bar."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "BACKEND",
+   "category": "performance",
+   "severity": "medium",
+   "title": "/api/satellite_image: 2 MB base64-in-JSON per page load, oversampled, no cache, spends Copernicus quota every time",
+   "evidence": "The page calls it with no params -> w=h=1024 (app.py:198) for a 7.2x7.8 km bbox = ~7 m/px, finer than Sentinel-2's 10 m bands. Measured from the page: 200, 2,072,962 B, 2.7 s. No caching anywhere in app.py/copernicus.py, although the scene can only change every 3-5 days. The date-pinned test call reported x-processingunits-spent: 4.46 for 810x1443.",
+   "where": "terminal/backend/app.py:197-205; terminal/backend/providers/copernicus.py:truecolor_png",
+   "fix": "Cache the encoded image on disk keyed by (site, acquisition date, size); re-check the catalog every few hours. Serve it as binary image/jpeg (quality 85: 407 KB for 810x1443) from /api/satellite_image.jpg with Cache-Control, plus a small JSON metadata route. Cap the requested size at bbox_metres/10."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "PROVIDER:gibs",
+   "category": "broken",
+   "severity": "medium",
+   "title": "tile_template is wrong for 2 of 4 layers (HTTP 400) and its default date yields black tiles",
+   "evidence": "gibs.py hard-codes GoogleMapsCompatible_Level9 and .jpg for every layer. Fetched with that template: VIIRS_Black_Marble -> 400 text/xml (431 B); GHRSST_L4_MUR_Sea_Surface_Temperature -> 400 text/xml. WMTSCapabilities (epsg3857/best, 1,330 layers) says Black Marble = Level8/png with Time 2016-01-01, SST = Level7/png (latest 2026-11-10). MODIS with date 'default' -> 200 but a 1,665 B JPEG with mean RGB 0/0/0 for tile 3/3/2 (Florida/Caribbean) at 08:20Z, because default resolves to today and Terra has not passed yet; the same tile for 2026-11-11 is 23,810 B of real imagery. VIIRS_SNPP true colour's newest date in capabilities is 2026-11-02 (10 days old); VIIRS_NOAA20 is current.",
+   "where": "terminal/backend/providers/gibs.py:4-14; terminal/backend/app.py:192-195",
+   "fix": "Make LAYERS a table of (identifier, matrix set, extension, time kind, max zoom) as in recipe 8; for daily layers resolve the date server-side to yesterday UTC (or probe today and fall back); replace SNPP with VIIRS_NOAA20; return the resolved date in the JSON so the page can label it."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "WX",
+   "category": "missing-feature",
+   "severity": "high",
+   "title": "No real weather anywhere on the page: /api/weather, /api/marine, /api/satellite are never called",
+   "evidence": "grep of every liveGET( in openterm.html: /api/candles (x2), /api/quote, /api/options, /api/gex, /api/storms, /api/satellite_image. Nothing requests /api/weather, /api/marine, /api/satellite or /api/sentinel. The WX canvas draws only the simulator's storm, ports and the CL price box.",
+   "where": "terminal/web/openterm.html (LIVE layer, lines ~880-920); terminal/backend/app.py:181-195",
+   "fix": "Add a batched /api/wx_points route (ports + buoys, cached 15 min) and draw wind barbs, pressure and wave height at real locations (recipes 6b/7); add a GIBS cloud layer under the coastline (recipe 8)."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "medium",
+   "title": "/api/weather returns bare HTTP 500 after 12 s when Open-Meteo refuses; no error handling or caching on weather/marine/storms routes",
+   "evidence": "GET /api/weather?hours=3 -> 500 'Internal Server Error' (text/plain, 21 B) after 12.05 s at ~08:07Z. Direct calls to api.open-meteo.com from this host in the same minutes: 1x 200 (X-RateLimit-Limit 10000/day, Remaining 408.8), 2x connection reset after 12 s, 2x 429 ('Daily API request limit exceeded. Please try again tomorrow.'). The limit is per client IP and this sandbox shares its egress, so the owner's PC will normally get 200, but the routes at app.py:177-189 call the provider with no try/except, no timeout shorter than 20 s and no cache, so any upstream hiccup becomes an opaque 500 and every page poll is a fresh upstream request.",
+   "where": "terminal/backend/app.py:177-189; terminal/backend/providers/openmeteo.py:_get",
+   "fix": "Wrap in try/except -> HTTPException(502, {source, reason}); cache by rounded (lat, lon) for 15 min (Open-Meteo 'current' interval is 900 s) and /api/storms for 5 min; serve the last good value with its age when upstream fails."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "PROVIDER:openmeteo",
+   "category": "missing-feature",
+   "severity": "low",
+   "title": "Weather/marine payloads omit direction and drop fields they request, and are model output not observations",
+   "evidence": "openmeteo.forecast requests no wind_direction_10m, so wind cannot be drawn as a vector. openmeteo.marine requests wave_height, wave_period, wind_wave_height, swell_wave_height but returns only wave_m and period_s (lines 27-30). /api/marine?hours=3 -> three hourly rows starting 2026-11-12T08:00, wave_m 0.26, period_s 4.4. These are forecast-model values at a grid point, one point per HTTP call.",
+   "where": "terminal/backend/providers/openmeteo.py:16-30",
+   "fix": "Use the 'current=' block and comma-separated coordinates for several points per request (recipe 6b), add wind_direction_10m and wave_direction, pass through swell, and label the layer 'MODEL (Open-Meteo)' with the model time."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "PROVIDER:nhc",
+   "category": "missing-feature",
+   "severity": "medium",
+   "title": "nhc.py returns only current position plus two KMZ URLs the page cannot use; other basins are absent",
+   "evidence": "CurrentStorms.json for cp042026 also carries binNumber 'CP4', advisory number 022, forecastTrack/trackCone zip + kmz, initialWindExtent, forecastWindRadiiGIS, bestTrackGIS, public advisory URL; nhc.py keeps id, name, classification, lat, lon, intensity, pressure, heading, speed, updated, cone_kmz, track_kmz. No route parses the KMZ. /api/storms lists only Pena, while the keyless Esri Active Hurricanes service at the same time also lists Cempaka (WP, 65 kt at 30.2N 154.1E, JTWC advisory 2026-11-11 14:40Z): NHC covers Atlantic, East and Central Pacific only.",
+   "where": "terminal/backend/providers/nhc.py:10-25; terminal/backend/app.py:177-179",
+   "fix": "Add binNumber and advisory number to the storm dict and a provider function that returns past points, forecast points (tau, lat, lon, max wind, valid time), cone polygon and 34-kt wind field as plain JSON (recipes 4/5); optionally merge other basins from recipe 5b with their source and advisory age shown."
+  },
+  {
+   "auditor": "geo-recipes",
+   "area": "BACKEND",
+   "category": "other",
+   "severity": "low",
+   "title": "Running instance on :8080 predates the latest stream_hub commit",
+   "evidence": "ps: uvicorn pid 616 started Thu Nov 12 07:01:44 2026; git log: 8f2950f at 07:04:37Z and 7b1668c at 07:45:08Z. /api/stream_status feed entries have no 'events', 'empty_sessions' or 'last_event_at' keys although stream_hub.py:78 defines them. AIS feed: state live, connects 4, reconnects 3, last_error 'ConnectionClosedError: no close frame received or sent'.",
+   "where": "http://localhost:8080/api/stream_status vs terminal/backend/stream_hub.py:72-90",
+   "fix": "Restart the gateway after the fixes land (not done here: the audit was told not to touch the server) and re-check stream_status."
+  }
+ ],
+ "recipes": [
+  {
+   "auditor": "geo-recipes",
+   "need": "Vendorable world coastline / country basemap that works without a CDN",
+   "source": "world-atlas 2.0.2 (npm; TopoJSON built from Natural Earth 1:110m and 1:50m). Package licence ISC (Copyright 2013-2019 Michael Bostock); Natural Earth data is public domain.",
+   "how": "Download once and commit into terminal/web/: https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json (107,761 B, gzip 38,495; sha256 2516c915...94eee8), land-110m.json (55,207 B, gzip 20,722), countries-50m.json (756,420 B, gzip 229,996; sha256 04342cdc...502394), land-50m.json (545,534 B, gzip 169,541). unpkg.com/world-atlas@2.0.2/land-110m.json is byte-identical. Each countries-*.json has objects 'countries' and 'land'. To also work from file://, wrap as a script (window.WORLD110=<json>;) and load with <script src>. Decode, no library:\nfunction topoArcs(t){const T=t.transform,sx=T?T.scale[0]:1,sy=T?T.scale[1]:1,tx=T?T.translate[0]:0,ty=T?T.translate[1]:0;return t.arcs.map(a=>{let x=0,y=0;return a.map(p=>{x+=p[0];y+=p[1];return[x*sx+tx,y*sy+ty];});});}\nfunction topoPolys(t,name,arcs){arcs=arcs||topoArcs(t);const out=[];const ring=ids=>{const r=[];for(const i of ids){const a=i<0?arcs[~i]:arcs[i],n=a.length;for(let k=r.length?1:0;k<n;k++)r.push(i<0?a[n-1-k]:a[k]);}return r;};(function walk(g){if(g.type==='GeometryCollection')g.geometries.forEach(walk);else if(g.type==='Polygon')out.push({id:g.id,name:g.properties&&g.properties.name,rings:g.arcs.map(ring)});else if(g.type==='MultiPolygon')g.arcs.forEach(p=>out.push({id:g.id,name:g.properties&&g.properties.name,rings:p.map(ring)}));})(t.objects[name]);return out;}\nfunction topoBorders(t,name,arcs){arcs=arcs||topoArcs(t);const use=new Map();t.objects[name].geometries.forEach((g,gi)=>{(function f(a){if(typeof a==='number'){const k=a<0?~a:a;if(!use.has(k))use.set(k,new Set());use.get(k).add(gi);}else if(a)a.forEach(f);})(g.arcs);});const out=[];use.forEach((s,k)=>{if(s.size>1)out.push(arcs[k]);});return out;}\nFill topoPolys(t,'land') with the 'evenodd' rule; stroke topoBorders(t,'countries') for interior borders only.",
+   "tested": true,
+   "result": "All four files 200 from jsdelivr in 0.14-0.23 s. Decoded and drawn in Chromium at 1600x900. countries-110m: 595 arcs / 8,246 points, decode 2.8 ms, Path2D build 4.1 ms, 124 land polygons, 326 border arcs, redraw 0.65 ms (JS side). countries-50m: 1,959 arcs / 80,617 points, decode 6.3 ms, Path2D build 157 ms once, 1,427 polygons, redraw 0.8 ms. Screenshots look like the world: .../geo.sRlv/map/A_world_eq_110m.png (equirect, with 471 real AIS points), B_gulf_merc_110m.png, B_gulf_merc_50m.png. Recommendation: countries-110m for the global ship map; 50m for the Gulf/Atlantic storm map (at that zoom 110m is visibly angular and has no Lesser Antilles and only three Bahamas blobs).",
+   "caveats": "Two traps found while testing, both fixed in geo.js: (1) world-atlas stitches antimeridian-cut polygons, so raw rings jump -180 <-> 180 and paint horizontal bars across the map (Chukotka, Fiji); unwrap each ring (add -/+360 when the lon step exceeds 180) and draw three world copies; (2) a ring that still ends 360 degrees from its start circles the pole (Antarctica) and must be left raw. Redraw timings exclude GPU raster time. land-10m (3.09 MB) was downloaded but not rendered; not needed."
+  },
+  {
+   "auditor": "geo-recipes",
+   "need": "Canvas map with projection, drag-pan, wheel-zoom at cursor and antimeridian wrap (replacement for WX polygon and SHIP ellipses)",
+   "source": "Own code, vanilla JS, no dependency: /tmp/claude-0/-home-user-autonomous-trading-system/18267061-1306-5187-a1cb-8d8f25130090/scratchpad/geo.sRlv/map/geo.js (about 60 lines; test driver run.js, page test.html)",
+   "how": "GeoMap(canvas,{proj:'eq'|'merc',graticule:true,overlay:(m,ctx)=>{...}}). World units = degrees: x=lon; y=-lat (equirect) or y=-(180/PI)*ln(tan(PI/4+lat*PI/360)) with lat clamped to +/-85 (Mercator). m.addLand(polys,{fill,stroke,lw}) and m.addLines(lines,{stroke,lw}) build one cached Path2D per layer in world units; m.draw() does ctx.setTransform(k*dpr,0,0,k*dpr,((off-cx)*k+W/2)*dpr,(-cy*k+H/2)*dpr) for off in [-360,0,360], fills/strokes each path with lineWidth=lw/k, then resets the transform and calls overlay. m.pt(lon,lat) -> css px for markers (nearest world copy); m.trace(coords,close) traces a lon/lat line or polygon with unwrapping; m.fit(w,s,e,n); m.inv(px,py). Wheel: k*=exp(-deltaY*0.0015) keeping the world point under the cursor fixed; pointerdown/move/up with setPointerCapture for drag. Use font '\"JetBrains Mono\",Consolas,\"Courier New\",monospace' for labels.",
+   "tested": true,
+   "result": "Playwright real input on the storm scene: six wheel notches took k from 20 to 173.4 px/deg; a drag of 300x150 px moved the centre from 160.0W to 158.27W, 12.27N; redraw 0.8-1.0 ms after each. Screenshots: .../geo.sRlv/map/C_storm_cpac_50m.png and D_after_zoom_pan.png.",
+   "caveats": "Tested in headless Chromium on Linux only. Vessel dots and labels are drawn in screen space each frame (471 points in the test; 20-30k fillRects not measured). Touch pinch not implemented."
+  },
+  {
+   "auditor": "geo-recipes",
+   "need": "Real current position and intensity of active tropical cyclones (Atlantic, East Pacific, Central Pacific)",
+   "source": "NOAA NHC CurrentStorms.json via the existing gateway route /api/storms (keyless)",
+   "how": "GET /api/storms -> storms[] with id, name, classification (TD/TS/HU/...), lat, lon (signed degrees), intensity_kt, pressure_mb, heading_deg, speed_kt, updated (ISO UTC of the advisory). All of these are real NHC fields. Upstream https://www.nhc.noaa.gov/CurrentStorms.json additionally has binNumber, publicAdvisory.advNum/url, forecastTrack/trackCone/bestTrackGIS zip+kmz links. Poll every 5-10 min (advisories are 6-hourly, intermediates 3-hourly).",
+   "tested": true,
+   "result": "200 in 0.44 s: cp042026 Pena, TS, 9.8N 170.6W, 40 kt, 1002 mb, 270 deg at 15 kt, updated 2026-11-12T03:00:00Z, advisory 022 (direct fetch of CurrentStorms.json: 200, 0.53 s, same values).",
+   "caveats": "Position is the advisory position (5 h old at test time), not a live fix: show 'ADVISORY 22 - 03:00Z' next to it. Covers NHC/CPHC basins only."
+  },
+  {
+   "auditor": "geo-recipes",
+   "need": "Past track, forecast track/points, cone of uncertainty and wind field for an active NHC storm, as GeoJSON",
+   "source": "NOAA ArcGIS MapServer NHC_tropical_weather (keyless): https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer",
+   "how": "Layer ids are per storm bin; bin = CurrentStorms.json binNumber (AT1-5, EP1-5, CP1-5). Group base ids: AT1=4, AT2=30, AT3=56, AT4=82, AT5=108, EP1=134 ... EP5=238, CP1=264 ... CP4=342, CP5=368 (step 26). Offsets from base: +2 Forecast Points, +3 Forecast Track, +4 Forecast Cone, +5 Watch-Warning, +7 Past Points, +8 Past Track, +9 Past Wind Swath, +12 Forecast Wind Radii, +13 Advisory Wind Field (safer: read MapServer?f=json once, 92 KB, and look up '<BIN> Forecast Points' etc. by name). Query: {MapServer}/{id}/query?where=1%3D1&outFields=*&f=geojson. Forecast point properties: tau (0,12,24,...), maxwind, gust, mslp, stormtype, validtime, advisnum, datelbl, tcdir, tcspd, binnumber. Past point properties: dtg (YYYYMMDDHH), intensity, mslp, stormtype. Wind field: radii (34/50/64), ne/se/sw/nw. Backend: one cached route /api/storm_track?id=... returning {past:[[lon,lat,kt,dtg]], forecast:[{tau,lon,lat,kt,valid}], cone:[[lon,lat]...], wind34:[...]}.",
+   "tested": true,
+   "result": "All 200 in 0.2-0.5 s for CP4: layer 344 = 5 forecast points (tau 0..48: -170.6/9.8, -172.7/9.9, -175.6/10.0, -178.5/10.1, 179.1/10.3); 345 = track MultiLineString; 346 = cone MultiPolygon (50 KB); 349 = 39 past points from 2026110212 (7.7N 129.8W) onward; 350 = past track; 355 = 34-kt wind polygon (ne 100 nm). idp_source cp042026-022_5day_pts, i.e. same advisory 22 as CurrentStorms.json. Drawn on the 50m basemap: .../geo.sRlv/map/C_storm_cpac_50m.png.",
+   "caveats": "Longitudes are wrapped to +/-180 and the cone is split at the antimeridian (this storm crosses it): unwrap lines before drawing and fill the cone without stroking its seam. Inactive bins and the outlook layers return an empty FeatureCollection (42 B), verified for layers 2, 3 and 6. Attributes 'lat'/'lon' are rounded integers: use the geometry."
+  },
+  {
+   "auditor": "geo-recipes",
+   "need": "Same storm geometry without ArcGIS (fallback), parsed with Python stdlib only",
+   "source": "NHC KMZ files linked from CurrentStorms.json (keyless)",
+   "how": "URLs come from the storm entry: forecastTrack.kmzFile (..._TRACK.kmz), trackCone.kmzFile (..._CONE.kmz), bestTrackGIS.kmzFile, initialWindExtent.kmzFile, forecastWindRadiiGIS.kmzFile. Parse: z=zipfile.ZipFile(io.BytesIO(raw)); kml=z.read(first name ending .kml); root=ET.fromstring(kml); for e in root.iter(): e.tag=e.tag.split('}',1)[-1] (strip namespaces: the files mix single- and double-quoted xmlns, so a regex strip fails); for each Placemark take Point/LineString/Polygon .//coordinates ('lon,lat,alt' triples separated by whitespace) and ExtendedData Data@name/value. Working script: .../geo.sRlv/scripts/kmz.py.",
+   "tested": true,
+   "result": "TRACK.kmz (7,897 B): 2 LineStrings + 5 Points with text such as '12 hr Forecast Valid at: 2:00 AM HST November 12, 2026 Location: 9.9 N, -172.7 W Maximum Wind: 35 knots'; LineString data includes maxWindKnots 40, maxGustKnots 50, minimumPressure 1002. CONE.kmz (9,384 B): one Polygon, 1,220 points, lon 178.15..189.67 (continuous, not split). best_track.kmz (33,720 B): 39 Points with atcfdtg, intensity, minSeaLevelPres, stormType. initialradii/forecastradii KMZ: 34-kt polygons of 361 points. Each download 0.12-0.29 s.",
+   "caveats": "Longitude conventions differ between files (track continues to -180.9, cone uses 178..190): normalise by unwrapping. Forecast times are local-zone text (HST here), unlike the ArcGIS 'validtime'. The shapefile zips (5day_022.zip, best_track.zip) download fine but were not parsed."
+  },
+  {
+   "auditor": "geo-recipes",
+   "need": "Keyless global source for tropical cyclones in other basins (West Pacific, Indian Ocean, Southern Hemisphere)",
+   "source": "Esri Living Atlas 'Active Hurricanes' FeatureServer (NHC + JTWC), keyless; GDACS event API as a secondary list",
+   "how": "https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/Active_Hurricanes_v1/FeatureServer/{id}/query?where=1%3D1&outFields=*&f=geojson with id 0 Forecast Position, 1 Observed Position, 2 Forecast Track, 3 Observed Track, 4 Forecast Error Cone, 7/8/9 wind radii 34/50/64 kt. Properties: STORMNAME, BASIN, LAT, LON, TAU, MAXWIND, GUST, MSLP, STORMTYPE, ADVDATE (epoch ms), ADVISNUM. GDACS: https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventlist=TC&fromdate=YYYY-MM-DD&todate=YYYY-MM-DD (GeoJSON; properties name, alertlevel, iscurrent, fromdate, todate, severitydata).",
+   "tested": true,
+   "result": "Esri layer 0: 200 in 0.22 s, 8 features: Pena (CP) tau 0-48 identical to NHC, plus Cempaka (WP) 65 kt at 30.2N 154.1E then 55 and 45 kt points, advisory 2026-11-11 14:40Z. Layer 1: 68 observed points (Pena 39, Cempaka 29, last WP fix 2026-11-11 06:00Z). GDACS: 200 in 4.25 s, 1 feature (MURASU-26, Red, 2026-11-01..11-03, iscurrent false).",
+   "caveats": "Third-party service: terms of use and guaranteed update cadence not checked; the WP advisory was about 18 h old at test time, so show advisory age per storm. WP rows have blank STORMTYPE and TAU 0 on every forecast point. GDACS lists events with alert levels, not tracks."
+  },
+  {
+   "auditor": "geo-recipes",
+   "need": "What WX should show when there are zero active systems",
+   "source": "Design recommendation based on the tested NHC responses",
+   "how": "Keep the real basemap and real weather layers (GIBS cloud imagery, buoy/port wind). Replace the storm box with: 'NO ACTIVE TROPICAL CYCLONES - NHC Atlantic / E Pacific / C Pacific - checked HH:MMZ'. Optionally add the NHC 7-day outlook areas (MapServer layers 2 'Seven-Day: Current Location' and 3 'Seven-Day: Potential Development Region', same f=geojson query) and other-basin systems from the Esri service. Never fall back to the simulator storm while the LIVE badge is on; if /api/storms fails show 'NHC FEED UNAVAILABLE since HH:MMZ' rather than an empty or fake map.",
+   "tested": false,
+   "result": "Empty-state responses observed: outlook layers 2 and 3 and inactive bin layer 6 each return a valid empty FeatureCollection (42 B). The empty CurrentStorms.json ({\"activeStorms\": []}) could not be observed today because one system is active; nhc.py already handles a missing/empty list (returns []), and the page prints 'no active tropical systems right now' at openterm.html:577.",
+   "caveats": "The outlook layers were empty today, so the attribute names of a non-empty outlook feature were not seen."
+  },
+  {
+   "auditor": "geo-recipes",
+   "need": "Real wind, pressure and wave values at ports / offshore points for the map",
+   "source": "Open-Meteo forecast + marine APIs (keyless, model data); NOAA NDBC latest observations (keyless, measured)",
+   "how": "(a) Open-Meteo current block, several points per call: https://api.open-meteo.com/v1/forecast?latitude=29.73,29.95,...&longitude=-95.27,-90.07,...&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl&wind_speed_unit=kn -> array of {latitude, longitude, current:{time, interval:900, ...}}. Marine: https://marine-api.open-meteo.com/v1/marine?latitude=..&longitude=..&current=wave_height,wave_direction,wave_period,swell_wave_height,sea_surface_temperature,ocean_current_velocity. Cache 15 min server-side. (b) NDBC: https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt, whitespace-separated, two '#' header lines, columns STN LAT LON YYYY MM DD hh mm WDIR WSPD GST WVHT DPD APD MWD PRES PTDY ATMP WTMP DEWP VIS TIDE; 'MM' = missing; WSPD/GST in m/s (x1.944 = kt), WVHT in m, PRES in hPa. Filter by bbox, drop rows older than 2 h.",
+   "tested": true,
+   "result": "Open-Meteo single point: 200, wind_speed_10m 7.7 km/h at 29.30N 94.79W, time 2026-11-12T08:00, headers X-RateLimit-Limit 10000 per 86400 s. Marine single point 27.04N 90.04W: wave_height 0.26 m, wave_direction 105, wave_period 4.4 s, swell 0.22 m, SST 26.0 C, current 1.8 km/h; via gateway /api/marine 200 in 0.48 s. NDBC: 200 in 0.45 s, 100,793 B, 845 stations all dated 2026-11-12; in the box 18-31N / 98-80W: 178 stations, 111 with wind, 112 with pressure, 15 with wave height (e.g. 42033 at 27.84N 97.00W 07:10Z: wind 2.0 m/s, waves 0.6 m, 1017.0 hPa).",
+   "caveats": "The comma-separated multi-point Open-Meteo form could NOT be verified from here: both attempts got connection reset or 429 'Daily API request limit exceeded' (shared egress IP), and /api/weather itself returned 500. Open-Meteo values are model output, not observations: label them. NDBC is dense in US waters and sparse elsewhere."
+  },
+  {
+   "auditor": "geo-recipes",
+   "need": "Real satellite cloud imagery tiles (true colour and infrared) for the map",
+   "source": "NASA GIBS WMTS REST (keyless, CORS: access-control-allow-origin *)",
+   "how": "Mercator (256 px XYZ; y = TileRow, x = TileCol): https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{Layer}/default/{Time}/{TileMatrixSet}/{z}/{y}/{x}.{ext}. Layer table from WMTSCapabilities: MODIS_Terra_CorrectedReflectance_TrueColor and VIIRS_NOAA20_CorrectedReflectance_TrueColor -> GoogleMapsCompatible_Level9, jpg, Time YYYY-MM-DD (use yesterday UTC; today is empty until the overpass); GOES-East_ABI_Band13_Clean_Infrared, GOES-West_..., Himawari_AHI_Band13_Clean_Infrared -> GoogleMapsCompatible_Level6, png, Time YYYY-MM-DDTHH:MM:SSZ on 10-min steps or the literal 'default' for latest; GOES-East_ABI_GeoColor / GOES-West_ABI_GeoColor -> Level7, png, 10-min; GHRSST_L4_MUR_Sea_Surface_Temperature -> Level7, png, daily (2 days behind); VIIRS_Black_Marble -> Level8, png, Time 2016-01-01; BlueMarble_ShadedRelief_Bathymetry -> Level8, .jpeg, no Time segment (.../default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg). Equirectangular canvas: https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/{Layer}/default/{Time}/{250m|500m|1km|2km}/{z}/{row}/{col}.{ext}; tiles are 512 px, origin (-180, 90), tile span = 288/2^z degrees (z0 = 2x1 tiles, z1 = 3x2, z2 = 5x3); col=floor((lon+180)/span), row=floor((90-lat)/span); MODIS/VIIRS use 250m, GeoColor 1km, GOES IR 2km, SST 1km. Response headers layer-time-actual / layer-identifier-actual tell you which time was served: read them to label the layer.",
+   "tested": true,
+   "result": "All fetched and opened as images (montage: .../geo.sRlv/gibs/montage.png). 3857 tile 3/3/2 (Florida/Caribbean): MODIS 2026-11-11 23,810 B JPEG 256x256; VIIRS NOAA-20 2026-11-11 23,830 B (no swath gaps, MODIS has two); GOES-East IR 2026-11-12T07:30Z 104,487 B PNG RGBA (colour-enhanced cloud tops); 'default' time served 2026-11-12T07:50:00Z when requested about 08:25Z; GeoColor 96,721 B; SST 2026-11-10 28,157 B; Black Marble 35,155 B; Blue Marble 10,168 B. 4326: MODIS 250m/2/1/1 84,751 B 512x512; GOES IR 2km/2/1/1 329,707 B. Latency 0.2-0.7 s per tile.",
+   "caveats": "MODIS with today's date or 'default' returns a valid but all-black 1,665 B tile over the Americas in the UTC morning. Tiles are sent with cache-control: no-store, so cache them in the gateway (proxy route) if they are redrawn often. Geostationary layers keep only about 1.5 days of history. GOES IR is night-capable; true colour is one daytime pass per day, so label its date. Not tested drawn inside the terminal page."
+  },
+  {
+   "auditor": "geo-recipes",
+   "need": "Real, dated Sentinel-2 image of an oil storage site for SAT",
+   "source": "Copernicus Data Space (CDSE) Sentinel Hub Catalog + Process APIs, using the OAuth client credentials already in config.py (values not printed)",
+   "how": "1) Newest clear scene: POST https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search, Authorization: Bearer <token from copernicus._get_token()>, body {\"bbox\":[w,s,e,n],\"datetime\":\"<from>/<to>\",\"collections\":[\"sentinel-2-l2a\"],\"limit\":50,\"fields\":{\"include\":[\"id\",\"properties.datetime\",\"properties.eo:cloud_cover\"],\"exclude\":[\"geometry\",\"links\",\"assets\",\"bbox\"]}}; take the latest feature with eo:cloud_cover below about 20. 2) POST the existing PROCESS_URL with dataFilter.timeRange limited to that calendar day (add maxCloudCoverage), output.width/height = bbox metres / 10, responses format image/jpeg quality 85, evalscript with output sampleType UINT8 and f=v=>255*min(1,pow(3.5*v,0.8)) on B04/B03/B02. 3) Return the JPEG as a binary response plus JSON {acquired, cloud_cover, product_id, bbox, m_per_px}; cache on disk by (site, date). Suggested first site: Cushing south terminal bbox -96.80,35.90,-96.71,35.96.",
+   "tested": true,
+   "result": "Existing route, default bbox, 512x512: 200 in 2.89 s, 802,253 B JSON (601,552 B PNG), cloud-free but dark (mean RGB 44/42/25), shows the town with tank farms cut off (.../geo.sRlv/sat/cushing512.png). Catalog: 0.46 s, 38 products in 75 days; newest 2026-11-09T17:23:53Z cloud 0.0, then 2026-11-04 (0.0), 11-01 (79-97), 10-30 (100), 10-25 (30-48), 10-20 (8-21). Date-pinned Process call, bbox -96.80,35.90,-96.71,36.03 at 810x1443 (10 m/px): 200 in 2.78 s, 407,285 B JPEG, mean RGB 78/75/47, x-processingunits-spent 4.46; the big tank farm is clearly resolved, individual tanks a few pixels across (.../geo.sRlv/sat/cushing_pinned_crop.png). From the page (1024x1024 default): 2.07 MB, 2.7 s.",
+   "caveats": "10 m/px is the native limit of the visible bands: asking for more pixels only interpolates; tanks are countable but roof-shadow fill estimates are not credible at this resolution, so do not print a utilisation figure. Imagery is 3-5 days apart and often cloudy (5 of the last 7 passes were over 20% cloud): present it as 'latest clear pass, N days ago'. Account quota/limits for the CDSE credentials were not checked. Other sites were not tested."
+  },
+  {
+   "auditor": "geo-recipes",
+   "need": "Live vessel positions, and a way to identify tankers",
+   "source": "Gateway ws://localhost:8080/ws (type 'vessel', from AISStream PositionReport)",
+   "how": "Now: each event is {type:'vessel', src:'ais', mmsi, name, lat, lon, sog, cog}. Treat cog 360 and sog >= 102.3 as 'not available'. To identify tankers the backend must also receive static data: in providers/ais.py subscribe_message use \"FilterMessageTypes\":[\"PositionReport\",\"ShipStaticData\"]; in stream_hub._ais_events handle MessageType 'ShipStaticData' (AISStream documents Message.ShipStaticData with Type, Destination, MaximumStaticDraught, Dimension, ImoNumber, CallSign, Name) by updating a dict mmsi -> {stype, dest, draught, length}, persist it to disk, and add stype/dest to every vessel event; AIS type 80-89 = tanker, 70-79 = cargo. PositionReport also carries NavigationalStatus and TrueHeading, which parse_position currently drops or does not forward; forward them so 'moored/at anchor' comes from the status code instead of sog < 0.5. Front end: Map keyed by mmsi with LRU eviction, colour by stype, title from actual counts.",
+   "tested": true,
+   "result": "Measured on the running gateway, 60.1 s: 2,409 vessel events = 40.1/s (plus book 1,152, ticker 254, trade 178, kline 45); 2,342 unique MMSI (about 400 new vessels every 10 s, no plateau); fields exactly mmsi, name, lat, lon, sog, cog; 69% sog < 0.5; 493 with cog = 360; 3 of 471 with empty name in the first sample; lat range -38.0..69.7, lon range -89.5..35.0 in the 12 s sample. Regions: Europe 88.9%, N America 8.3%, Africa 1.7%, S America 0.9%; 0 vessels in Persian Gulf, Singapore Strait and US Gulf coast boxes. stream_status AIS counter rose 631 messages in 15 s (42/s).",
+   "caveats": "The ShipStaticData part is NOT tested: the audit was forbidden to open its own AISStream connection, so the message shape is from AISStream's documentation, not observed. Static messages are sent about every 6 minutes per vessel, so types fill in gradually; Class B vessels report type in a different message (StaticDataReport). With PositionReport alone there is no way to tell a tanker from any other vessel (name matching is not reliable). Whether 40 msg/s is the full AISStream global feed or a throttled share was not determined."
+  }
+ ]
+}

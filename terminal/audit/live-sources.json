@@ -1,0 +1,401 @@
+{
+ "auditor": "live-sources",
+ "summary": "Tested 2026-11-12 08:08-08:20 UTC (US cash markets closed, futures/FX/crypto open). Read-only; no second backend started; no AISStream connection. Limited providers used: Marketaux 1 request, FMP 1, Alpha Vantage / API Ninjas / LaborCurrent 0. Scratch scripts: /tmp/claude-0/-home-user-autonomous-trading-system/18267061-1306-5187-a1cb-8d8f25130090/scratchpad/tmp.2PNIFKIzrY\n\n1. The LSE key is OUT OF QUOTA for the day: usage() reports rows used_today 12,499,998 of 12,500,000 (resets 00:00 UTC). Every LSE-backed route (/api/candles, /api/quote for equities+FX, /api/calendar) returns a bare 500. So right now the only real prices on the page are BTC/ETH/SOL; the other 18 watchlist instruments are simulator output under a LIVE badge.\n2. The page itself burns that quota. LSE bills rows READ, not rows returned: an FX daily candle call with limit=2 reads 7,983 rows, limit=250 reads 511,272. The page polls 8 symbols every 5 s (31,956 rows per cycle, about 383k rows/min, 96 calls/min against a 60/min limit) and bootstraps 2.05M rows per page load. One open tab exhausts the day in about 33 minutes; six page loads do it on their own.\n3. 12 of 21 instruments (CL NG GC HG RB, US10Y US2Y DE10Y, SPX NDX VIX RUT) have no live mapping at all. NEWS and ECO are 100% fabricated in the page and never call the backend. /api/news (GDELT) is broken by a malformed default query; /api/rigcount has never been able to work.\n4. A working keyless replacement exists for 19 of 21 instruments: Yahoo chart/spark API (one batch call returns price, previous close and a 5-minute sparkline for 20 symbols; 1m to 1wk OHLCV works). Futures are 10 minutes delayed, FX and crypto about real time. Missing: US2Y and DE10Y, which are only available end-of-day (Treasury.gov CSV, Bundesbank API - both tested).\n5. Keys already in config.py that are unused by the gateway and work: Alpaca market data (IEX real-time equity snapshots with previous close, bars, real-time Benzinga news, option IV+greeks; 200 req/min) and Tiingo (real-time FX top-of-book, IEX equity quotes with prevClose).\n6. Options: CBOE delayed-quotes JSON (keyless) gives full chains with IV, open interest, greeks and bid/ask for AAPL/XOM/SPX/NDX/VIX/RUT - enough for a real equity/index OPTS and GEX. LSE options work through the gateway even with the row quota exhausted, but carry no open interest. Deribit DOES cover SOL, but as USDC-settled SOL_USDC-* instruments under currency=USDC; the provider asks currency=SOL and gets 0 rows.\n7. Economic calendar: ForexFactory weekly JSON (keyless) gives time, impact, forecast, previous; actuals can be filled honestly from BLS v2 / FRED after release (verified CPI). FMP calendar is paywalled (402). LSE calendar could not be read today.\n8. EIA v2 works through /api/eia for every supply-chain series tested (US and PADD 1-5 crude stocks, Cushing, SPR, refinery utilisation US/PADD2/PADD3, imports, exports, production, products, gas storage), latest week 2026-10-30. No free working source was found for the weekly Baker Hughes rig count (site returns Akamai 403; EIA's monthly rig series stops at 2026-02).",
+ "not_checked": [
+  "LSE candles and quotes for every symbol (AAPL, EUR_USD, CRUDEOIL, WTICO/USD, SPX with market='indices', ...): the daily row quota was exhausted, so only symbol existence (catalog) and row-cost estimates were obtained; LSE data freshness, delay and actual row shape were not observed",
+  "LSE economic calendar content (which of actual / forecast / previous it carries, and how current it is): 429 on every call",
+  "LSE websocket streaming (lse.stream) as a real-time quote source: not opened",
+  "Which client(s) actually consumed the 12.5M LSE rows today: the page's cost was computed from per-call estimates, not from a usage log",
+  "Yahoo, Alpaca and CBOE intraday delay for equities and indices during US cash hours: markets were closed during the test (08:08-08:20 UTC)",
+  "Whether Yahoo's unofficial endpoints are reachable and unthrottled from the owner's Windows PC, and their real rate limits",
+  "Stooq quotes (connection through the sandbox proxy was closed) and CNBC's quote service (403): neither could be evaluated as a US2Y/DE10Y intraday source",
+  "A successful GDELT response: corrected queries returned 429 twice and timed out once",
+  "Alpha Vantage, API Ninjas and LaborCurrent: not called at all (rate-limit budget kept unused)",
+  "FMP endpoints other than /stable/economic-calendar (which returned 402)",
+  "Open interest for equity options from Alpaca's trading API (/v2/options/contracts): not called",
+  "Alpaca feed=sip for the most recent 15 minutes and Alpaca behaviour in a live session",
+  "Tiingo free-tier request limits (no rate-limit headers inspected)",
+  "NVDA and TSLA option chains on CBOE (same URL pattern as AAPL/XOM, not fetched)",
+  "Baker Hughes site from a residential connection or a real browser",
+  "EIA v2 facet-style routes that would return several series in one call"
+ ],
+ "findings": [
+  {
+   "auditor": "live-sources",
+   "area": "PROVIDER:lse",
+   "category": "backend-error",
+   "severity": "critical",
+   "title": "LSE daily row quota is exhausted, so all equity/FX/calendar data is dead until 00:00 UTC",
+   "evidence": "LSE().usage() at 08:08 UTC: plan 'free', rows per_day 12,500,000, used_today 12,499,998, calls_per_minute 60. LSE().candles('AAPL','1d',limit=3) -> LSEError [429] 'Your plan allows 12,500,000 rows a day; 12,499,998 are used and this export would read 8. It resets at 00:00 UTC, in 15 h 52 min.' Through the gateway: GET /api/candles?symbol=AAPL&timeframe=1d&limit=3 -> 500 (3.76 s); /api/candles?symbol=EUR_USD -> 500; /api/quote?symbol=AAPL -> 500; /api/calendar?region=US -> 500. Catalog, options_chain and series() calls still succeed (not row-metered).",
+   "where": "terminal/backend/providers/lse.py:20-22; terminal/backend/app.py:137-148, 216-218",
+   "fix": "Stop using LSE for polled quotes (see next finding). Add a server-side TTL cache in front of every LSE call, surface quota state in /api/health (call usage() at most once a minute), and have routes return a structured 429/503 with source and reset time so the page can show 'no data' instead of silently keeping simulator values."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "SHELL",
+   "category": "backend-error",
+   "severity": "critical",
+   "title": "The page's own poll and bootstrap consume the entire LSE quota in about half an hour",
+   "evidence": "LSE meters rows read, not rows returned. Row costs read from the 429 messages (no quota consumed): candles('EUR_USD','1d',limit=2) would read 7,983; candles('EUR_USD','1d',limit=250) 511,272; candles('AAPL','1d',limit=2) 6; candles('AAPL','1d',limit=250) 348; bond_yields('US10Y',order='desc',limit=3) 9,313; economic_calendar(region='US') with no start (the gateway default) 38,524. livePoll calls /api/quote for all 8 LIVE_REST symbols every 5 s: 4x6 + 4x7,983 = 31,956 rows per cycle, 383,472 rows/min, so 12.5M rows last 32.6 minutes of one open tab; it is also 96 calls/min against the plan's 60. liveBootstrap costs 4x348 + 4x511,272 = 2,046,480 rows per page load (16% of the day).",
+   "where": "terminal/web/openterm.html:922-926 (livePoll), 889-893 (liveBootstrap); terminal/backend/app.py:143-148",
+   "fix": "Move quotes to a single backend endpoint (e.g. /api/watchlist) that the server refreshes on its own timer and caches, fed by Yahoo spark / Alpaca / Tiingo (recipes below). The page polls only that endpoint. If LSE FX is kept, never request it without start= and never more than once per several minutes; even start=today costs 1,330 rows per FX call."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "MON",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "12 of 21 watchlist instruments have no live source and stay on the random-walk simulator in LIVE mode",
+   "evidence": "LIVE_REST maps only AAPL NVDA TSLA XOM EURUSD USDJPY GBPUSD AUDUSD; CRYPTO_SYMS adds BTC ETH SOL. step() uses LIVE.px[s] only when set, otherwise I.px*=exp(gauss...). CL NG GC HG RB US10Y US2Y DE10Y SPX NDX VIX RUT are therefore always synthetic. Seed values against real values measured now (Yahoo): CL 72.1 vs 86.91; GC 2650 vs 3971.9; HG 4.12 vs 6.232; SPX 5860 vs 7619.38; NDX 20950 vs 28374.25; AAPL 228.5 vs 355.63; US10Y 4.28 vs 4.998. With the LSE quota gone, the 8 mapped equity/FX symbols are synthetic too.",
+   "where": "terminal/web/openterm.html:147-153 (UNIV seeds), 207-221 (step), 862-865 (LIVE_REST)",
+   "fix": "Give every instrument a provider symbol (table in the recipes) and, in LIVE mode, never run the simulator for an instrument: if no real quote has arrived, show a dash and a 'NO DATA' or 'DELAYED 10m' / 'EOD' tag per row. Mark each row with its source and timestamp."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "MON",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "Day-change % in LIVE mode is measured against the first candle of the history, not the previous close",
+   "evidence": "liveBootstrap sets INST[s].px0=d.candles[0].close for crypto (300 x 1h, i.e. 12.5 days ago) and for LSE symbols (250 daily candles, about a year ago); every change figure is (I.px/I.px0-1)*100 (lines 266, 274, 314, 568, 841). /api/quote for non-crypto returns only {'last': ...} with no previous close; for crypto it returns Binance's rolling-24h chg_pct, which the page ignores. Real day change for BTC now is -0.55% (Binance tradingDay ticker).",
+   "where": "terminal/web/openterm.html:887, 891, 266, 274, 314, 841; terminal/backend/app.py:143-148",
+   "fix": "Have the backend return last, prev_close, chg_pct, ts, source, delay for every symbol and have the page compute nothing: Yahoo meta.chartPreviousClose, Alpaca prevDailyBar.c, Tiingo prevClose, Binance ticker/tradingDay openPrice, CBOE price_change_percent for VIX."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "CHRT",
+   "category": "broken",
+   "severity": "high",
+   "title": "LSE candle rows do not have the fields the page's chart code expects",
+   "evidence": "Not run today (quota), established from code: the lse-data SDK docstring for candles() states rows are 'timestamp (ISO 8601, UTC), symbol, open, high, low, close, volume, trades', and quantpad/backend/datafeed.py:26-31 reads row['timestamp'] and 'volume'. /api/candles returns those rows unmodified (app.py:141) while the Binance branch returns {time (unix s), open, high, low, close, vol} (providers/binance.py:19-20). The page assigns d.candles straight into INST[s].cndl and step() then does C.time+86400 and C.vol+= on them.",
+   "where": "terminal/backend/app.py:137-141; terminal/web/openterm.html:889-893, 218-221",
+   "fix": "Normalise in the gateway: every /api/candles row is {time: unix seconds, open, high, low, close, vol} regardless of provider, sorted ascending, nulls dropped."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "CHRT",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "The simulator keeps appending invented candles and volume to real candle history in LIVE mode",
+   "evidence": "step() runs every 650 ms regardless of LIVE.on. Every 6th tick (3.9 s) it pushes {time: C.time+86400, open: C.close, ...} onto I.cndl, i.e. a new fake 'day' every 3.9 s on top of real 1h Binance or 1d LSE candles; on other ticks it adds abs(gauss())*800 to the last real candle's volume and stretches its high/low.",
+   "where": "terminal/web/openterm.html:216-221",
+   "fix": "In LIVE mode do not touch I.cndl in step(); update the last candle only from the websocket kline (crypto) or from a periodic /api/candles refresh, using the provider's own bar timestamps."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "NEWS",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "NEWS is generated from seven templates with invented source tags and never calls the backend",
+   "evidence": "Lines 703-722: headlines are built from templ[] ('Crude rises as Gulf storm risk builds, refiners hedge', ...) with a random tag from ['WIRE','ECO','OPEC','RUMOUR','FLOW','GOVT'] and the page clock as timestamp. There is no fetch of /api/news anywhere in the file (grep of '/api/' shows only health, candles, storms, satellite_image, options, gex, quote).",
+   "where": "terminal/web/openterm.html:703-722",
+   "fix": "In LIVE mode render only real items: Alpaca /v1beta1/news (tested, real-time) with created_at, source and link; fall back to Marketaux and RSS (recipes). Show published time and source per row; keep templates for SIM mode only."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "high",
+   "title": "/api/news always fails: the default GDELT query is rejected and the reply is not JSON",
+   "evidence": "GET /api/news?limit=8 -> 500 after 12.0 s; GET /api/news?query=crude%20oil%20OR%20OPEC&limit=5 -> 500 after 11.2 s. Calling GDELT directly with the provider's URL returns HTTP 200 with the plain-text body \"Queries containing OR'd terms must be surrounded by ().\", which json.loads cannot parse. Two further direct calls with a corrected query returned 429 ('Please limit requests to one every 5 seconds') and one timed out at 12 s, so I never obtained a successful GDELT response.",
+   "where": "terminal/backend/providers/gdelt.py:7-12; terminal/backend/app.py:234-236",
+   "fix": "Do not rely on GDELT as the primary feed. If kept: wrap OR queries in parentheses, add sourcelang:english and timespan=24h, cache for at least 5 minutes, enforce one request per 5 s, and return an empty list with an error field instead of raising."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "ECO",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "ECO is a hard-coded table of invented figures, shown as 'today' in LIVE mode",
+   "evidence": "Lines 726-729 define the whole calendar as literals, e.g. ['14:00','US','FOMC Rate Decision','5.25%','5.25%','5.25%','H'], ['08:30','US','CPI m/m','0.3%','0.2%','0.2%','H']. No backend call. Real data for this week (ForexFactory JSON): US CPI m/m was 2026-11-10 08:30 ET, forecast 0.3%, previous 0.6%; BLS CUSR0000SA0 Oct 337.476 vs Sep 336.298 gives an actual of +0.35%. /api/calendar currently returns 500, and its default call (no start date) would read 38,524 LSE rows each time.",
+   "where": "terminal/web/openterm.html:724-737; terminal/backend/app.py:216-218; terminal/backend/providers/lse.py:38-40",
+   "fix": "Build /api/calendar from the ForexFactory weekly JSON (time, country, impact, forecast, previous), cached for an hour, and fill 'actual' from BLS/FRED for the releases that map to a series; leave actual blank otherwise. If LSE is used, always pass start/end for the current week (96 rows)."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "medium",
+   "title": "Provider failures surface as bare 500 'Internal Server Error'",
+   "evidence": "_need_key only converts RuntimeError to 503. LSEError (429 quota, 400 ambiguous symbol), urllib HTTPError and JSON decode errors propagate: /api/candles, /api/quote, /api/calendar, /api/news and /api/eia?series_id=PET.WPULEP33.W all returned the text 'Internal Server Error' with status 500. The page's liveGET catches and ignores every error, so the user sees simulator values with no indication.",
+   "where": "terminal/backend/app.py:35-39; terminal/web/openterm.html:867, 886-893, 925",
+   "fix": "Add one exception handler that returns JSON {ok:false, source, error, retry_after} with 429/502/503 as appropriate, and have the page mark the affected instrument or module as unavailable."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "SPLC",
+   "category": "broken",
+   "severity": "medium",
+   "title": "/api/rigcount cannot work: default URL is a directory index and the site blocks scripted clients",
+   "evidence": "GET /api/rigcount -> {\"ok\":false,\"note\":\"set BH_RIGCOUNT_XLSX to the weekly workbook URL\",\"err\":\"HTTP Error 403: Forbidden\"}. curl with a desktop browser User-Agent to rigcount.bakerhughes.com/na-rig-count, /rig-count-overview and bakerhughesrigcount.gcs-web.com/na-rig-count all return 403 'Access Denied' (Akamai reference page). Even on success the provider only returns the first 8 rows of a sheet as 'preview', not a rig count.",
+   "where": "terminal/backend/providers/bakerhughes.py:10-26; terminal/backend/app.py:225-227",
+   "fix": "Do not show a rig count in LIVE mode unless a source is confirmed from the owner's network. EIA series PET.E_ERTRRO_XR0_NUS_C.M (monthly oil rigs) is reachable but its latest observation is 2026-02, so label it as such or omit it."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "BACKEND",
+   "category": "wrong-or-stale-data",
+   "severity": "medium",
+   "title": "/api/equity_quote returns last=null and chg_pct=null",
+   "evidence": "GET /api/equity_quote?symbol=AAPL -> {\"source\":\"tiingo\",\"symbol\":\"AAPL\",\"last\":null,\"chg_pct\":null}. Tiingo's IEX response for AAPL has last: None outside trading hours but tngoLast: 355.63 and prevClose: 348.51; the provider reads only x.get('last') and hard-codes chg_pct None.",
+   "where": "terminal/backend/providers/equities_fallback.py:23-26",
+   "fix": "Use tngoLast (falling back to last) and compute chg_pct from prevClose; return the timestamp field as well."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "OPTS",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "SOL options come back empty and non-crypto instruments get BTC options or the simulator",
+   "evidence": "GET /api/options?underlying=SOL -> chain [] (0 rows); /api/gex?underlying=SOL -> {spot:null, strikes:[], gex:[]}. Deribit get_book_summary_by_currency(currency=SOL, kind=option) returns 0 instruments, while currency=USDC returns 3,262 of which 702 are SOL_USDC-* (468 with open interest; expiries 13NOV26 to 26MAR27; mark_iv, greeks via ticker). In the page, loadOptions requests SEL only if it is BTC/ETH/SOL, otherwise 'BTC' (line 900), and render falls back to the simulated chain when the live chain is empty (line 441).",
+   "where": "terminal/backend/providers/deribit.py:16-21, 32-51; terminal/web/openterm.html:900, 441, 503",
+   "fix": "In the Deribit provider route SOL to currency=USDC and filter instrument_name.startswith('SOL_USDC-') (prices there are in USDC, contract_size 10, unlike coin-margined BTC/ETH). For equities and indices request the real chain (CBOE or LSE recipes) for the selected symbol; for symbols with no listed options show 'no options' instead of BTC or simulated strikes."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "PROVIDER:lse",
+   "category": "missing-feature",
+   "severity": "medium",
+   "title": "LSE option rows have no open interest, half have no IV, and their shape differs from the Deribit rows the page renders",
+   "evidence": "GET /api/options?underlying=AAPL -> 200 in 1.3 s, 1,432 rows, keys: contract_type, delta, dte, expiry, gamma, greeks_at, greeks_underlying_price, iv, last_price, last_trade_at, pair_id, premium_today, strike, symbol, theta, ticker, underlying, vega, volume_today. No open-interest or bid/ask field; iv non-null on 777 of 1,432 (54%); iv is a fraction (0.2811) and expiry an ISO date, where Deribit rows use type/iv in percent/expiry in ms. SPX: 2,196 rows, 928 with IV, only 2 expiries. /api/gex for equities returns 501 by design.",
+   "where": "terminal/backend/app.py:164-174; terminal/web/openterm.html:454-466",
+   "fix": "Normalise chains in the gateway to one schema (expiry ms, strike, type, iv fraction, oi, bid, ask, delta, gamma, underlying). Use CBOE delayed quotes for equity/index chains because they include open interest, which GEX needs."
+  },
+  {
+   "auditor": "live-sources",
+   "area": "PROVIDER:lse",
+   "category": "wrong-or-stale-data",
+   "severity": "medium",
+   "title": "LSE bond-yield series are two months stale, and SPX is ambiguous",
+   "evidence": "LSE().series('US2Y', order='desc', limit=3) -> latest 2026-09-10 = 4.451; series('DE10Y') -> latest 2026-09-10 = 3.4912 (today is 2026-11-12; Treasury.gov 2Y on 11/10 is 4.73, Bundesbank 10Y on 11-11 is 3.37). candles('SPX','1d',limit=5) -> LSEError [400] \"'SPX' exists in ['indices', 'uk_stocks']; pass market= to pick one\"; the gateway has no market parameter.",
+   "where": "terminal/backend/providers/lse.py:20-22, 34-36; terminal/backend/app.py:137-141",
+   "fix": "Do not use LSE for yields. Add a market argument to lse.candles and pass market='indices' for SPX/NDX/VIX/RUT."
+  }
+ ],
+ "recipes": [
+  {
+   "auditor": "live-sources",
+   "need": "Watchlist quote + previous close + intraday sparkline for 19 of 21 instruments in one call",
+   "source": "Yahoo Finance spark API (keyless, unofficial)",
+   "how": "Backend GET https://query1.finance.yahoo.com/v7/finance/spark?symbols=<comma list, max 20>&range=1d&interval=5m with header User-Agent: Mozilla/5.0. Per result r: x=r.response[0]; last=x.meta.regularMarketPrice; prev_close=x.meta.chartPreviousClose; ts=x.meta.regularMarketTime; sparkline=x.indicators.quote[0].close (drop nulls) against x.timestamp. Symbols: CL=F, NG=F, GC=F, HG=F, RB=F, EURUSD=X, USDJPY=X, GBPUSD=X, AUDUSD=X, ^TNX (US10Y, already in percent), ^GSPC (SPX), ^NDX, ^VIX, ^RUT, AAPL, NVDA, TSLA, XOM, BTC-USD, ETH-USD (SOL-USD in a second call or from Binance).",
+   "tested": true,
+   "result": "08:09:24 UTC, 20 results in 0.44 s. CL=F 86.94 prev 86.53 (36 bars, last 07:59Z); NG=F 3.246/3.215; GC=F 3970.7/4000.5; HG=F 6.232/6.29; RB=F 2.5786/2.5738; EURUSD=X 1.109/1.109 (08:08Z); USDJPY=X 159.702/159.708 (08:09Z); GBPUSD=X 1.3271/1.3276; AUDUSD=X 0.6827/0.6852; ^TNX 4.998/4.983; ^GSPC 7619.38/7520.93; ^NDX 28374.25/27740.80; ^RUT 2846.26/2821.38; AAPL 355.63/348.51; NVDA 173.73/168.80; TSLA 390.84/379.78; XOM 166.71/164.47; BTC-USD 73571.31/73925.19 (08:09Z).",
+   "caveats": "Futures are 10 minutes delayed (last trade 07:58-07:59Z when called at 08:08-08:09Z). FX and crypto were within about 1 minute. Equities and indices were closed, so their intraday delay was not measured. ^VIX returned 0 bars for range=1d before the session and prev equal to last; use CBOE for VIX change. Not usable from the browser (no CORS): call from the gateway, cache 15-30 s. Unofficial endpoint with no published limit; one batch call every 15-30 s is modest. Arrays contain nulls."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Single-symbol quote with day high/low and volume (any of the above), and symbol check",
+   "source": "Yahoo Finance chart API (keyless, unofficial)",
+   "how": "GET https://query1.finance.yahoo.com/v8/finance/chart/<SYMBOL>?interval=5m&range=1d (URL-encode ^ and =). Use chart.result[0].meta: regularMarketPrice, chartPreviousClose, regularMarketTime, regularMarketDayHigh, regularMarketDayLow, regularMarketVolume, shortName (front contract name), exchangeName.",
+   "tested": true,
+   "result": "CL=F: regularMarketPrice 86.92, chartPreviousClose 86.53, regularMarketChangePercent 0.451, day high 86.99, low 85.2, volume 22404, shortName 'Crude Oil Dec 26', exchange NYM; 0.15-0.75 s per call. All 22 symbols tried returned data except 2YY=F.",
+   "caveats": "2YY=F (2-year yield future) is stale: regularMarketTime 2026-10-13, 0 bars, so Yahoo has no usable US2Y. ZT=F is the 2-year note price (101.95), not a yield. DE10Y is not on Yahoo."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Intraday and daily OHLCV candles for CHRT: commodities, FX, US10Y, indices, equities",
+   "source": "Yahoo Finance chart API (keyless, unofficial)",
+   "how": "GET https://query1.finance.yahoo.com/v8/finance/chart/<SYMBOL>?interval=<1m|5m|15m|1h|1d|1wk>&range=<1d|5d|1mo|1y|2y|5y>. Build rows from result[0].timestamp[i] (unix s) with indicators.quote[0].open/high/low/close/volume[i]; skip rows where close is null; map to {time, open, high, low, close, vol}.",
+   "tested": true,
+   "result": "CL=F 1m/1d: 181 bars 05:00Z-07:59Z, 0 nulls, 0.18 s. CL=F 1h/1mo: 650 bars (120 null rows to skip). CL=F 1d/1y: 252 bars, last O 86.5 H 86.99 L 85.2 C 86.94 V 22438. CL=F 1wk/5y: 263 bars. EURUSD=X 1m/1d: 490 bars to 08:08Z. AAPL 1m/1d: 391 bars 14:30-21:00Z of 11-11. AAPL 1d/2y: 501 bars, last C 355.63 V 34,284,700. ^GSPC 15m/5d: 131 bars. ^VIX 5m/5d: 634 bars. ^TNX 1d/3mo: 66 bars.",
+   "caveats": "FX and index volume is 0. The last 1d bar is the in-progress session. 1m history is limited to recent days. Same delay as the quote recipe (futures 10 min). If range=1d is empty before the open, request 5d and take the last session."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Real-time US equity quotes with previous close (AAPL NVDA TSLA XOM; also SPY/QQQ/IWM as index proxies)",
+   "source": "Alpaca Market Data, IEX feed (APCA_API_KEY_ID / APCA_API_SECRET_KEY are already set in config.py; no provider module exists yet)",
+   "how": "GET https://data.alpaca.markets/v2/stocks/snapshots?symbols=AAPL,NVDA,TSLA,XOM&feed=iex with headers APCA-API-KEY-ID and APCA-API-SECRET-KEY. Per symbol: last=latestTrade.p, ts=latestTrade.t, bid/ask=latestQuote.bp/ap, prev_close=prevDailyBar.c, day bar=dailyBar, last minute=minuteBar.",
+   "tested": true,
+   "result": "0.12 s; response header X-Ratelimit-Limit: 200 (per minute). AAPL last 355.78 @ 2026-11-11T20:59:59Z, prevDailyBar.c 348.49; NVDA last 168.27 @ 21:59:54Z (after-hours print; dailyBar.c 173.85), prev 168.785; TSLA 390.75, prev 379.73; XOM 166.675, prev 164.42; SPY 760.13, prev 749.93.",
+   "caveats": "IEX is one venue: prices can differ by cents from the consolidated tape (prev 348.49 vs 348.51) and volume is IEX-only (AAPL 1.13M vs 34.6M consolidated). After hours latestTrade can be an extended-hours print, so use dailyBar.c for the regular close. US stocks/ETFs only: no indices, futures or FX. Market was closed, so live-session behaviour was not observed."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Intraday and daily OHLCV candles for US equities",
+   "source": "Alpaca Market Data bars",
+   "how": "GET https://data.alpaca.markets/v2/stocks/<SYM>/bars?timeframe=<1Min|5Min|1Hour|1Day>&start=<ISO>&limit=1000&feed=iex&adjustment=split (same headers). Rows in .bars: t (ISO), o, h, l, c, v. For consolidated daily volume use feed=sip with end= at least 15 minutes in the past.",
+   "tested": true,
+   "result": "AAPL 5Min from 2026-11-11T14:30Z: 78 bars, first o 349.535 c 352.06, last 20:55Z c 355.78 (0.14 s). AAPL 1Day feed=iex: 258 bars, last c 355.78 v 1,133,672. AAPL 1Day feed=sip end=2026-11-11: 258 bars, last o 349.545 h 355.91 l 349.325 c 355.63 v 34,601,350.",
+   "caveats": "Timestamps are ISO strings and must be converted to unix seconds. feed=sip without an end date on a free account was not tested."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Equity quote fallback with previous close",
+   "source": "Tiingo IEX (TIINGO_API_KEY set)",
+   "how": "GET https://api.tiingo.com/iex/?tickers=AAPL,NVDA,TSLA,XOM&token=<key>. Use tngoLast (not last, which is null outside trading hours), prevClose, open, high, low, volume, timestamp. Daily history: GET https://api.tiingo.com/tiingo/daily/<SYM>/prices?startDate=YYYY-MM-DD&token=<key> -> date, open, high, low, close, volume, adjClose.",
+   "tested": true,
+   "result": "0.19 s. AAPL tngoLast 355.63 prevClose 348.51 volume 34,453,477 ts 2026-11-11T21:00Z; NVDA 173.73 / 168.89; TSLA 390.84 / 379.78; XOM 166.71 / 164.47. Daily AAPL: 5 rows, last 2026-11-11 O 349.545 H 355.91 L 349.325 C 355.63 V 34,453,477.",
+   "caveats": "The existing /api/equity_quote route reads the wrong field and returns null (see findings). Tiingo's free-tier request allowance was not measured; treat as low and cache."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Real-time FX quotes (EURUSD USDJPY GBPUSD AUDUSD) and FX intraday candles",
+   "source": "Tiingo FX (TIINGO_API_KEY set)",
+   "how": "Quotes: GET https://api.tiingo.com/tiingo/fx/top?tickers=eurusd,usdjpy,gbpusd,audusd&token=<key> -> per ticker quoteTimestamp, bidPrice, askPrice, midPrice. Candles: GET https://api.tiingo.com/tiingo/fx/<pair>/prices?startDate=YYYY-MM-DD&resampleFreq=<5min|1hour|1day>&token=<key> -> date, open, high, low, close. Previous close for day change: take it from Yahoo chartPreviousClose or the prior 1day bar.",
+   "tested": true,
+   "result": "Called 08:19:02Z: eurusd bid 1.10876 ask 1.10878 mid 1.10877, quoteTimestamp 08:19:01.689Z (about 1 s old); usdjpy mid 159.736; gbpusd 1.32685; audusd 0.682335; 0.42 s. eurusd 1hour from 2026-11-11: 33 bars, last 08:00Z O 1.108545 H 1.10918 L 1.108525 C 1.10877.",
+   "caveats": "No previous-close field in the top-of-book response. Free-tier allowance not measured; poll through a cached backend endpoint, not from each browser tab."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "FX via LSE (symbols EUR_USD USD_JPY GBP_USD AUD_USD) - only if LSE must be used",
+   "source": "LSE Data SDK",
+   "how": "lse.candles('EUR_USD','1h',start='<today YYYY-MM-DD>') or ('1m', start=today). Never call without start=.",
+   "tested": false,
+   "result": "Could not fetch data (daily row quota exhausted). Row costs from the quota messages: 1d limit=2 reads 7,983 rows; 1d limit=250 reads 511,272; 1d start=2026-11-10 reads 3,991; 1h or 1m with start=today reads 1,330; 1m limit=1 order=desc reads 5,322. Symbols confirmed in catalog('forex'): EUR_USD, USD_JPY, GBP_USD, AUD_USD.",
+   "caveats": "At 1,330 rows per symbol per call the 12.5M/day budget allows about 9,400 FX calls a day in total across all tabs and symbols; data freshness/delay could not be checked. Prefer Tiingo or Yahoo for FX."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Commodity and index symbols on LSE (alternative to Yahoo)",
+   "source": "LSE Data SDK catalog",
+   "how": "lse.candles(sym,'1d',limit=2) for futures CRUDEOIL, NATGAS, GOLD, COPPER, GASOLINE (catalog 'futures') or CFD-style WTICO/USD, NATGAS/USD, XAU/USD, XCU/USD (catalog 'commodities'); indices need market='indices': candles('SPX','1d',limit=2,market='indices'), likewise NDX, VIX, RUT.",
+   "tested": false,
+   "result": "Symbols exist in catalog(); data not retrievable today (429). Cost estimates: CRUDEOIL 1d limit=250 reads 350 rows; GOLD, XAU/USD, SPX(indices) 1d limit=2 read 6; SPX 5m from 2026-11-11 reads 395; AAPL 5m limit=100 reads 2,828. markets() lists capabilities for these as candles: true, quotes: false, derived: true.",
+   "caveats": "Freshness and delay unknown. No gasoline entry in 'commodities' (only GASOLINE futures). The gateway currently cannot pass market=, so SPX fails with 400."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "US10Y",
+   "source": "Yahoo ^TNX (intraday) with Treasury.gov / FRED as end-of-day cross-check",
+   "how": "Yahoo spark/chart symbol ^TNX: regularMarketPrice is the yield in percent. EOD: GET /api/macro?series_id=DGS10&limit=4 (FRED) or the Treasury CSV in the US2Y recipe, column '10 Yr'.",
+   "tested": true,
+   "result": "^TNX 4.998, prev 4.983, last update 2026-11-11T19:59Z, 80 five-minute bars. Treasury.gov 11/10/2026 10 Yr = 4.98. FRED DGS10 latest 2026-11-09 = 4.88.",
+   "caveats": "^TNX is a CBOE index quoted during US hours only. FRED lags (latest obs 11-09 on 11-12, with 11-11 a holiday)."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "US2Y",
+   "source": "US Treasury daily par yield curve CSV (keyless); FRED DGS2 as fallback",
+   "how": "GET https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/<YEAR>/all?type=daily_treasury_yield_curve&field_tdr_date_value=<YEAR>&page&_format=csv with a browser User-Agent. Newest row first; last = column '2 Yr', prev_close = same column of the next row. Fallback: GET /api/macro?series_id=DGS2&limit=4.",
+   "tested": true,
+   "result": "11/10/2026: 2 Yr 4.73, 10 Yr 4.98; 11/09/2026: 2 Yr 4.56; 11/06/2026: 4.51. FRED DGS2 latest 2026-11-09 = 4.56 (one publication behind Treasury.gov).",
+   "caveats": "END-OF-DAY ONLY, published after the US close; no sparkline possible beyond daily points. No free intraday 2-year yield was found: Yahoo 2YY=F is stale, CNBC's quote service returned 403, Stooq was unreachable from this sandbox, LSE series('US2Y') stops at 2026-09-10. Must be labelled EOD in the UI. Poll at most hourly."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "DE10Y (Bund 10Y)",
+   "source": "Deutsche Bundesbank time-series API (keyless)",
+   "how": "GET https://api.statistiken.bundesbank.de/rest/data/BBSIS/D.I.ZST.ZI.EUR.S1311.B.A604.R10XX.R.A.A._Z._Z.A?lastNObservations=5 with header Accept: text/csv. Semicolon CSV; date is the field after the 16 key columns, value the next; skip rows whose value is '.' (weekends).",
+   "tested": true,
+   "result": "2026-11-09 3.33; 2026-11-10 3.31; 2026-11-11 3.37 (0.45 s). So last 3.37, previous 3.31.",
+   "caveats": "END-OF-DAY ONLY and it is the Bundesbank's fitted (Svensson) 10-year yield on listed Federal securities, not a traded benchmark quote. Alternatives tested: ECB series YC.B.U2.EUR.4F.G_N_A.SV_C_YM.SR_10Y works (latest 2026-11-10 = 3.33) but is the euro-area AAA curve, not Germany, and took 6.8 s; FRED IRLTLT01DEM156N is monthly (latest 2026-09). No free intraday Bund yield found."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "VIX (and SPX/NDX/RUT) quote with a correct day change",
+   "source": "CBOE delayed quotes (keyless)",
+   "how": "GET https://cdn.cboe.com/api/global/delayed_quotes/quotes/_VIX.json (also _SPX, _NDX, _RUT, or a stock ticker). Use data.current_price, data.price_change, data.price_change_percent, data.open/high/low, data.last_trade_time, and top-level timestamp.",
+   "tested": true,
+   "result": "_VIX: current_price 17.49, price_change -1.97, price_change_percent -11.2636, open 18.26, high 18.74, low 17.33, last_trade_time 2026-11-11T16:15:01. _SPX: 7619.3799, +98.4499, +1.2921%. 0.22 s each.",
+   "caveats": "15-minute delayed. After the close prev_day_close is overwritten with the day's close (17.49), so derive previous close as current_price - price_change. last_trade_time is US Eastern without offset."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Crypto quotes, day change and candles (BTC ETH SOL)",
+   "source": "Binance public data mirror via the existing gateway routes and /ws stream",
+   "how": "Quotes: GET /api/quote?symbol=BTC -> last, chg_pct (rolling 24 h), bid, ask, high, low, volume. Candles: GET /api/candles?symbol=BTC&timeframe=<1m|5m|1h|1d>&limit=N -> {time, open, high, low, close, vol}. For a calendar-day change use https://data-api.binance.vision/api/v3/ticker/tradingDay?symbols=[\"BTCUSDT\",\"ETHUSDT\",\"SOLUSDT\"] -> openPrice, lastPrice, priceChangePercent.",
+   "tested": true,
+   "result": "08:17:08Z: BTC last 73603.8, chg_pct -0.611, bid/ask 73603.80/73603.81; SOL 82.91, -0.42. Candles BTC 1m: last bar time 1794471420 (the current minute). ETH 1d last C 2049.78. tradingDay: BTCUSDT openPrice 74015.2, lastPrice 73608.36, priceChangePercent -0.550. Gateway latency about 0.73 s per REST call; /api/stream_status shows binance live with 0.0 s since last message.",
+   "caveats": "chg_pct from /api/quote is a rolling 24-hour change, not since 00:00 UTC; state which is shown. Real-time; REST can be polled every few seconds but the websocket already carries trades."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Equity and index option chains with IV, open interest, greeks, bid/ask (AAPL NVDA TSLA XOM, SPX NDX VIX RUT) - enough for OPTS, VOLS and GEX",
+   "source": "CBOE delayed quotes (keyless)",
+   "how": "GET https://cdn.cboe.com/api/global/delayed_quotes/options/<SYM>.json, with a leading underscore for indices (_SPX, _NDX, _VIX, _RUT). data.current_price = spot; data.options[] rows: option (OCC symbol: root, YYMMDD, C/P, strike x1000), bid, ask, iv (fraction), open_interest, volume, delta, gamma, vega, theta, rho, theo, last_trade_price, last_trade_time. Parse expiry/type/strike from the OCC symbol.",
+   "tested": true,
+   "result": "AAPL: 1.5 MB, 0.45 s, spot 356.21, iv30 21.756, 3,430 contracts, 2,881 with OI > 0, 3,085 with iv > 0. XOM: 0.5 MB, 1,204 contracts (953 with OI). _SPX: 14.1 MB, 0.85 s, 31,590 contracts (24,186 with OI), e.g. SPXW261123P07570000 bid 67.2 ask 67.8 iv 0.1431 OI 254 delta -0.4545 gamma 0.002. _NDX: 8.0 MB, 18,366. _VIX: 0.7 MB, 1,640. _RUT: 4.9 MB, 11,344.",
+   "caveats": "15-minute delayed; open interest is the prior day's. Payloads are large: fetch in the gateway, cache 1-5 minutes, and send the page only the expiries/strikes it draws. File timestamps for stocks were hours old overnight (AAPL 01:05), i.e. not refreshed outside the session. NVDA and TSLA were not fetched but use the same URL pattern."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Equity/index option chain with IV and greeks through the existing gateway",
+   "source": "LSE Data via /api/options",
+   "how": "GET /api/options?underlying=AAPL (or SPX, NVDA, TSLA, XOM; options_underlyings() also lists NDX, VIX, RUT, SPY, QQQ, IWM). Rows: contract_type, strike, expiry (ISO date), dte, iv (fraction), delta, gamma, theta, vega, last_price, last_trade_at, volume_today, greeks_at.",
+   "tested": true,
+   "result": "AAPL: 200 in 1.3 s, 1,432 rows across 11 expiries (max_dte 60), iv/greeks present on 777; newest greeks_at 2026-11-11T21:14:59Z. SPX: 2,196 rows, 928 with IV, 2 expiries. Works even while the row quota is exhausted.",
+   "caveats": "No open interest and no bid/ask, so it cannot drive GEX. 46% of rows have null IV/greeks. IV and greeks are stamped at each contract's last trade, so illiquid strikes are hours old."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Equity option IV and greeks fallback",
+   "source": "Alpaca options snapshots, indicative feed (keys set)",
+   "how": "GET https://data.alpaca.markets/v1beta1/options/snapshots/<UNDERLYING>?feed=indicative&expiration_date=YYYY-MM-DD&strike_price_gte=X&strike_price_lte=Y&limit=100 (paginate with next_page_token). Per contract: impliedVolatility, greeks{delta,gamma,theta,vega,rho}, latestQuote.bp/ap, latestTrade.p, dailyBar.",
+   "tested": true,
+   "result": "AAPL expiry 2026-11-20, strikes 345-365: 18 contracts in 0.37 s, all 18 with greeks and IV; AAPL261120C00360000 iv 0.2185, delta 0.3927, gamma 0.0334, bid/ask 3.06/3.22 @ 2026-11-11T20:59:59Z.",
+   "caveats": "No open-interest field in snapshots. Equities/ETFs only (no SPX/VIX index options tested). Indicative feed, 15-minute delayed per Alpaca's description (delay not measured)."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "SOL options (does Deribit cover SOL?)",
+   "source": "Deribit public API - yes, as USDC-settled linear options",
+   "how": "GET https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=USDC&kind=option and keep rows whose instrument_name starts with 'SOL_USDC-' (format SOL_USDC-<DDMMMYY>-<strike>-<C|P>). Fields: mark_iv (percent), open_interest, mark_price (in USDC), underlying_price, bid_price, ask_price. Strike/expiry from get_instruments?currency=USDC&kind=option (strike, expiration_timestamp, option_type, contract_size 10). Spot: get_index_price?index_name=sol_usdc. Per-contract greeks: public/ticker?instrument_name=...",
+   "tested": true,
+   "result": "currency=SOL -> 0 instruments (this is what the provider asks for). currency=USDC -> 3,262 instruments, 702 SOL_USDC (468 with OI > 0), expiries 13NOV26, 14NOV26, 20NOV26, 27NOV26, 25DEC26, 26MAR27. Highest OI: SOL_USDC-25DEC26-95-P OI 48,560, mark_iv 55.66, mark 14.11, underlying 83.383. Index sol_usdc 82.903. Ticker returns greeks (delta -0.97066, gamma 0.005, vega 0.01124). 0.43 s.",
+   "caveats": "Prices are in USDC, not in coin as for BTC/ETH chains; the open-interest unit versus contract_size 10 should be confirmed before scaling GEX. BTC via the gateway works today (4 expiries, real time)."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Real news headlines with timestamp, source, link and tickers",
+   "source": "Alpaca News API (Benzinga and others; keys set)",
+   "how": "GET https://data.alpaca.markets/v1beta1/news?limit=50&sort=desc, optionally &symbols=XOM,CVX,USO. Rows in .news: created_at (ISO UTC), source, headline, url, symbols[], summary.",
+   "tested": true,
+   "result": "Called 08:09:49Z, 0.11 s: newest item created_at 2026-11-12T08:06:57Z, source benzinga, symbols [NVDA]; others at 08:03Z from fiscal.ai. With symbols=XOM,CVX,USO: 5 items between 2026-11-11T20:05Z and 2026-11-12T04:18Z, each with a URL.",
+   "caveats": "Equity-centric; the general feed contains many small-cap European company notices (source fiscal.ai), so filter by source or symbols. Shares the 200 req/min allowance; polling once a minute is ample."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "News fallback with per-entity sentiment",
+   "source": "Marketaux (MARKETAUX_API_KEY set)",
+   "how": "GET https://api.marketaux.com/v1/news/all?language=en&limit=10&filter_entities=true&api_token=<key> (add symbols= or search=). Rows in .data: published_at, source (domain), title, url, entities[{symbol, sentiment_score}].",
+   "tested": true,
+   "result": "One request, 2.14 s: meta {found 5,474,168, returned 3, limit 3}; items published 07:51-07:58Z from financefeeds.com, businessnews.com.au, economictimes.indiatimes.com.",
+   "caveats": "The free plan returns only 3 articles per request regardless of limit, and the provider docstring gives about 100 requests/day, so poll no more than every 15 minutes. The existing provider only exposes sentiment helpers, and no gateway route uses it."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Keyless news fallback (energy and macro)",
+   "source": "RSS feeds",
+   "how": "GET and parse <item><title>, <pubDate>, <link>: https://oilprice.com/rss/main ; https://www.eia.gov/rss/todayinenergy.xml ; https://feeds.content.dowjones.io/public/rss/mw_topstories ; https://feeds.bbci.co.uk/news/business/rss.xml ; https://www.federalreserve.gov/feeds/press_all.xml",
+   "tested": true,
+   "result": "All five returned 200 in 0.14-0.49 s. OilPrice newest 'ASEAN Moves to Build Emergency Oil Reserves Amid Iran Supply Crisis' (Thu 12 Nov 2026 01:30 -0600); MarketWatch newest 07:30 GMT; BBC Business newest 08:14:54 GMT; EIA Today in Energy newest 6 Nov 2026; Fed press newest 9 Nov 2026 21:00 GMT.",
+   "caveats": "pubDate formats differ (the Fed wraps it in CDATA). CNBC's RSS returned 403. Cache 5 minutes. GDELT is not a dependable source here: default gateway query is rejected, and corrected direct calls returned 429 twice and timed out once."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Economic calendar: time, country, impact, forecast, previous",
+   "source": "ForexFactory weekly calendar JSON (keyless)",
+   "how": "GET https://nfs.faireconomy.media/ff_calendar_thisweek.json with a browser User-Agent. Array of {title, country (currency code: USD, EUR, GBP, JPY, AUD, CAD, CHF, CNY, NZD), date (ISO with -05:00 offset), impact (High/Medium/Low/Holiday), forecast, previous}.",
+   "tested": true,
+   "result": "200 in 0.12 s, 106 events for the week. Examples: 'CPI m/m' USD 2026-11-10T08:30-05:00 High forecast 0.3% previous 0.6%; 'Unemployment Claims' USD 2026-11-12T08:30 Medium forecast 194K previous 189K; 'PPI m/m' USD 2026-11-13T08:30 High forecast 0.4% previous 1.3%.",
+   "caveats": "No 'actual' field, so the ACTUAL column must come from elsewhere or stay blank. Current week only. It is a third-party file with its own rate limiting (not measured): fetch once an hour and cache. Country is a currency code, not a country code."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Economic calendar: actual values and official release dates",
+   "source": "BLS v2 API (BLS_API_KEY set) and FRED (FRED_API_KEY set)",
+   "how": "Actuals: POST https://api.bls.gov/publicAPI/v2/timeseries/data/ with JSON {seriesid:[CUSR0000SA0 (CPI SA), LNS14000000 (unemployment rate), CES0000000001 (payrolls, thousands)], startyear, endyear, registrationkey}; compute m/m from the last two values. Or /api/macro?series_id=<FRED id>. Schedule: GET https://api.stlouisfed.org/fred/releases/dates?api_key=<key>&file_type=json&realtime_start=<d1>&realtime_end=<d2>&include_release_dates_with_no_data=true&sort_order=asc&limit=1000 -> release_dates[{date, release_id, release_name}]; per release: /fred/release/dates?release_id=10&include_release_dates_with_no_data=true.",
+   "tested": true,
+   "result": "BLS: REQUEST_SUCCEEDED in 0.36 s. CPI Oct 2026 337.476 vs Sep 336.298 (+0.35% m/m, matching ForexFactory's previous 0.6% for Sep/Aug: 336.298/334.131); unemployment Oct 4.1 (Sep 4.2); payrolls Oct 159,293 vs 159,128 (+165K). FRED releases/dates 2026-11-09..20: 355 rows in 5.9 s, including 11-10 Consumer Price Index (id 10), 11-12 Unemployment Insurance Weekly Claims (180), 11-13 Producer Price Index (46), 11-17 Advance Retail Sales (9) and G.17 (13), 11-18 New Residential Construction (27); next CPI date 2026-12-10.",
+   "caveats": "FRED gives dates only (no time of day, no forecast) and lists 'FOMC Press Release' (id 101) on every day, which must be filtered out. No free source of consensus forecasts other than the ForexFactory file was found: FMP /stable/economic-calendar returned 402 'Restricted Endpoint' on this plan. The LSE calendar (/api/calendar) could not be read today, so its fields beyond 'actual' are unknown. FRED CPIAUCSL with units=pc1 returns '.' for 2026-10 (no year-ago value), so compute changes yourself."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "EIA weekly petroleum fundamentals for SPLC",
+   "source": "EIA API v2 via the existing gateway route",
+   "how": "GET /api/eia?series_id=<ID>&length=N -> obs[{date (week ending), value}], NEWEST FIRST. IDs (all returned data): PET.WCESTUS1.W US commercial crude stocks (kbbl); PET.W_EPC0_SAX_YCUOK_MBBL.W Cushing stocks; PET.WCSSTUS1.W SPR; PET.WCESTP11.W / P21 / P31 / P41 / P51 crude stocks PADD 1-5; PET.WPULEUS3.W US refinery utilisation (%); PET.W_NA_YUP_R20_PER.W and PET.W_NA_YUP_R30_PER.W utilisation PADD 2 and 3; PET.WCRRIUS2.W refinery crude input (kb/d); PET.WGIRIUS2.W gross inputs; PET.WCRIMUS2.W crude imports; PET.WCREXUS2.W crude exports; PET.WCRFPUS2.W crude production; PET.WGTSTUS1.W gasoline stocks; PET.WDISTUS1.W distillate stocks; NG.NW2_EPG0_SWO_R48_BCF.W gas storage (Bcf); PET.RWTC.D WTI Cushing spot (daily).",
+   "tested": true,
+   "result": "Week ending 2026-10-30 (previous week in brackets): crude stocks 409,760 (410,625); Cushing 27,250 (26,970); SPR 282,184; PADD1 8,123, PADD2 107,809, PADD3 227,191, PADD4 24,004, PADD5 42,633; utilisation US 94.5% (92.8), PADD2 92.9%, PADD3 96.1%; refinery input 16,725 kb/d; imports 6,374; exports 3,675 (4,854); production 14,003; gasoline 208,958; distillate 99,259 (102,824); gas storage 3,801 Bcf. WTI spot 2026-11-03 99.64. 0.4-1.6 s per series.",
+   "caveats": "Weekly: published Wednesday 10:30 ET (a day later after a federal holiday, which is why 10-30 is still the newest week on 11-12). One HTTP call per series, so fetch server-side and cache for hours; do not call from the render loop. Order is newest-first, unlike /api/macro (oldest-first). PET.WPULEP33.W is not a valid ID (500). PET.RWTC.D lags by about a week."
+  },
+  {
+   "auditor": "live-sources",
+   "need": "Baker Hughes weekly rig count",
+   "source": "none working",
+   "how": "Tried: GET /api/rigcount (provider default https://rigcount.bakerhughes.com/static-files/); curl with a desktop User-Agent to https://rigcount.bakerhughes.com/na-rig-count, /rig-count-overview, / and https://bakerhughesrigcount.gcs-web.com/na-rig-count; EIA series PET.E_ERTRRO_XR0_NUS_C.M via /api/eia.",
+   "tested": true,
+   "result": "All Baker Hughes URLs: HTTP 403 'Access Denied' (Akamai edge error page). /api/rigcount: ok:false, 'HTTP Error 403: Forbidden'. EIA monthly oil rotary rigs: latest 2026-02 = 409 (2026-01 = 410), nine months old.",
+   "caveats": "No free, scriptable, current source was found. Whether the Baker Hughes page loads from the owner's home connection in a normal browser was not checked; even so the weekly workbook URL changes each week and would have to be scraped. Honest options: omit rig count in LIVE mode, or show the EIA monthly figure labelled with its date."
+  }
+ ]
+}

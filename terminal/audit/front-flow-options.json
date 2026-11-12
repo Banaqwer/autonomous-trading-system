@@ -1,0 +1,402 @@
+{
+ "auditor": "front-flow-options",
+ "summary": "Scope: BOOK, HEAT, FOOT, OPTS, VOLS, GREEKS, GEX (read line by line, driven in Chromium at 1920x1080 and 1366x768 against http://localhost:8080; the repo was not modified).\n\n1. In LIVE mode, five of the seven modules show no real data at all. BOOK, HEAT, VOLS and GREEKS are 100% simulator output, and FOOT's volumes are random numbers redrawn every 2 s. The real Binance order book does reach the browser (about 10 msgs/s) and is stored in LIVE.book, but nothing reads it.\n2. The simulator keeps writing into the real candle store while LIVE. Within a minute, FOOT for BTC shows the same 1-minute bar seven times, interleaved with seven fake bars dated tomorrow. LSE candles arrive with `timestamp`/`volume` keys instead of `time`/`vol`, so their times become NaN.\n3. Only OPTS and GEX have a live path (Deribit), and it is wrong in several ways:\n   - With CL, AAPL or EURUSD selected, the page silently shows the BTC chain.\n   - With SOL selected, it shows a simulated chain and simulated GEX.\n   - Data is fetched once and never refreshed (table identical after 37 s).\n   - An 8 s throttle plus no request ordering leaves the previous instrument's chain on screen.\n   - The backend keeps only the 4 nearest daily expiries, which hold 10.9% of BTC open interest; net GEX came out at -54.9 against -107.9 $mm/1% over all 11 expiries.\n4. The GREEKS spike is a one-line bug at openterm.html:494: `bs(S,k*S,...)` multiplies an absolute strike by spot again. For CL the strike becomes about 5,200, so every greek is 0 except one corner at 3.5e-84. The Black-Scholes code itself is correct, and the backend gamma formula matches Deribit's own greeks.\n5. The BTC and ETH \"price\" flip-flops between Binance spot and the Deribit perpetual (means 73,615 vs 73,541), which produces the sawtooth seen in HEAT, BOOK and the rail.\n6. Why it \"doesn't look active\":\n   - The websocket opens 11.5 s after the page says LIVE.\n   - The 5 s quote poll makes up to 96 LSE calls a minute against a 60/min plan, and each FX call reads about 7,900 rows of a 12.5M rows/day quota.\n   - Once LSE returns 429/500, in-page options requests waited 44-50 s (0.6 s by curl), and failed symbols silently fall back to the simulator under a LIVE label.\n7. Legibility: table headers are right-aligned over left-aligned cells; header and hint text is 10px at 2.5-2.7:1 contrast; FOOT uses 9px text that overlaps; HEAT has no axes, labels or legend; GEX and the 3D surfaces have no axis titles or units. BOOK, HEAT and FOOT have no mouse handlers at all.\n8. VOLS and GREEKS block the main thread 0.7-1.6 s per show and reset the camera on every redraw. I found no memory leak (heap 12.6 to 14.2 MB after 175 module switches).\n\nDisclosure: before I noticed the LSE 429s, my browser sessions ran the page's own quote polling for roughly 15 minutes in total, plus one 1,432-row AAPL options call. That consumed part of the shared LSE quota, which the server log shows was already at 12.30M of 12.5M at the first 429. It is now effectively exhausted for FX until 00:00 UTC. I blocked LSE-backed endpoints in all later runs.\n\nScreenshots are in /tmp/tmp.fJJVLM8hqC/s/.",
+ "not_checked": [
+  "Rendering on Windows or in non-Chromium browsers. JetBrains Mono is installed on this Linux box, so I did not reproduce the serif fallback in FOOT or the Plotly titles.",
+  "Device pixel ratio above 1, and touch or trackpad gestures.",
+  "LSE options for any underlying other than AAPL (NVDA, TSLA, XOM, SPX, CL, FX), and whether LSE has open interest anywhere. Not called, to protect the nearly exhausted LSE daily quota.",
+  "The exact mechanism of the 44-50 s in-page delay on /api/options. I measured the delay and the concurrent slow or failing LSE calls; browser connection-pool starvation is my inference.",
+  "Deribit greeks versus the Black-Scholes formula on more than one contract; ETH and SOL greeks were not compared.",
+  "Contract size and OI units of Deribit SOL_USDC options, as needed for a correct SOL GEX.",
+  "Behaviour over hours: the 08:00 UTC Deribit expiry roll while OPTS is open, the candle array hitting its 400-bar cap, and websocket reconnects.",
+  "Whether Binance (data-api.binance.vision) and Deribit are reachable from the owner's own network; I only verified from this machine.",
+  "Scrolling a long table during refresh. At 1366x768 and 1920x1080 neither the BOOK ladder (21 rows) nor the live OPTS chain (27 rows) overflowed, so scroll-reset could not occur; not tested at smaller heights or with longer chains.",
+  "FOOT and HEAT with live equity or FX prices after the first minute. Later sessions had LSE endpoints blocked by me, so those runs used simulated prices for LSE symbols.",
+  "A second backend instance was not started; all backend evidence is from the shared instance on port 8080 and its log.",
+  "MON, CHRT, WX, SAT, SHIP, SPLC, NEWS, ECO, TNT and HELP are outside my scope and were not audited, beyond shell issues that directly affect my modules."
+ ],
+ "findings": [
+  {
+   "auditor": "front-flow-options",
+   "area": "BOOK",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "Order book and tape are fully simulated in LIVE; the real book is received and discarded",
+   "evidence": "The ladder is built as mid +/- i*(mid*2e-4) with sizes floor(|gauss()|*40+5), regenerated every 650 ms. The tape adds one random print per tick at the simulated bid/ask. LIVE.book is written at line 917 and never read (grep: one occurrence). Measured with BTC selected: page best bid/ask 73,590.40 / 73,619.85, 'spread 52.348', sizes 21 / 64; real Binance at the same instant 73,612.00 x 2.426 / 73,612.01 x 3.170, spread 0.01. Page 10-level span is +/-$147; real is about +/-$1.3-2.7. No network request is made by BOOK for any instrument. Screenshot: /tmp/tmp.fJJVLM8hqC/s/L_BOOK_BTC.png",
+   "where": "terminal/web/openterm.html:354-377 (ladder 362-368, tape 370-374); LIVE.book write at :917",
+   "fix": "For BTC/ETH render LIVE.book[SEL] (bids/asks [price, qty]) and build the tape from WS 'trade' events. For SOL use /api/book and /api/trades (or add SOLUSDT to the hub). For every other instrument show an explicit 'NO LIVE L2 SOURCE' panel (/api/book returns 501) instead of a ladder. Show source and last-update age in the header."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "BOOK",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "Tape mixes prints from the previously selected instrument and stamps them with the simulator clock",
+   "evidence": "The `tape` array is never cleared on instrument change. After CL then BTC the tape read '13:35:05Z 73,561.74 BUY ... 13:34:55Z 72.99 13 BUY, 13:34:50Z 72.96 ...' (CL prices in the BTC tape). Timestamps come from #hClock = DAY0+T*5: the page showed 13:34:40Z while real UTC was 07:30:19. Screenshot: /tmp/tmp.fJJVLM8hqC/s/x_BOOK_tape_mix.png",
+   "where": "terminal/web/openterm.html:359, 370-371 (tape); :162, :235-236 (fake clock)",
+   "fix": "Keep the tape per symbol (or clear it in sel()) and timestamp rows with the trade's own exchange time (`t` in the WS trade event)."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "BOOK",
+   "category": "interaction",
+   "severity": "medium",
+   "title": "Ladder cannot be read or used: rows are replaced every 650 ms and nothing is clickable",
+   "evidence": "Hovering row 3 for 1.4 s: the node under the cursor was replaced (sameNode=false) and its content went from '73,702.07 / 36' to '73,624.65 / 27'. 15 subtree replacements in 3 s. CDP getEventListeners on the ladder container returns []. Click and double-click on a price row change nothing (the order ticket symbol stayed 'CL').",
+   "where": "terminal/web/openterm.html:368, 374, 376 (innerHTML rebuild per tick)",
+   "fix": "Use a fixed price grid at the instrument's tick size and update cell text in place. Add click-to-prefill the TKT ticket, a depth/grouping selector and cumulative size."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "FOOT",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "Simulator keeps writing into the real candle store in LIVE; FOOT shows fake and duplicated bars within a minute",
+   "evidence": "step() runs unconditionally: every 6 ticks (3.9 s) it pushes {time: last.time+86400, open: last.close, ...} and otherwise adds |gauss|*800 to the last bar's volume. The WS kline handler then finds last.time != m.t and pushes the 1-minute bar again. Twenty-three ticks after connect, BTC's 1h series ended with fake bars dated 2026-11-13, -14 and -15 at 07:00 with volume 5,492 (real hourly volume is about 300). After 60 s: 336 bars, 16 out of order. After 45 s on FOOT the 14 bars on screen had times alternating '11-13T07:43' and '11-12T07:43' (one real 1-minute bar seven times plus seven fake bars). Binance 1m klines are also appended to a 1h history. Screenshot: /tmp/tmp.fJJVLM8hqC/s/s_FOOT_BTC_45s.png",
+   "where": "terminal/web/openterm.html:218-221 (step), :916 (kline merge), :886-891 (bootstrap)",
+   "fix": "Do not run the candle part of step() for symbols with a live candle source. Keep the store at one timeframe (subscribe to the kline interval that matches the history, or aggregate), and merge by time with replace-or-append in order. This also affects CHRT."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "FOOT",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "Footprint bid x ask volumes are random numbers regenerated on every render",
+   "evidence": "bidv and askv are floor(|gauss()*40*exp(...)|+1) for all 12 rows of all 14 bars on each render (every 3 ticks, about 2 s), including historical bars. Canvas content differed between two renders 2.2 s apart with the same bars. No trade data is used, yet the label reads 'FOOTPRINT \u00b7 bid \u00d7 ask volume per price'.",
+   "where": "terminal/web/openterm.html:421-426",
+   "fix": "For BTC/ETH aggregate WS 'trade' events (px, qty, buy) into price buckets per bar, backfilled from /api/trades, and freeze completed bars. For instruments without a trade feed show a 'no live tape source' state."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "FOOT",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "LSE candles have a different schema (timestamp/volume, no time/vol); equity and FX bars get NaN time and turn into flat fake bars",
+   "evidence": "/api/candles?symbol=AAPL returns keys open, high, low, close, volume, trades, date, timestamp, symbol; Binance candles use time and vol. In the page AAPL bars have time undefined, so the simulator's bars get time NaN. 251 of 252 bars counted as out of order. After 60 s the last 12 AAPL and EURUSD bars were all flat (356.13 and 1.11) with invented volume 2,000-5,000. One real AAPL daily bar also has low 150.26 against a 350 close, which wrecks the y-scale.",
+   "where": "terminal/backend/app.py:126-130; terminal/backend/providers/lse.py:20-22; terminal/web/openterm.html:889-891",
+   "fix": "Normalise LSE rows in the backend to {time (epoch s), open, high, low, close, vol} and filter obviously bad ticks (for example a low more than 30% below min(open, close))."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "FOOT",
+   "category": "legibility",
+   "severity": "high",
+   "title": "9px text, overlapping rows, no price or time axis; header label is overdrawn",
+   "evidence": "Font is '9px JetBrains Mono' with no fallback. Twelve rows of 12 px are spread over each bar's high-low range, so a small bar collapses: 6 of 14 BTC bars had row spacing under 9 px (0-1.9 px) and render as a smear. There is no price scale, time labels, bar totals or delta. The first bar's rows draw over the 'FOOTPRINT \u00b7' caption, which is in --faint #4b5668 on #06080c (contrast 2.7:1). The canvas is fully re-allocated on each render. Screenshots: /tmp/tmp.fJJVLM8hqC/s/L_FOOT_BTC.png and L_FOOT_CL.png",
+   "where": "terminal/web/openterm.html:411-433",
+   "fix": "Use fixed price buckets (tick-size multiples) shared by all bars with a minimum 12 px row height, a right-hand price axis and bottom time axis, text at 11px or larger with a monospace fallback, and a reserved header strip. Add wheel zoom/pan and a hover readout (canvas has no listeners)."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "HEAT",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "Liquidity heatmap is pure random noise; only the white price line can be real",
+   "evidence": "Each column is exp(-d^2*6)*(0.4+rnd()*0.6), with a x5 spike at 3% probability, over a hard-coded +/-2% band. No book data is used and no request is made. On first show all 180 columns are seeded with the current price, so 100% of the width is lit with a flat price line (same y at 12 sample points). That is about 117 s of invented history.",
+   "where": "terminal/web/openterm.html:384-386, 403",
+   "fix": "Build columns from real depth snapshots: LIVE.book[sym] sampled each second for BTC/ETH (20 levels), or /api/book?limit=1000 polled every few seconds for a wider band. Start empty and fill forward. For non-crypto show 'no live L2 source'."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "HEAT",
+   "category": "legibility",
+   "severity": "high",
+   "title": "No axes, scale, legend, symbol, timestamp or source on the heatmap",
+   "evidence": "The canvas draws only cells and a line; there is no fillText call in the module. Screenshot /tmp/tmp.fJJVLM8hqC/s/L_HEAT_CL_full.png: nothing says what price a row is, what time a column is, or what the colours mean.",
+   "where": "terminal/web/openterm.html:387-402",
+   "fix": "Add a right-hand price axis, bottom time axis, colour legend with units (resting size), a title with symbol/source/last update, and a crosshair readout."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "HEAT",
+   "category": "interaction",
+   "severity": "medium",
+   "title": "Selecting another instrument blanks the panel and it refills at one column per 650 ms; no zoom, pan or hover",
+   "evidence": "sel() sets cols=[]. 0.7 s after selecting ETH 0% of the width was lit; after 10.7 s 9.7% (112 of 1180 px); full width needs 180 x 0.65 s = 117 s. Wheel and drag do nothing (CDP listeners on the canvas: []; cursor 'auto'). Screenshot: /tmp/tmp.fJJVLM8hqC/s/L_HEAT_BTC.png (97% black)",
+   "where": "terminal/web/openterm.html:404-405",
+   "fix": "Keep per-symbol history buffers and draw from the right edge. Add wheel zoom on the price axis and a hover tooltip (time, price, size)."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "SHELL",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "BTC/ETH price alternates between Binance spot and the Deribit perpetual mark",
+   "evidence": "TERM_OF maps both BTCUSDT and BTC-PERPETUAL to 'BTC', and trade, kline and ticker events all write LIVE.px[base]. Over 10 s: deribit ticker mean 73,541.17 (n=23), binance trade mean 73,614.84 (n=68). INST.BTC.px sampled every 650 ms: 73,542.43, 73,617.64, 73,617.63, 73,540.30, 73,612.01, 73,539.08, 73,612.01, 73,537.42 ... a $74 sawtooth visible in the HEAT price line, BOOK mid, tape and rail sparkline.",
+   "where": "terminal/web/openterm.html:859, 914-916",
+   "fix": "Use one source per symbol for the displayed price (Binance spot). Keep the Deribit perp as a separate field if wanted."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "OPTS",
+   "category": "wrong-or-stale-data",
+   "severity": "critical",
+   "title": "OPTS and GEX silently show Bitcoin options when the selected instrument has no options source",
+   "evidence": "LIVE.loadOptions uses CRYPTO_SYMS.includes(SEL)?SEL:'BTC'. With CL selected the header reads 'OPTIONS CHAIN \u00b7 BTC \u00b7 LIVE (Deribit) \u00b7 spot 73,418.10' while the subbar says 'FOCUS CL \u00b7 Crude WTI \u00b7 73.79'. Same for AAPL and EURUSD in OPTS and GEX ('DEALER GAMMA EXPOSURE ($mm/1%) \u00b7 BTC \u00b7 LIVE Deribit' under FOCUS AAPL). The backend returns 501 for /api/gex?underlying=CL, but the page never asks. Screenshot: /tmp/tmp.fJJVLM8hqC/s/L_OPTS_CL.png",
+   "where": "terminal/web/openterm.html:901, 441, 503",
+   "fix": "Request options for the selected instrument only. If the backend has no source (501 or empty chain) render an explicit 'NO LIVE OPTIONS SOURCE FOR <SYM>' state. For the four equities, wire the LSE chain (see recipes)."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "OPTS",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "SOL (or any empty chain) falls back to a simulated chain and simulated GEX while LIVE",
+   "evidence": "/api/options?underlying=SOL returns {chain: []} and /api/gex returns strikes []. The page then runs the simulator branch: 'OPTIONS CHAIN \u00b7 SOL \u00b7 spot 82.94 \u00b7 30D expiry \u00b7 r=4.5%' and 'DEALER GAMMA EXPOSURE ($mm/1%) \u00b7 SOL \u00b7 flip near spot 83'. Because LIVE.opt stays {ccy:'SOL', chain:[]}, the next instrument also gets a simulated chain: in my first run EURUSD and AAPL showed 'OPTIONS CHAIN \u00b7 EURUSD \u00b7 spot 1.11 \u00b7 30D expiry' with all 13 strikes printed as '1' and bid/ask 0.00. The simulated chain uses a hard-coded smile, bid/ask = model price x 0.98 / 1.02, and call IV = put IV. Screenshots: /tmp/tmp.fJJVLM8hqC/s/L_OPTS_EURUSD.png and s_GEX_SOL.png",
+   "where": "terminal/web/openterm.html:441-452 (sim chain), 503-516 (sim GEX), 905",
+   "fix": "When LIVE.on, never call the simulator branch; show loading, no-source or error states. Strike formatting must use the instrument's precision (fmt(K,0) collapses FX and NG strikes)."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "OPTS",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "Chain and GEX are fetched once and never refreshed, yet labelled LIVE",
+   "evidence": "OPTS tick only re-renders; GEX has no tick. Staying on OPTS/BTC for 40 s produced exactly one /api/options and one /api/gex request (at 24.3 s). The header spot stayed at 73,532.31 and the table was byte-identical after 37 s while BTC moved. No 'as of' time is shown. The innerHTML is rebuilt every 2.6 s with the same stale data.",
+   "where": "terminal/web/openterm.html:468, 525, 901-907",
+   "fix": "Poll every 10-15 s while OPTS or GEX is visible, with a single in-flight guard, and show an 'as of HH:MM:SS UTC \u00b7 Deribit' stamp. Re-render only when data changes."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "OPTS",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "8 s throttle and unordered responses leave the previous instrument's chain on screen",
+   "evidence": "sel() calls LIVE.loadOptions, which returns silently if the last load was under 8 s ago, and nothing retries. I opened OPTS (BTC load at 73.5 s) and selected ETH 2 s later: 15 s after that the header still read 'OPTIONS CHAIN \u00b7 BTC \u00b7 LIVE (Deribit)' under FOCUS ETH. LIVE.opt is overwritten by whichever response arrives last, with no check against the current selection (SOL, BTC and a second BTC response arrived at 117.2, 118.7 and 121.5 s for requests sent at 90.7, 103.8 and 117.2 s). GEX with ETH selected showed the simulated '\u00b7 ETH \u00b7 flip near spot 2,050' for more than 30 s. Screenshot: /tmp/tmp.fJJVLM8hqC/s/s_OPTS_ETH_stale.png",
+   "where": "terminal/web/openterm.html:901-907",
+   "fix": "Key the throttle per symbol, tag each request with the symbol and a sequence number, drop responses that no longer match SEL, and clear the table to 'loading' on instrument change."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "OPTS",
+   "category": "legibility",
+   "severity": "high",
+   "title": "Live chain is hard to read: headers not over their columns, prices in BTC shown as 0.0000, no bid/ask or greeks, '0D expiry' with no expiry selector",
+   "evidence": "th is text-align:right and td is left: the 'C.IV' header text spans x=308-333 while its values span x=202-228 in a 147 px column (applies to every table). C.MARK and P.MARK are Deribit mark_price in BTC printed with 4 decimals and no unit, so most OTM cells read '0.0000' (real 3.9e-07 BTC). Columns are IV, OI and MARK only, although bid/ask exist in the same Deribit response and the simulated chain shows delta/gamma. Only the nearest expiry is shown (0.6 h to expiry, printed '0D'); the other three fetched expiries are unreachable. 'spot' is actually one expiry's forward. The ATM highlight covers 9 rows (+/-3%). The hint line carrying source and expiry is 10px #4b5668 on #06080c (contrast 2.7:1); th is 10px at 2.48:1.",
+   "where": "terminal/web/openterm.html:453-467; CSS :71-73, :87",
+   "fix": "Right-align numeric td (or left-align th). Show USD prices (mark x underlying) with bid/ask, per-row delta/gamma/vega/theta (BS from mark_iv), an expiry selector, the exact expiry date/time, a single ATM row marker, and readable 11-12px header text at 4.5:1 or better."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "PROVIDER:deribit",
+   "category": "wrong-or-stale-data",
+   "severity": "high",
+   "title": "GEX and chain use only the 4 nearest (daily) expiries, about 11% of open interest; one forward is used for all expiries",
+   "evidence": "chain(max_expiries=4) returned expiries 12, 13, 14 and 15 Nov (0.6 h to 72.6 h). A direct Deribit book summary shows those hold 0.9+9.5+0.4+0.1 = 10.9% of BTC OI, against 25DEC 40.4%, 27NOV 22.7% and 26MAR 13.4%. Recomputing from the full chain: net GEX -54.9 $mm/1% for the 4 expiries vs -107.9 for all 11; the largest strike moves from 74,000 (-20.1) to 72,000 (-41.0); 33 vs 85 strikes. gex() takes S from the first row's underlying_price and applies it to every expiry (per-expiry forwards were 73,481 to 73,513; max per-strike difference 0.39 $mm). The gamma formula itself is correct (r=0): 7.65e-5 vs Deribit's 8e-5 (rounded) for BTC-27NOV26-74000-C; delta 0.48746 vs 0.48745. The title 'DEALER' assumes dealers are long calls and short puts without saying so. Each page load makes 4 uncached Deribit calls.",
+   "where": "terminal/backend/providers/deribit.py:31-52 (chain), 54-72 (gex); terminal/backend/app.py:147-157",
+   "fix": "Compute GEX over all expiries (or a selectable set) using each row's own underlying_price and return per-expiry breakdown, index spot and a timestamp. Cache the chain for 5-10 s so /api/options and /api/gex share one fetch. State the sign convention in the chart."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "PROVIDER:deribit",
+   "category": "missing-feature",
+   "severity": "medium",
+   "title": "SOL options exist on Deribit but the backend asks the wrong currency",
+   "evidence": "get_book_summary_by_currency?currency=SOL gives an empty chain via the backend. currency=USDC returns 710 SOL_USDC option rows (also BTC_USDC, ETH_USDC, XRP, AVAX, TRX, HYPE), with mark_iv, bid/ask in USDC and open_interest (sample SOL_USDC-25DEC26-165-P: mark_iv 84.49, bid 80.7, ask 82.6).",
+   "where": "terminal/backend/providers/deribit.py:17-23, 31",
+   "fix": "For SOL query currency=USDC and filter instrument_name startswith 'SOL_USDC-'. Parse strike, expiry and type from the name, which also removes the extra get_instruments call."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "VOLS",
+   "category": "fake-data-in-live",
+   "severity": "critical",
+   "title": "Implied-vol surface is a hard-coded formula, identical for every instrument, with no live branch",
+   "evidence": "surface3d always uses ivSurface(): iv = 0.18 + 0.9*m^2/(t+0.05) - 0.15*m + 0.03*sqrt(t) on fixed grids (moneyness 0.82-1.18, DTE 7-180). z-range in the page for ETH: 18.415-72.629, the same numbers as CL and BTC. Real Deribit ETH IV on the fetched expiries was 37-153% and BTC 26-84%. The title 'IMPLIED VOLATILITY (%) \u00b7 BTC' appears under a LIVE badge. VOLS makes no request and never updates (z unchanged after 8 s).",
+   "where": "terminal/web/openterm.html:293-299, 472-488",
+   "fix": "For BTC/ETH (and SOL via USDC) build the surface from Deribit mark_iv by strike/forward and expiry using the full chain. For equities use LSE iv. Otherwise show 'no live options source'."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "GREEKS",
+   "category": "broken",
+   "severity": "critical",
+   "title": "Greeks surface is a degenerate spike: the strike is multiplied by spot twice (and the inputs are synthetic)",
+   "evidence": "surface3d passes absolute strikes (surf.ks = S*(1+i*0.03)) to valfn, but line 494 calls bs(S, k*S, t, ...). For CL (S about 72) the strike is about 5,200. Reproduced in Node and in the page: delta range 0 to 3.46e-84 with 0 of 78 cells above 1e-6; correct values are 0.008 to 0.988. In the page: CL delta max 4.1e-85, gamma 4.8e-85, vega 3.9e-84, theta -3.4e-85; ETH delta max 2.06e-276; BTC exactly 0 everywhere. Plotly autoscales to that range and draws one corner (180D, lowest strike) as a spike. For S<1 the error flips: AUDUSD delta is 0.97-1.00 everywhere. bs() itself is correct. IV comes from the same fake ivSurface, r=4.5% is hard-coded, and only call greeks are shown.",
+   "where": "terminal/web/openterm.html:494 (bug); :283-292 (bs); :472-483",
+   "fix": "Change bs(S,k*S,...) to bs(S,k,...). Then feed it real IV (Deribit mark_iv per strike/expiry with r=0 and the expiry's forward; LSE greeks for equities), or show a no-source state. Add a call/put toggle and units in the title (vega per 1 vol point, theta per day)."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "VOLS",
+   "category": "performance",
+   "severity": "medium",
+   "title": "VOLS and GREEKS block the main thread 0.7-1.6 s per show; the camera resets on every redraw",
+   "evidence": "Long tasks at 1366x768: VOLS first show 1244+405 ms, re-show 776 ms, instrument switch 114+249 ms. GREEKS first show 872+331+115 ms, re-show 694 ms, tab switch 100-290 ms. At 1920x1080 VOLS first show was 1594+450+120+376 ms. Each show() and each window resize calls Plotly.react with a new layout including camera {1.7,-1.5,0.8}: after dragging to {-1.29,0.04,2.03} an instrument switch put it back. No leak: JS heap 12.6 to 14.2 MB, DOM nodes 2289 to 2505, listeners 207 to 207 after 25 x 7 module switches.",
+   "where": "terminal/web/openterm.html:472-483, 487, 496, 849",
+   "fix": "Create the plot once, then update only z (Plotly.restyle) and the title, with layout.uirevision set so the camera persists. Do not redraw on show() if nothing changed, and let Plotly's responsive resize handle window changes."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "VOLS",
+   "category": "legibility",
+   "severity": "medium",
+   "title": "3D surfaces have no z-axis title, no colour bar and raw tooltips; the title is 11px in a corner",
+   "evidence": "layout.scene.zaxis.title.text is '' and showscale is false. The hover text is 'x: 1.03y: 90z: 19.31145' (no names, no units, 5 decimals). Tick font is 12px #7d8ba0 and the title 11px. The plot uses roughly the central 45% of a 1735x980 panel. Screenshot: /tmp/tmp.fJJVLM8hqC/s/L_VOLS_CL.png",
+   "where": "terminal/web/openterm.html:476-482",
+   "fix": "Add a z title ('IV %', 'Delta', ...), a colour bar, and a hovertemplate such as 'K/S %{x:.2f} \u00b7 %{y}D \u00b7 IV %{z:.1f}%'. Add a 2D smile/term view next to the 3D one and a source/as-of line."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "GEX",
+   "category": "legibility",
+   "severity": "medium",
+   "title": "GEX chart has no axis titles, spot marker, flip level, total or timestamp; simulated variant has a legend over the title and random bars",
+   "evidence": "Plotly xaxis and yaxis titles are unset; no shapes or annotations (0/0), so spot is only in the title text. Hover shows '(\u221220.578, 74k)' with no labels or units. Bars are 8 px tall with 33 strikes on a linear axis. There is no net GEX figure (data sums to -55.4) and no as-of time. In the simulated branch the horizontal legend sits on top of the title at 1366 px ('DEALER [Call \u03b3][Put \u03b3]) \u00b7 SOL \u00b7 flip near spot 83'), OI is |gauss|*5000+500 redrawn on every draw (first five call bars 0.001, 0.005, 0.009, 0.014, 0.010 then 0.001, 0.011, 0.003, 0.009, 0.011), and 'flip near spot' is hard-coded text. In SIM mode with EURUSD all 13 y labels are '1', so 26 bars stack on one line. Screenshots: /tmp/tmp.fJJVLM8hqC/s/L_GEX_BTC.png, s_GEX_SOL.png, sim_GEX_EURUSD.png",
+   "where": "terminal/web/openterm.html:502-524",
+   "fix": "Add axis titles ('Strike', 'Gamma exposure, $mm per 1% move'), a horizontal spot line, the computed zero-gamma level, net GEX, an expiry filter, a hovertemplate, and source plus timestamp. Remove the random-OI path from LIVE."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "BACKEND",
+   "category": "backend-error",
+   "severity": "critical",
+   "title": "Quote polling exceeds the LSE plan limits; once LSE returns 429/500 the browser's connections clog and options requests wait 44-50 s",
+   "evidence": "livePoll() issues 8 sequential /api/quote calls every 5 s with no overlap guard (up to 96 calls/min); the server log shows '[429] Your plan allows 60 API calls a minute'. Each /api/quote calls lse.candles(symbol,'1d',limit=2), but the SDK reads the full history and slices: '[429] Your plan allows 12,500,000 rows a day; 12,498,940 are used and this export would read 7,943'. About 7.9k rows per FX quote, 48 FX calls/min, is roughly 380k rows/min. The 'quote' is the last daily close, not a live price. Log totals for this server instance: 292 non-crypto quote calls, 84 LSE candle calls, 26 HTTP 500s, 54 tracebacks; errors surface as unhandled 500 instead of 503/429. Effect on my modules: /api/options requests sent in-page at 73.5 s and 90.7 s were answered at 117-123 s, while the same endpoint took 0.58 s by curl. The 6-connections-per-host starvation is my inference from that gap, not measured directly.",
+   "where": "terminal/web/openterm.html:923-926 (livePoll); terminal/backend/app.py:126-130; terminal/backend/providers/lse.py:20-22",
+   "fix": "Stop polling daily candles as quotes. Fetch each LSE symbol once with a bounded start date, cache server-side for minutes, and use a real quote source (LSE stream or Tiingo). Batch into one /api/quotes call, never overlap poll cycles, map LSEError 429 to HTTP 429 with Retry-After, and back off in the page."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "SHELL",
+   "category": "fake-data-in-live",
+   "severity": "high",
+   "title": "Failed live requests silently fall back to the simulator while the badge still says LIVE",
+   "evidence": "Every live fetch is wrapped in try{}catch(e){} and step() random-walks any symbol without LIVE.px. When LSE FX candles returned 500 in one session, EURUSD showed 1.0812 and kept drifting, versus 1.1074 from LSE in earlier sessions; the status line still read 'LIVE \u00b7 localhost:8080'. BOOK, HEAT and FOOT then run on that simulated price. The red 'LIVE' tag at bottom-left is hard-coded at boot (line 846): after liveDisconnect() the status says 'SIM \u00b7 synthetic' but the tag still says LIVE. 16 of 23 rail instruments (CL, NG, GC, HG, RB, rates, indices) have no live mapping at all.",
+   "where": "terminal/web/openterm.html:214-215, 846, 885-892, 925",
+   "fix": "Track per-symbol source state (live, stale with age, or no source) and show it in the rail and in each module header. In LIVE never random-walk a symbol; show the last real value greyed out with its age, or '\u2014'."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "SHELL",
+   "category": "performance",
+   "severity": "high",
+   "title": "Websocket opens 11.5 s after the page turns LIVE; SOL is not in the stream at all",
+   "evidence": "liveConnect awaits liveBootstrap() (3 crypto + 8 LSE candle requests in sequence at about 1 s each, then storms) before liveOpenWS(). Measured: LIVE.on at 1.41 s, WS open at 12.95 s; LIVE.book was empty 9 s after load. run_hub subscribes only BTCUSDT and ETHUSDT: 10 s of WS traffic contained no SOL event, and SOL stayed at 82.94-82.95 for whole sessions (set once from the bootstrap candle).",
+   "where": "terminal/web/openterm.html:876-878, 883-894; terminal/backend/stream_hub.py:250",
+   "fix": "Open the websocket first and run the bootstrap fetches in parallel. Add SOLUSDT to binance_syms."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "BACKEND",
+   "category": "wrong-or-stale-data",
+   "severity": "medium",
+   "title": "/api/options returns two incompatible schemas depending on the underlying",
+   "evidence": "Deribit rows: {instrument, expiry (epoch ms), strike, type, iv (percent, 28.29), open_interest, mark, underlying (price), volume}. LSE rows for AAPL: {contract_type, expiry ('2026-11-13'), strike, iv (decimal, 0.2482), delta, gamma, theta, vega, last_price, dte, greeks_at, underlying ('AAPL'), volume_today} with no open interest. The page's renderLive would compute Math.min over date strings (NaN) and print IV 0.2 for 24.8%.",
+   "where": "terminal/backend/app.py:147-151; terminal/backend/providers/lse.py:24-28; terminal/web/openterm.html:456-465",
+   "fix": "Normalise in the backend to one row shape: expiry_ms, strike, type, iv_pct, bid, ask, mark_usd, delta, gamma, vega, theta, oi, volume, underlying_px, asof."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "SHELL",
+   "category": "layout",
+   "severity": "low",
+   "title": "Below about 1100 px wide the page overflows: P/L, clock, FOCUS text and the status line are cut off",
+   "evidence": "At 1000x600 document.scrollWidth exceeded innerWidth on every module in scope. Screenshot /tmp/tmp.fJJVLM8hqC/s/r_BOOK_1000.png shows the top-right stats and clock off-screen and the Time & Sales SIZE/SIDE columns clipped. No overflow at 1366x768 or 1920x1080. Canvases and Plotly charts in scope did resize correctly (938x500).",
+   "where": "terminal/web/openterm.html:23-32, 41, 76 (.top, .tstat, .body, .grid2)",
+   "fix": "Let the top bar wrap or collapse the menu, and give .grid2 a single-column layout below about 1100 px."
+  },
+  {
+   "auditor": "front-flow-options",
+   "area": "SHELL",
+   "category": "other",
+   "severity": "low",
+   "title": "Console and network while these modules are open",
+   "evidence": "Failed request: lightweight-charts from cdnjs (net::ERR_BLOCKED_BY_ORB, already established). HTTP 500 from /api/candles and /api/quote for EUR_USD, USD_JPY, GBP_USD and AUD_USD once LSE rate-limited (16 in one 3-minute session). Warnings: 'Canvas2D: Multiple readback operations using getImageData...' and 'GPU stall due to ReadPixels' from Plotly gl3d. No page exceptions were thrown by BOOK, HEAT, FOOT, OPTS, VOLS, GREEKS or GEX.",
+   "where": "terminal/web/openterm.html:129; /api/quote, /api/candles",
+   "fix": "Fix the script URL (out of my scope) and handle LSE errors as described above."
+  }
+ ],
+ "recipes": [
+  {
+   "auditor": "front-flow-options",
+   "need": "Real L2 order book for BTC and ETH (BOOK ladder, HEAT columns)",
+   "source": "Binance depth20@100ms via the gateway websocket",
+   "how": "Already in the page: ws://<host>/ws events {type:'book', sym:'BTCUSDT'|'ETHUSDT', bids:[[price,qty]...], asks:[[price,qty]...]}, stored in LIVE.book.BTC / LIVE.book.ETH (openterm.html:917). Render bids[0..n] and asks[0..n] directly.",
+   "tested": true,
+   "result": "100 BTC and 92 ETH book events in 10 s; 20 levels per side. Sample: bid 73,612.00 x 2.42605, ask 73,612.01 x 3.16987, spread 0.01.",
+   "caveats": "Only 20 levels (about +/-$1-3 on BTC). Not available until the WS opens (12.95 s after load today). SOL is not subscribed."
+  },
+  {
+   "auditor": "front-flow-options",
+   "need": "Deeper book for a HEAT price band, and a book for SOL",
+   "source": "Binance REST depth via /api/book",
+   "how": "GET /api/book?symbol=BTC&limit=1000 (or symbol=SOL) returns {source:'binance', bids:[[p,q]...], asks:[[p,q]...]}. Poll every 2-5 s and append a column.",
+   "tested": true,
+   "result": "limit=1000: 1000 levels per side in 1.57 s, bids 73,578.99 down to 73,340.98, asks 73,579.00 up to 73,836.90, spread 0.01, bid qty sum 145.84 BTC. SOL limit=5: 82.88 x 575.4 / 82.89 x 868.9 in 0.74 s.",
+   "caveats": "REST snapshot, not a diff stream. About +/-0.35% on BTC at 1000 levels. No server-side caching."
+  },
+  {
+   "auditor": "front-flow-options",
+   "need": "Real time & sales for BTC and ETH (BOOK tape, FOOT footprint volumes)",
+   "source": "Binance aggTrade via the gateway websocket, with REST backfill",
+   "how": "WS events {type:'trade', sym:'BTCUSDT', px, qty, buy, t(ms)}; backfill with GET /api/trades?symbol=BTC&limit=N returning trades[{price, qty, time(s), buy}]. For FOOT, bucket qty by price step and bar, split by buy.",
+   "tested": true,
+   "result": "68 BTC and 51 ETH trade events in 10 s. REST sample: 73,565.92 x 0.00069 sell at time 1794468133; 0.74 s.",
+   "caveats": "The page currently discards qty, buy and t (it only keeps px). SOL is REST-only until SOLUSDT is added to stream_hub.run_hub. Footprint history exists only from page open plus whatever aggTrades backfill covers."
+  },
+  {
+   "auditor": "front-flow-options",
+   "need": "Real options chain, IV and term structure for BTC and ETH (OPTS, VOLS)",
+   "source": "Deribit public API",
+   "how": "GET https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option, one call for the whole chain. Fields: instrument_name (BTC-27NOV26-74000-C gives expiry, strike, type), mark_iv (percent), mark_price / bid_price / ask_price (in BTC), open_interest (BTC), underlying_price (that expiry's forward), volume. Via the gateway: /api/options?underlying=BTC, which is truncated to 4 expiries.",
+   "tested": true,
+   "result": "Direct: 876 BTC rows, 11 expiries from 12NOV26 to 24SEP27, 0.30 s. Gateway: 208 rows over 4 expiries in 0.58-0.76 s, IV 25.8-84.3%.",
+   "caveats": "The gateway's chain(max_expiries=4) must be lifted to get a real term structure. Prices are in coin: multiply by underlying_price for USD."
+  },
+  {
+   "auditor": "front-flow-options",
+   "need": "Real greeks for BTC and ETH options (GREEKS surface, OPTS columns)",
+   "source": "Black-Scholes from Deribit mark_iv (r=0, forward = underlying_price), or Deribit ticker greeks",
+   "how": "d1=(ln(F/K)+0.5*iv^2*T)/(iv*sqrt(T)); delta=N(d1) for calls; gamma=pdf(d1)/(F*iv*sqrt(T)); vega=F*pdf(d1)*sqrt(T)/100. Or GET /public/ticker?instrument_name=... and read result.greeks {delta, gamma, vega, theta, rho}.",
+   "tested": true,
+   "result": "BTC-27NOV26-74000-C: BS delta 0.48746 vs Deribit 0.48745; vega 59.586 vs 59.586; gamma 7.65e-5 vs 8e-5 (Deribit rounds to 5 decimals).",
+   "caveats": "Compared on one contract only. ticker is one call per instrument, so prefer BS on the bulk chain."
+  },
+  {
+   "auditor": "front-flow-options",
+   "need": "Real gamma exposure by strike for BTC and ETH (GEX)",
+   "source": "Deribit chain OI and IV via /api/gex",
+   "how": "GET /api/gex?underlying=BTC returns {spot, strikes[], gex[]} in $mm per 1% (gamma*OI*S^2*0.01/1e6, puts negative). Better: sum over all expiries from the full book summary using each row's underlying_price.",
+   "tested": true,
+   "result": "Gateway: 33 strikes, range -20.58 to +4.22, sum -54.6, 0.97 s. My all-expiry recomputation: 85 strikes, net -107.9, largest 72,000 = -41.0.",
+   "caveats": "The current endpoint covers 10.9% of BTC OI (4 daily expiries). The dealer-sign convention is an assumption. ETH took 1.38 s."
+  },
+  {
+   "auditor": "front-flow-options",
+   "need": "Options chain, IV and GEX for SOL",
+   "source": "Deribit USDC-settled options",
+   "how": "GET /public/get_book_summary_by_currency?currency=USDC&kind=option and filter instrument_name starting 'SOL_USDC-'. Fields: mark_iv, bid_price, ask_price, mark_price (in USDC), open_interest, underlying_price.",
+   "tested": true,
+   "result": "710 SOL_USDC rows in 0.51 s. Sample SOL_USDC-25DEC26-165-P: mark_iv 84.49, bid 80.7, ask 82.6, underlying 83.38.",
+   "caveats": "Not wired: the backend asks currency=SOL and gets []. Contract size and OI units for USDC options were not checked."
+  },
+  {
+   "auditor": "front-flow-options",
+   "need": "Options chain with IV and greeks for the equities AAPL, NVDA, TSLA, XOM",
+   "source": "London Strategic Edge via /api/options",
+   "how": "GET /api/options?underlying=AAPL returns chain rows {contract_type, strike, expiry 'YYYY-MM-DD', dte, iv (decimal), delta, gamma, theta, vega, last_price, last_trade_at, greeks_at, greeks_underlying_price, volume_today}.",
+   "tested": true,
+   "result": "AAPL: 1,432 rows, 11 expiries up to 2026-12-24, 777 rows with iv and greeks (355 call: iv 0.2482, delta 0.5162, gamma 0.0612), latest greeks_at 2026-11-11T21:14Z, 1.36 s, 577 KB.",
+   "caveats": "Only AAPL was tested. No open interest field, so equity GEX cannot be computed. No bid/ask. Schema and IV units differ from Deribit. Counts against the LSE daily row quota, which is nearly exhausted today."
+  },
+  {
+   "auditor": "front-flow-options",
+   "need": "L2 book, tape, footprint and liquidity heatmap for CL, NG, GC, HG, RB, FX, rates, indices and equities",
+   "source": "none available in the backend",
+   "how": "/api/book?symbol=CL returns 501 'L2 book for this asset needs the LSE paid tick feed'; /api/trades?symbol=AAPL returns 501.",
+   "tested": true,
+   "result": "501 in 1 ms for both.",
+   "caveats": "No free L2 exists for CME futures or consolidated US equities. The fix is an explicit 'NO LIVE SOURCE' state in BOOK, HEAT and FOOT."
+  },
+  {
+   "auditor": "front-flow-options",
+   "need": "Options chain, vol surface, greeks and GEX for CL, NG, GC, HG, RB, FX, rates and indices",
+   "source": "none confirmed",
+   "how": "/api/gex?underlying=CL returns 501 'equity GEX needs LSE options OI'. lse.options() for these underlyings was not called.",
+   "tested": true,
+   "result": "501 for GEX on CL. /api/options for these symbols was not tested, to spare the LSE quota.",
+   "caveats": "Until an LSE chain is confirmed per symbol, show 'no live options source' rather than the parametric surface or the BTC chain."
+  }
+ ]
+}
