@@ -60,7 +60,10 @@
 .ms-link.on{border-color:var(--amber);color:var(--amber);background:var(--sel-bg)}
 .ms-link.on b{color:var(--amber)}
 .ms-arrow{color:var(--text-3)}
-.mon-side > .ms-chart{flex:1 0 auto}
+/* The key-value block grows and scrolls as a selected instrument's figures/source chain fill in;
+   the chart stays a fixed size so it does not jump (and so OT.canvas.fit sees a stable CSS box). */
+.mon-side > .ms-mid{flex:1 1 auto;min-height:0;overflow:auto}
+.mon-side > .ms-chart{flex:none}
 .ms-chart{min-height:200px;display:flex;flex-direction:column;gap:6px}
 .ms-chead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--text-2)}
 .ms-cbox{position:relative;flex:1 1 auto;min-height:150px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg);cursor:crosshair}
