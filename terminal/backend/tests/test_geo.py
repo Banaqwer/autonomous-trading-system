@@ -17,6 +17,8 @@ tests/fixtures/s4/, all recorded from the real sources on 2026-11-12 (keyless, n
     ndbc_station_table_trimmed.txt         NDBC station_table.txt, every 8th station of the file above + 10 named ones
     openmeteo_marine_multi.json            Open-Meteo marine API, two points (Hormuz, Suez), 17:20 UTC
     openmeteo_forecast_429.json            what the Open-Meteo forecast API answered from the build machine (HTTP 429)
+    api_storms_adv22.json                  NOT a recording: what /api/storms answers from the advisory-22 files above
+                                           (kept equal by a test); the e2e spec serves it to prove the drawing code
     gibs_tile_imerg_z0.png                 one real GIBS tile (IMERG rain rate, zoom 0)
     gibs_domain_{geo_west,viirs,imerg,empty}.xml   WMTS DescribeDomains answers at 17:35 UTC (GeoColor West with its two
                                            gaps; the daily mosaic; IMERG; a window that holds no imagery)
@@ -351,6 +353,9 @@ def test_gibs_time_domain_and_which_frame_the_page_gets():
     got = gibs.pick_time("geo_west", times, RECORDED_AT)
     assert got["newest"] == "2026-11-12T16:50:00Z" and got["time"] == "2026-11-12T16:30:00Z"      # >= 20 min behind the newest
     assert got["t"] == 1794501000.0 and "still being distributed" in got["note"]
+    # the page's fallback for a tile GIBS lacks: the LISTED frames before it, newest first (16:20 does not exist)
+    assert got["older"] == ["2026-11-12T16:10:00Z", "2026-11-12T16:00:00Z", "2026-11-12T15:50:00Z"]
+    assert gibs.pick_time("geo_west", times[:1], RECORDED_AT)["older"] == []
     assert gibs.pick_time("geo_west", times[:1], RECORDED_AT)["time"] == "2026-11-12T11:00:00Z"   # a single frame: that one
     rain = gibs.pick_time("precip", gibs.parse_domain("precip", raw("gibs_domain_imerg.xml")), RECORDED_AT)
     assert rain["time"] == rain["newest"] == "2026-11-12T11:30:00Z" and rain["note"] is None
@@ -529,6 +534,20 @@ def test_storms_route_full_advisory(client, monkeypatch):
         assert client.get("/api/storms").json()["as_of"] == d["as_of"]
     assert up.calls.count("current") == 1 and len([c for c in up.calls if c.endswith(".kmz")]) == 4
     assert len([c for c in up.calls if c.startswith("esri:")]) == 3
+
+
+def test_recorded_route_answer_used_by_the_e2e_spec_is_what_the_route_gives(client, monkeypatch):
+    """e2e/geo.spec.js proves the drawing code (forecast track, cone, wind field, date line, a JTWC system) by
+    serving api_storms_adv22.json in transit. That file must be exactly what /api/storms answers for the recorded
+    advisory 22 — never hand-edited. OT_WRITE_FIXTURE=1 rewrites it from the raw recordings."""
+    Clock(monkeypatch, ADV22_AT + 3600)
+    Nhc(monkeypatch, "22")
+    d = client.get("/api/storms").json()
+    path = os.path.join(FIX, "api_storms_adv22.json")
+    if os.environ.get("OT_WRITE_FIXTURE") == "1":
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(d, f, separators=(",", ":"))
+    assert fx("api_storms_adv22.json") == d
 
 
 def test_storms_route_same_advisory_is_not_downloaded_again_after_the_ttl(client, monkeypatch):
@@ -727,6 +746,10 @@ def test_hubs_route(client):
     assert d["freshness"] == "REFERENCE" and d["source"] == "reference" and len(d["hubs"]) == len(geo.HUBS)
     assert {"id", "name", "kind", "kind_name", "lat", "lon", "what"} <= set(d["hubs"][0])
     assert d["kinds"]["chokepoint"] == "Chokepoint"
+    # every reference point says what its position was compared with (a second source), and the route says it is static
+    assert set(geo.HUB_CHECK) == {h["id"] for h in geo.HUBS}
+    assert all(h["check"] and ("OSM" in h["check"] or "NE:" in h["check"]) for h in d["hubs"])
+    assert d["as_of"] is None and d["checked"] == "2026-11-12" and "OpenStreetMap" in d["note"]
 
 
 # ====================================================================== /api/satellite/*
@@ -779,6 +802,11 @@ def test_layers_route(client, monkeypatch):
     gw = d["layers"]["geo_west"]                                # newest listed 16:50, 16:40 does not exist -> 16:30
     assert gw["newest"] == "2026-11-12T16:50:00Z" and gw["time"] == "2026-11-12T16:30:00Z" and gw["t"] == 1794501000.0
     assert gw["max_z"] == 7 and gw["ok"] is True and "still being distributed" in gw["note"]
+    assert gw["older"][0] == "2026-11-12T16:10:00Z" and len(gw["older"]) == 3 and d["layers"]["viirs"]["older"][0] == "2026-11-10"
+    # two satellites are never drawn over each other: the boxes meet, they do not overlap
+    L = d["layers"]
+    assert L["geo_west"]["bbox"][2] == L["geo_east"]["bbox"][0] == L["ir_west"]["bbox"][2] == L["ir_east"]["bbox"][0] == -106.0
+    assert L["ir_himawari"]["bbox"][2] == L["ir_west"]["bbox"][0] + 360 == 182.0
     assert gw["upstream_template"].endswith("GOES-West_ABI_GeoColor/default/{time}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png")
     assert d["layers"]["ir_east"]["time"] == "2026-11-12T16:40:00Z"            # 20 minutes behind the newest (17:00)
     # daily true colour: GIBS' newest is today's half-filled mosaic -> the last complete day, verified to hold imagery

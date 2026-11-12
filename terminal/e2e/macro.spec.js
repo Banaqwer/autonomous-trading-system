@@ -626,6 +626,70 @@ module.exports = {
       await p.close();
     });
 
+    await section('1536x864 (1920x1080 at 125 % scaling): SPLC stacked and legible, a click reveals the history; NEWS folds tickers; HELP lists the modules', async () => {
+      const p = await ctx.open({ tag: '1536', viewport: { width: 1536, height: 864 } });
+      await p.goto('SPLC/CL'); await splcReady(p);
+      await p.assertNoOverflow('SPLC at 1536x864');
+      const r = await p.page.evaluate(() => { const b = document.querySelector('.mod[data-mod="SPLC"] .mod-body'), out = [];
+        b.querySelectorAll('.splc-node').forEach(el => {
+          if (el.scrollWidth > el.clientWidth + 2 || el.scrollHeight > el.clientHeight + 2) out.push('node "' + el.textContent.slice(0, 24) + '" overflows its card');
+          const l = el.querySelector('.sn-label'); if (l && l.scrollWidth > l.clientWidth + 1) out.push('label "' + l.textContent + '" is cut off'); });
+        const f = b.querySelector('.splc-flow').getBoundingClientRect(), d = b.querySelector('.splc-detail').getBoundingClientRect();
+        if (d.top < f.bottom - 1) out.push('detail is beside the flow at this width (' + Math.round(f.width) + ' px for four columns)');
+        const t = b.querySelector('.splc-partners .ot-table'), tb = t && t.parentElement; if (tb && tb.scrollWidth > tb.clientWidth + 1) out.push('partner table is cut off sideways');
+        return out; });
+      check(!r.length, 'SPLC at 1536x864: ' + r.slice(0, 4).join('; '));
+      const vis = () => { const d = document.querySelector('.mod[data-mod="SPLC"] .splc-detail').getBoundingClientRect(); return d.top >= 0 && d.bottom <= window.innerHeight + 1; };
+      check(!(await p.page.evaluate(vis)), 'SPLC at 1536x864: the detail starts below the fold (precondition of the reveal test)');
+      await p.page.locator(MOD('SPLC') + ' .splc-node[data-key="cushing"]').click();
+      await p.waitFor(vis, { timeout: 4000, msg: 'SPLC at 1536x864: a mouse click on a node scrolls its history chart into view' });
+      check(await p.page.evaluate(() => /Cushing/.test(document.querySelector('.mod[data-mod="SPLC"] .sd-title').textContent)), 'SPLC at 1536x864: the detail shows the clicked node');
+      await p.shotNow('macro_splc_1536x864_detail');
+      await p.go('NEWS'); await newsReady(p);
+      const fold = await p.page.evaluate(() => { const bad = []; let folded = 0;
+        document.querySelectorAll('.mod[data-mod="NEWS"] .nw-row').forEach(row => {
+          const chips = Array.from(row.querySelectorAll('.nw-sym:not(.more)')), shown = chips.filter(c => getComputedStyle(c).display !== 'none'), more = row.querySelector('.nw-sym.more');
+          const total = (more && more.getAttribute('data-tip') ? more.getAttribute('data-tip').split(' ').length : chips.length);
+          const said = more && getComputedStyle(more).display !== 'none' ? parseInt(more.innerText.replace('+', ''), 10) : 0;
+          if (shown.length + said !== total) bad.push(row.querySelector('.nw-title').textContent.slice(0, 30) + ': ' + shown.length + ' shown + ' + said + ' ≠ ' + total);
+          if (chips.some(c => c.classList.contains('link') && getComputedStyle(c).display === 'none')) bad.push('an instrument ticker is hidden');
+          if (shown.length < chips.length) folded++; });
+        return { bad, folded }; });
+      check(!fold.bad.length, 'NEWS at 1536x864: shown tickers + "+n" = all tickers of the headline: ' + fold.bad.slice(0, 3).join('; '));
+      await p.assertNoOverflow('NEWS at 1536x864');
+      await p.shotNow('macro_news_1536x864');
+      await p.go('ECO'); await ecoReady(p);
+      await p.assertNoOverflow('ECO at 1536x864');
+      await p.shotNow('macro_eco_1536x864');
+      await p.go('HELP');
+      await p.waitFor(() => /UN Comtrade, annual/.test(document.querySelector('.mod[data-mod="HELP"]').textContent), { timeout: 8000, msg: 'HELP shows the SPLC description' });
+      const help = await p.page.evaluate(() => { const t = document.querySelector('.mod[data-mod="HELP"]').textContent;
+        return [/UN Comtrade, annual/, /keyless RSS feeds/, /ForexFactory weekly export/, /not declared/].map(re => re.test(t)); });
+      check(help[0] && help[1] && help[2], 'HELP shows what SPLC, NEWS and ECO declared (help.shows): ' + help.slice(0, 3).join(' '));
+      await p.close();
+    });
+
+    await section('an answer that arrives after the user left the module is shown on return (no stuck loading, no exception)', async () => {
+      // the shell spec found this: a fast tab switch left ECO with data but no rows ("Cannot read properties of undefined")
+      const p = await ctx.open({ tag: 'late' });
+      for (const glob of ['**/api/supply/oil*', '**/api/news*', '**/api/calendar*'])
+        await p.page.route(glob, async route => { await new Promise(r => setTimeout(r, 2500)); try { await route.continue(); } catch (e) { /* page closed */ } });
+      await p.goto('MON/CL');
+      for (const m of ['SPLC', 'NEWS', 'ECO']) { await p.go(m); await p.page.waitForTimeout(300); }      // each request is in flight when the user moves on
+      await p.go('MON');
+      await p.page.waitForTimeout(6000);                                                                  // all three answer while hidden
+      const asked = [];
+      p.page.on('request', r => { if (/\/api\/(supply\/oil|news|calendar)/.test(r.url())) asked.push(r.url()); });
+      await p.go('ECO'); await ecoReady(p, { timeout: 3000, msg: 'ECO shows the calendar that arrived while it was hidden' });
+      check(await p.page.evaluate(() => { const s = document.querySelector('.mod[data-mod="ECO"]'); return !!s.querySelector('tr.ec-now') || s.querySelectorAll('tbody tr').length > 10; }), 'ECO after a late answer: rows and the NOW line are there');
+      await p.go('NEWS'); await newsReady(p, { timeout: 3000, msg: 'NEWS shows the headlines that arrived while it was hidden' });
+      await p.go('SPLC'); await splcReady(p, { timeout: 3000, msg: 'SPLC shows the figures that arrived while it was hidden' });
+      check(asked.length === 0, 'the late answers are used, not asked for again: ' + asked.length + ' extra request(s)');
+      const errs = p.errors ? p.errors() : [];
+      check(errs.length === 0, 'no console error after late answers: ' + errs.slice(0, 3).join(' | '));
+      await p.close();
+    });
+
     check(supplyReqs <= 2, 'SPLC asked /api/supply/oil ' + supplyReqs + ' time(s) during the whole spec (cache time 15 min)');
     check(calReqs <= 3 && newsReqs <= 3, 'NEWS asked ' + newsReqs + ' and ECO ' + calReqs + ' time(s) on the main page (cache time 5 min)');
     const errs = ctx.errors();

@@ -56,8 +56,16 @@ function buildRow(it) {
   title.textContent = it.title;                                   // untrusted: text only
   const age = h('span', { class: 'nw-age num' }, ageText(it));
   const syms = h('span', { class: 'nw-syms' });
-  it.symbols.slice(0, 4).forEach(s => syms.appendChild(tickerChip(s, it)));
-  if (it.symbols.length > 4) syms.appendChild(h('span', { class: 'nw-sym more', tip: it.symbols.join(' ') }, '+' + (it.symbols.length - 4)));
+  // wide: four tickers + "+n"; narrow (css, ≤1760px): two, plus any further one that is a terminal instrument, so the headline keeps its room
+  let folded = 0;
+  it.symbols.slice(0, 4).forEach((s, i) => {
+    const chip = tickerChip(s, it);
+    if (i >= 2 && !chip.classList.contains('link')) { chip.classList.add('x'); folded++; }
+    syms.appendChild(chip);
+  });
+  const over = Math.max(0, it.symbols.length - 4);
+  if (over || folded) syms.appendChild(h('span', { class: 'nw-sym more' + (over ? '' : ' tight-only'), tip: it.symbols.join(' ') },
+    h('span', { class: 'w' }, over ? '+' + over : ''), h('span', { class: 't' }, '+' + (over + folded))));
   const time = h('span', { class: 'nw-time num', tip: fmt.date(it.t) + ' ' + fmt.utc(it.t) + (it.date_only ? ' (filing date; EDGAR gives no time of day)' : '') + '\n' + localText(it.t) }, whenText(it));
   const src = h('span', { class: 'nw-src' });
   src.textContent = it.source;
@@ -246,7 +254,7 @@ async function load() {
     /* a provider that was still loading joins on the next answer: look again soon, once */
     S.quick = d.providers.some(p => p.state === 'loading') ? (S.quick || 0) + 1 : 0;
     S.nextAt = S.loadedAt + (S.quick && S.quick <= 3 ? 20000 : pollMs(d));
-    if (ok()) { ctx.state(null); render(d); } else S.data = d;
+    if (ok()) { ctx.state(null); render(d); } else S.late = d;      // answered after the user left: show() renders it on return
   } catch (e) {
     if (!(e instanceof OT.ApiError)) throw e;
     S.error = e; S.nextAt = Date.now() + Math.max(30, e.retryAfter || 60) * 1000;
@@ -332,11 +340,14 @@ function build() {
 
 OT.register({
   id: 'NEWS', title: 'News', group: 'MACRO', needs: null,
+  help: { shows: 'Real headlines merged from Alpaca (Benzinga), keyless RSS feeds (EIA, OilPrice, MarketWatch, WSJ, FT, Nasdaq, BBC, Fed, ECB, CoinDesk, Cointelegraph), Marketaux (inside its daily budget) and SEC 8-K filings: UTC time and age, source, headline (opens the original in a new tab), tickers. Topic, selected-instrument and text filters; one status chip per feed says which is down; new items arrive without moving the row being read. Refreshed every 5 minutes.',
+    sources: ['alpaca-news', 'rss-eia-today', 'rss-oilprice', 'rss-marketwatch', 'rss-wsj-markets', 'rss-ft-markets', 'rss-fed', 'rss-ecb', 'rss-coindesk', 'marketaux', 'edgar'] },
   mount(r, c) { ctx = c; root = r; build(); },
   show() {
     ctx.header.setInstrument(null);
     paintInstBtn();
-    if (S.data) { ctx.state(null); ctx.header.setPayload(S.data); applyFilter(); renderPreview(); }
+    if (S.late) { const d = S.late; S.late = null; ctx.state(null); render(d); }
+    else if (S.data) { ctx.state(null); ctx.header.setPayload(S.data); applyFilter(); renderPreview(); }
     else ctx.state({ kind: 'loading', title: 'Loading headlines', detail: 'Alpaca news, twelve RSS feeds, Marketaux and SEC EDGAR — merged by the gateway (/api/news)' });
     ctx.on('second', tick);
     tick();

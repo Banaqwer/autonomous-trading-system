@@ -150,7 +150,7 @@ function placeNow(force) {
   if (!S.data) return;
   const t = now();
   const next = S.data.events.find(ev => ev.t > t && matches(ev));
-  const before = next ? rows.get(next.id).tr : null;
+  const nextRec = next ? rows.get(next.id) : null, before = nextRec ? nextRec.tr : null;
   const today = dayKey(t);
   dayRows.forEach((dr, k) => { const on = k === today; if (dr.tr.classList.contains('today') !== on) { dr.tr.classList.toggle('today', on); dr.tag.hidden = !on; } });
   rows.forEach(rec => { const past = rec.ev.t <= t; if (rec.tr.classList.contains('past') !== past) rec.tr.classList.toggle('past', past); });
@@ -250,7 +250,7 @@ async function load() {
   try {
     const d = await OT.api('/api/calendar', null, { timeout: 30000 });
     S.loadedAt = Date.now(); S.nextAt = S.loadedAt + Math.max(15000, (typeof d.ttl === 'number' && d.ttl > 0 ? d.ttl * 1000 : TTL_MS));   // the gateway's own cache time
-    if (ok()) { ctx.state(null); render(d); } else S.data = d;
+    if (ok()) { ctx.state(null); render(d); } else S.late = d;      // answered after the user left: show() renders it on return
   } catch (e) {
     if (!(e instanceof OT.ApiError)) throw e;
     S.nextAt = Date.now() + Math.max(30, e.retryAfter || 60) * 1000;
@@ -307,10 +307,13 @@ function build() {
 
 OT.register({
   id: 'ECO', title: 'Economic Calendar', group: 'MACRO', needs: null,
+  help: { shows: 'This week’s economic calendar grouped by UTC day with the local time beside it: country, impact, forecast and previous from the ForexFactory weekly export; today highlighted, a NOW line between what is out and what is next, a countdown to the next medium / high-impact event. Actual is filled only where an official series holds the release (BLS, FRED, EIA — main US prints) and names that series; otherwise it stays —.',
+    sources: ['forexfactory', 'bls', 'fred', 'eia'] },
   mount(r, c) { ctx = c; root = r; build(); },
   show() {
     ctx.header.setInstrument(null);
-    if (S.data) { ctx.state(null); ctx.header.setPayload(S.data, { note: S.data.note }); placeNow(true); paintNext(); }
+    if (S.late) { const d = S.late; S.late = null; ctx.state(null); render(d); }
+    else if (S.data) { ctx.state(null); ctx.header.setPayload(S.data, { note: S.data.note }); placeNow(true); paintNext(); }
     else ctx.state({ kind: 'loading', title: 'Loading this week’s economic calendar', detail: 'ForexFactory weekly export; released values from BLS, FRED and EIA — through the gateway (/api/calendar)' });
     ctx.on('second', tick);
     tick();

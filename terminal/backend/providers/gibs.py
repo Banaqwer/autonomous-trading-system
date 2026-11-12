@@ -39,19 +39,22 @@ STEP_S = {"day": 86400, "10min": 600, "30min": 1800}
 SETTLE_S = {"day": 0, "10min": 1200, "30min": 0}     # how far behind the newest listed frame the page stays
 DOMAIN_WINDOW_S = {"day": 10 * 86400, "10min": 12 * 3600, "30min": 36 * 3600}
 
-# bbox = [west, south, east, north] of what the layer can show (east may exceed 180): a geostationary
-# satellite sees one disc of the globe, so the page does not ask for tiles outside it.
+# bbox = [west, south, east, north] of the part of the layer the page draws (east may exceed 180). A geostationary
+# satellite sees one disc of the globe; where two discs overlap, each is used on its own side of the meridian
+# half-way between the two satellites (GOES-West 137.2°W | 106°W | GOES-East 75.2°W; Himawari 140.7°E | 178°W |
+# GOES-West), where both look at the ground equally obliquely. The page asks for no tile outside the box and
+# clips the layer to it, so nothing is drawn twice.
 LAYERS = {
     "geo_west": {"gibs": "GOES-West_ABI_GeoColor", "matrix": "GoogleMapsCompatible_Level7", "max_z": 7, "ext": "png",
-                 "step": "10min", "label": "GOES-West", "bbox": [-217.0, -81.0, -57.0, 81.0]},
+                 "step": "10min", "label": "GOES-West", "bbox": [-217.0, -81.0, -106.0, 81.0]},
     "geo_east": {"gibs": "GOES-East_ABI_GeoColor", "matrix": "GoogleMapsCompatible_Level7", "max_z": 7, "ext": "png",
-                 "step": "10min", "label": "GOES-East", "bbox": [-156.0, -81.0, 6.0, 81.0]},
+                 "step": "10min", "label": "GOES-East", "bbox": [-106.0, -81.0, 6.0, 81.0]},
     "ir_west": {"gibs": "GOES-West_ABI_Band13_Clean_Infrared", "matrix": "GoogleMapsCompatible_Level6", "max_z": 6,
-                "ext": "png", "step": "10min", "label": "GOES-West", "bbox": [-217.0, -81.0, -57.0, 81.0]},
+                "ext": "png", "step": "10min", "label": "GOES-West", "bbox": [-178.0, -81.0, -106.0, 81.0]},
     "ir_east": {"gibs": "GOES-East_ABI_Band13_Clean_Infrared", "matrix": "GoogleMapsCompatible_Level6", "max_z": 6,
-                "ext": "png", "step": "10min", "label": "GOES-East", "bbox": [-156.0, -81.0, 6.0, 81.0]},
+                "ext": "png", "step": "10min", "label": "GOES-East", "bbox": [-106.0, -81.0, 6.0, 81.0]},
     "ir_himawari": {"gibs": "Himawari_AHI_Band13_Clean_Infrared", "matrix": "GoogleMapsCompatible_Level6", "max_z": 6,
-                    "ext": "png", "step": "10min", "label": "Himawari", "bbox": [60.0, -81.0, 222.0, 81.0]},
+                    "ext": "png", "step": "10min", "label": "Himawari", "bbox": [60.0, -81.0, 182.0, 81.0]},
     "viirs": {"gibs": "VIIRS_NOAA20_CorrectedReflectance_TrueColor", "matrix": "GoogleMapsCompatible_Level9", "max_z": 9,
               "ext": "jpg", "step": "day", "label": "VIIRS NOAA-20", "bbox": [-180.0, -85.0, 180.0, 85.0]},
     "precip": {"gibs": "IMERG_Precipitation_Rate_30min", "matrix": "GoogleMapsCompatible_Level6", "max_z": 6,
@@ -187,7 +190,8 @@ def parse_domain(layer_id: str, xml_text: str) -> list[float]:
 
 
 def pick_time(layer_id: str, times: list, now: float) -> dict:
-    """Which of the available times the page should request -> {time, t, newest, note}; None if there is none.
+    """Which of the available times the page should request -> {time, t, newest, note, older}; None if there is none.
+    `older` = up to three listed times before it, newest first (a single tile of a frame can be missing on GIBS).
     Daily true colour: the candidates before today, newest first, are returned as `candidates` for the caller
     to verify (it has the tile cache)."""
     if not times:
@@ -206,7 +210,9 @@ def pick_time(layer_id: str, times: list, now: float) -> dict:
         if candidates and newest >= today:
             pick = candidates[0]
             note = "today's mosaic (" + fmt_time(layer_id, newest) + ") is still being filled: showing the last complete day"
+    older = [t for t in times if t < pick][-3:][::-1]          # listed frames just before: the page's fallback for a tile GIBS lacks
     return {"time": fmt_time(layer_id, pick), "t": pick, "newest": fmt_time(layer_id, newest), "note": note,
+            "older": [fmt_time(layer_id, t) for t in older],
             "candidates": [fmt_time(layer_id, t) for t in candidates]}
 
 

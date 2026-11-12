@@ -61,7 +61,8 @@
 .sp-bar{display:block;width:clamp(48px,4vw,84px);height:8px;background:var(--panel-2);border-radius:2px;overflow:hidden}
 .sp-bar i{display:block;height:100%;background:var(--info)}
 
-@media (max-width:1500px){
+/* stacked below 1760px: the owner's 1920x1080 at 125 % scaling is a 1536 px viewport, where four columns beside the detail do not fit */
+@media (max-width:1760px){
   .splc{grid-template-columns:minmax(0,1fr);height:auto;min-height:0}
   .splc-flow{column-gap:26px;min-height:660px}
   .splc-side{flex-direction:row}
@@ -72,7 +73,7 @@
 .news{display:flex;flex-direction:column;gap:8px;height:100%;min-height:420px;padding:var(--pad);box-sizing:border-box}
 .nw-bar{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
 .nw-bar .sp{flex:1}
-.nw-search{width:22ch}
+.nw-search{width:27ch}
 .nw-count,.nw-next{font-size:var(--fs-sm);color:var(--text-2);font-variant-numeric:tabular-nums;white-space:nowrap}
 .nw-status{flex:none;display:flex;flex-wrap:wrap;gap:4px 6px}
 .nw-prov{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;background:var(--panel);border:1px solid var(--line);
@@ -100,6 +101,7 @@ a.nw-title:hover{color:var(--info);text-decoration:underline}
 .nw-sym{flex:none;display:inline-flex;align-items:center;height:18px;padding:0 5px;background:none;border:1px solid var(--line-2);border-radius:var(--radius);
   font-family:var(--mono);font-size:var(--fs-min);color:var(--text-2);white-space:nowrap}
 .nw-sym.link{color:var(--amber);border-color:var(--amber);cursor:pointer}
+.nw-sym.more .t,.nw-sym.more.tight-only{display:none}
 .nw-sym.link:hover{background:var(--sel-bg)}
 .nw-sym.kw{border-style:dashed}
 .nw-topic{display:inline-flex;align-items:center;height:18px;padding:0 6px;border:1px dashed var(--line-2);border-radius:var(--radius);font-size:var(--fs-min);color:var(--text-2)}
@@ -115,7 +117,7 @@ a.nw-title:hover{color:var(--info);text-decoration:underline}
 .pv-tags{display:flex;flex-wrap:wrap;gap:6px}
 .pv-summary{font-size:var(--fs-data);line-height:1.55;color:var(--text);overflow-wrap:anywhere}
 .pv-summary.none{color:var(--text-3)}
-.pv-link{align-self:flex-start;height:auto;min-height:28px;padding:4px 10px;text-decoration:none;color:var(--info);white-space:normal;overflow-wrap:anywhere}
+.pv-link{flex:none;align-self:flex-start;display:inline-block;height:auto;min-height:0;padding:5px 10px;line-height:1.4;text-decoration:none;color:var(--info);white-space:normal;overflow-wrap:anywhere}
 .pv-relbox{display:flex;flex-direction:column;gap:2px;margin-top:6px;padding-top:8px;border-top:1px solid var(--line)}
 .pv-rel-head{font-size:var(--fs-min);color:var(--text-3);letter-spacing:.08em;text-transform:uppercase}
 .pv-rel{display:flex;flex-direction:column}
@@ -133,8 +135,13 @@ a.nw-title:hover{color:var(--info);text-decoration:underline}
 @media (max-width:1500px){
   .nw-prov.rss.s-ok{display:none}
   .nw-prov.rss-sum{display:inline-flex}
-  .nw-grid{grid-template-columns:minmax(0,1.7fr) minmax(260px,1fr)}
-  .nw-head,.nw-row{grid-template-columns:12.5ch 5.5ch minmax(7ch,12ch) minmax(0,1fr) minmax(0,auto);column-gap:10px}
+  .nw-grid{grid-template-columns:minmax(0,2.5fr) minmax(250px,1fr)}
+  .nw-head,.nw-row{grid-template-columns:12.5ch 5.5ch minmax(7ch,11ch) minmax(0,1fr) minmax(0,auto);column-gap:10px}
+}
+@media (max-width:1760px){           /* 1920x1080 at 125 % scaling = 1536 px: the headline keeps its room */
+  .nw-sym.x,.nw-sym.more .w{display:none}
+  .nw-sym.more .t{display:inline}
+  .nw-sym.more.tight-only{display:inline-flex}
 }
 
 /* ───────────────────────── ECO — economic calendar ───────────────────────── */
@@ -149,7 +156,7 @@ a.nw-title:hover{color:var(--info);text-decoration:underline}
 .ec-next.none .ec-clock{color:var(--text-3)}
 .ec-next.none .ec-tag{display:none}
 .ec-next-head{display:flex;align-items:center;gap:8px;min-width:0}
-.ec-next-title{font-family:var(--sans);font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ec-next-title{font-family:var(--sans);font-weight:700;color:var(--text);min-width:0;overflow-wrap:anywhere}
 .ec-next-when,.ec-next-figs{font-size:var(--fs-sm);color:var(--text-2)}
 .ec-info{display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;padding:10px 14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
 .ec-stats{font-size:var(--fs-sm);line-height:1.45;color:var(--text-2)}

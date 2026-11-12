@@ -60,7 +60,7 @@ function buildCard(key) {
   const value = h('span', { class: 'sn-val val' }, fmt.DASH), chg = h('span', { class: 'sn-chg flat' });
   const cv = h('canvas', { class: 'ot-canvas' });
   const el = h('button', { class: 'splc-node' + (SMALL[key] ? ' small' : ''), type: 'button', 'data-key': key, 'aria-pressed': 'false',
-    onclick: () => select(key) },
+    onclick: e => { select(key); if (e && e.detail) revealDetail(); } },
     h('span', { class: 'sn-top' }, label, unit), h('span', { class: 'sn-mid' }, value, chg), h('span', { class: 'sn-spark' }, cv));
   el._tip = () => {
     const n = nodeOf(key);
@@ -161,6 +161,13 @@ function build() {
   });
 }
 
+/* Stacked layout (narrow window): the history chart is below the flow. A mouse click on a node brings it into view;
+   in the side-by-side layout it is already visible and nothing moves. Keyboard selection never scrolls. */
+function revealDetail() {
+  const el = root.querySelector('.splc-detail');
+  if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
 function select(key) {
   if (!cards[key]) return;
   S.sel = key; S.hover = null;
@@ -235,7 +242,7 @@ async function load() {
   try {
     const d = await OT.api('/api/supply/oil', null, { timeout: 45000 });
     S.loadedAt = Date.now(); S.nextAt = S.loadedAt + pollMs(d); S.error = null;
-    if (ok()) { ctx.state(null); render(d); }
+    if (ok()) { ctx.state(null); render(d); } else S.data = d;      // answered after the user left: show() renders it on return
     else S.data = d;
   } catch (e) {
     if (!(e instanceof OT.ApiError)) throw e;
@@ -340,6 +347,8 @@ function drawLinks() {
 
 OT.register({
   id: 'SPLC', title: 'Crude Supply Chain', group: 'MACRO', needs: null,
+  help: { shows: 'The US crude balance as a flow: field production and imports, stocks (commercial by PADD, Cushing, SPR), refinery inputs and utilisation, exports, product stocks and demand. Every node is one EIA weekly series with its week-ending date, the change on the prior week, a 52-week sparkline and a click-through history chart with hover. Table: crude import partners by year (UN Comtrade, annual). WEEKLY data, published Wednesdays — not live.',
+    sources: ['eia', 'comtrade'] },
   mount(r, c) { ctx = c; root = r; build(); },
   show() {
     ctx.header.setInstrument(null);

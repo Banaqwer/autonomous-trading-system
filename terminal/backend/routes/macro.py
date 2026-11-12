@@ -131,7 +131,7 @@ def supply_oil():
         out["partners"] = cached("comtrade:us-crude-imports", PARTNERS_TTL, _partners_load, stale_ttl=60 * 86400)
     except ApiError as e:
         out["partners"] = {"source": "un-comtrade", "error": describe(e)}
-    return out
+    return _readable(_readable(out), "partners")
 
 
 # =====================================================================================
@@ -145,6 +145,34 @@ MARKETAUX_RESERVE = 10           # never spend the last calls of the day
 MARKETAUX_DAILY_CAP = 60         # our own ceiling, whatever the headers say
 NEWS_WAIT = 8.0                  # a slow provider is reported as loading; it never holds the page
 NEWS_MAX_AGE_DAYS = 14
+
+
+_NOISE = re.compile(r"\s*[(\[]?\s*(?:window\.|document\.|function\s*\(|var\s|html\s*\{|body\s*\{|<!|<\w|\{\s*\")")
+
+
+def _tidy(message) -> str:
+    """An upstream's error page can drag script or style text into the message: keep the sentence."""
+    text = " ".join(str(message or "").split())
+    m = _NOISE.search(text)
+    if m and m.start() >= 12:
+        text = text[:m.start()]
+    return text[:200].rstrip(" —-·:(")
+
+
+def _why(err) -> str:
+    """Readable reason from an ApiError or from the `error` dict of a stale cache payload."""
+    if isinstance(err, BaseException):
+        err = describe(err)
+    return _tidy((err or {}).get("message"))
+
+
+def _readable(out: dict, part: str = "") -> dict:
+    """Copy of a payload (or of its `part`) whose error message is tidied; the cached object is not touched."""
+    box = out.get(part) if part else out
+    if isinstance(box, dict) and isinstance(box.get("error"), dict):
+        box = {**box, "error": {**box["error"], "message": _tidy(box["error"].get("message"))}}
+        return {**out, part: box} if part else box
+    return out
 
 
 def _alpaca_load(symbols=None) -> dict:
@@ -300,13 +328,13 @@ def news(topic: str = Query("", max_length=16), id: str = Query("", max_length=1
             entry.update(state="loading", error="still waiting for the source (slow answer); it joins on the next refresh")
             continue
         except ApiError as e:
-            entry.update(state="error", error=describe(e)["message"])
+            entry.update(state="error", error=_why(e))
             continue
         except Exception as e:                               # a parser bug must not take the whole page down
             entry.update(state="error", error=f"unexpected {type(e).__name__}")
             continue
         entry.update(ok=True, state="stale" if got.get("stale") else "ok", n=len(got["items"]), as_of=got.get("as_of"),
-                     error=(got.get("error") or {}).get("message") if got.get("stale") else None)
+                     error=_why(got.get("error")) if got.get("stale") else None)
         batches.append(got["items"])
     items = merge_news(batches, now)
     total = len(items)
@@ -373,8 +401,24 @@ def _calendar_base() -> dict:
         raise
 
 
+BLS_STORE = "bls_release_series"
+
+
 def _bls_load(ids) -> dict:
-    return {"as_of": time.time(), "series": bls.parse_many(bls.fetch_many(ids))}
+    out = {"as_of": time.time(), "series": bls.parse_many(bls.fetch_many(ids))}
+    if out["series"]:
+        diskstore.save(BLS_STORE, out)               # BLS is often "busy": a released figure must survive that
+    return out
+
+
+def _bls_from_disk(ids):
+    """The last good BLS answer, if it holds every series asked for. A released figure does not
+    change, and actuals.compute() still refuses an observation of the wrong period."""
+    disk = diskstore.load(BLS_STORE)
+    value = disk["value"] if disk else None
+    if isinstance(value, dict) and isinstance(value.get("series"), dict) and all(i in value["series"] for i in ids):
+        return value
+    return None
 
 
 def _fred_obs(series_id: str, limit: int, ttl: float) -> dict:
@@ -423,20 +467,23 @@ def _fill_actuals(events: list, now: float) -> dict:
         try:
             got = cached("bls:" + ",".join(bls_ids), ttl, lambda: _bls_load(bls_ids), stale_ttl=7 * 86400)
             sources["bls"] = {"ok": not got.get("stale"), "as_of": got["as_of"],
-                              "error": (got.get("error") or {}).get("message")}
+                              "error": _why(got.get("error")) if got.get("stale") else None}
             data.update({("bls", k): v for k, v in got["series"].items()})
         except ApiError as e:
-            sources["bls"] = {"ok": False, "as_of": None, "error": describe(e)["message"]}
+            kept = _bls_from_disk(bls_ids)
+            sources["bls"] = {"ok": False, "as_of": kept["as_of"] if kept else None, "error": _why(e)}
+            if kept:
+                data.update({("bls", k): v for k, v in kept["series"].items()})
     for src, getter in (("fred", _fred_obs), ("eia", _eia_obs)):
         for sid in sorted({s["series"] for _, s in due if s["src"] == src}):
             try:
                 got = getter(sid, 12, ttl)
                 row = sources.setdefault(src, {"ok": True, "as_of": got["as_of"], "error": None})
                 if got.get("stale"):
-                    row.update(ok=False, error=(got.get("error") or {}).get("message"))
+                    row.update(ok=False, error=_why(got.get("error")))
                 data[(src, sid)] = got["obs"]
             except ApiError as e:
-                sources[src] = {"ok": False, "as_of": None, "error": describe(e)["message"]}
+                sources[src] = {"ok": False, "as_of": None, "error": _why(e)}
     filled = 0
     for e, spec in due:
         label = f"{actuals.SOURCE_LABEL[spec['src']]} {spec['series']}"
@@ -450,6 +497,9 @@ def _fill_actuals(events: list, now: float) -> dict:
             filled += 1
         elif series is None:
             e["actual_note"] = f"released — {label} could not be read: {(sources.get(spec['src']) or {}).get('error')}"
+        elif not (sources.get(spec["src"]) or {}).get("ok", True):
+            e["actual_note"] = (f"released — {label} could not be refreshed ({sources[spec['src']]['error']}); the last "
+                                f"answer kept here does not hold the {actuals.expected_period(spec, e['t'])} observation")
         else:
             e["actual_note"] = (f"released — {label} does not show the {actuals.expected_period(spec, e['t'])} "
                                 "observation yet")
@@ -463,7 +513,7 @@ def calendar():
     events = [dict(e) for e in base["events"]]
     now = time.time()
     info = _fill_actuals(events, now)
-    out = {k: v for k, v in base.items() if k != "events"}
+    out = _readable({k: v for k, v in base.items() if k != "events"})
     out.update(week={"from": events[0]["t"], "to": events[-1]["t"]}, actuals=info, ttl=ACTUALS_MIN_TTL, events=events,
                note="Schedule, forecast and previous: ForexFactory weekly export (times converted to UTC). "
                     "Actual: only where an official series (BLS, FRED, EIA) holds this release; empty otherwise.")

@@ -651,6 +651,35 @@ def test_calendar_survives_a_failing_actual_source_and_says_which(client, up, cl
     assert d["actuals"]["sources"]["bls"]["ok"] is False and "service unavailable" in d["actuals"]["sources"]["bls"]["error"]
 
 
+def test_bls_outage_after_a_restart_keeps_released_figures_and_error_text_is_readable(client, up, clock, monkeypatch):
+    d = client.get("/api/calendar").json()                           # BLS answers: the answer is kept on disk
+    assert {e["title"]: e for e in d["events"]}["CPI m/m"]["actual"] == "0.4%"
+    assert diskstore.load(macro.BLS_STORE)["value"]["series"]["CUSR0000SA0"]
+    cache.clear()                                                    # restart, and BLS answers with its "busy" page
+
+    def busy(ids, *a, **k):
+        raise UpstreamError("bls", 503, 'HTTP 503 Service Unavailable — The BLS website is busy '
+                            '(window.BOOMR_mq=window.BOOMR_mq||[]).push(["addVar",{"rua.upush":"false"')
+    monkeypatch.setattr(bls, "fetch_many", busy)
+    d = client.get("/api/calendar").json()
+    ev = {e["title"]: e for e in d["events"] if e["currency"] == "USD"}
+    assert (ev["CPI m/m"]["actual"], ev["CPI m/m"]["actual_source"], ev["CPI m/m"]["actual_period"]) == \
+           ("0.4%", "BLS CUSR0000SA0", "2026-10")
+    src = d["actuals"]["sources"]["bls"]
+    assert src["ok"] is False and src["as_of"] and src["error"].endswith("The BLS website is busy")
+    assert "window" not in json.dumps(d) and "BOOMR" not in json.dumps(d)
+    # the kept answer is never stretched to a later release: PPI (series still at September) stays empty and says why
+    clock.now = utc(2026, 11, 13, 14, 0)
+    cache.clear()
+    d = client.get("/api/calendar").json()
+    ppi = next(e for e in d["events"] if e["title"] == "PPI m/m" and e["currency"] == "USD")
+    assert ppi["actual"] is None and "could not be refreshed" in ppi["actual_note"] and "2026-10" in ppi["actual_note"]
+    assert macro._tidy("HTTP 429 Too Many Requests — Rate Limited html { height: 100%; overflow-y: scroll") == \
+           "HTTP 429 Too Many Requests — Rate Limited"
+    assert macro._tidy("plain sentence (with a bracket)") == "plain sentence (with a bracket)"
+    assert macro._tidy(None) == ""
+
+
 def test_calendar_host_rate_limit_is_respected_and_the_disk_copy_is_served(client, up, clock, monkeypatch):
     assert client.get("/api/calendar").status_code == 200           # writes the disk copy
     assert diskstore.load(macro.CALENDAR_STORE)["value"]["events"]

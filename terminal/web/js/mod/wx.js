@@ -11,25 +11,25 @@
  * Nothing here moves by itself: a storm is drawn where /api/storms says its advisory put it and changes only when
  * a new advisory arrives. No storm → the map stays usable and a strip says which basins were checked and when.
  * Routes (routes/geo.py), each asked at most once per its cache TTL:
- *   /api/storms 300 s · /api/wx/obs 300 s · /api/satellite/layers 300 s · /api/wx/model 900 s · /api/wx/hubs once
+ *   /api/storms 300 s · /api/wx/obs 300 s · /api/satellite/layers 300 s · /api/wx/model 3600 s · /api/wx/hubs once
  */
 (function () {
 'use strict';
 const OT = window.OT, h = OT.ui.h, fmt = OT.fmt, setText = OT.ui.setText, T = OT.theme, DASH = fmt.DASH || '—';
 const R2D = 180 / Math.PI;
-const DUE = { storms: 300, obs: 300, layers: 300, model: 900, hubs: 6 * 3600 };      // seconds between calls of a route
+const DUE = { storms: 300, obs: 300, layers: 300, model: 3600, hubs: 6 * 3600 };      // seconds between calls of a route
 const PATH = { storms: '/api/storms', obs: '/api/wx/obs', layers: '/api/satellite/layers', model: '/api/wx/model', hubs: '/api/wx/hubs' };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 const HOME = [-128, 4, -28, 52];                      // no active system: the Atlantic / East Pacific basins and the US energy coast
 const VIEWS = { gulf: [-99, 17, -66, 43], world: null };
-const KIND = {                                        // how a system is drawn, by class
-  TD: { c: T.info, l: 'D', name: 'Tropical depression (< 34 kt)' },
-  TS: { c: T.amber, l: 'S', name: 'Tropical storm (34–63 kt)' },
-  HU: { c: T.down, l: 'H', name: 'Hurricane / typhoon (64–95 kt)' },
-  MH: { c: T.down, l: 'M', name: 'Major hurricane (≥ 96 kt)' },
-  LO: { c: T.text3, l: 'L', name: 'Post-tropical, remnant low or disturbance' },
+const KIND = {                                        // how a system is drawn, by class (colours read when used: OT.theme is filled after this file loads)
+  TD: { get c() { return T.info; }, l: 'D', name: 'Tropical depression (< 34 kt)' },
+  TS: { get c() { return T.amber; }, l: 'S', name: 'Tropical storm (34–63 kt)' },
+  HU: { get c() { return T.down; }, l: 'H', name: 'Hurricane / typhoon (64–95 kt)' },
+  MH: { get c() { return T.down; }, l: 'M', name: 'Major hurricane (≥ 96 kt)' },
+  LO: { get c() { return T.text3; }, l: 'L', name: 'Post-tropical, remnant low or disturbance' },
 };
 const HUB_TAG = { refining: 'R', lng: 'L', port: 'P', storage: 'S', chokepoint: 'C' };
 const PREF_KEY = 'ot.wx.v1';
@@ -67,6 +67,11 @@ function kindOf(cls, wind) {
   if (c === 'TC' || c === '') return byWind;
   return 'LO';                                        // PTC, PC, LO, EX, DB, WV: no longer (or not yet) a tropical cyclone
 }
+/* an upstream's error text for a one-line note: "HTTP 429 Too Many Requests — {"reason":"Daily API…"}" -> the reason */
+function why(e) {
+  const m = String((e && e.message) || 'failed'), r = /"reason"\s*:\s*"([^"]+)"/.exec(m);
+  return (r ? m.split(' — ')[0] + ' — ' + r[1] : m).slice(0, 140);
+}
 const windColor = v => (!isNum(v) ? T.text3 : v < 10 ? T.text2 : v < 22 ? T.up : v < 34 ? T.amber : T.down);
 function unwrapNear(lon, ref) { return lon + 360 * Math.round((ref - lon) / 360); }
 
@@ -76,7 +81,7 @@ const D = { storms: null, obs: null, layers: null, model: null, hubs: null };   
 const at = {}, err = {}, holdUntil = {};                                             // per route: last attempt (ms), last error, do-not-ask-before (ms)
 const V = { sel: null, station: null, hub: null, fitted: false, autoSel: true, hits: [], frame: 0, viewAt: 0, img: null };
 const pref = (function () {
-  const d = { product: 'geocolor', opacity: 0.6, obs: true, hubs: true, side: 'obs', region: 'gulf' };
+  const d = { product: 'geocolor', opacity: 0.6, obs: true, hubs: true, side: 'adv', region: 'gulf', legend: window.innerWidth >= 1600 };
   try { Object.assign(d, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch (e) { /* private mode */ }
   if (!(d.opacity >= 0.2 && d.opacity <= 1)) d.opacity = 0.6;
   return d;
@@ -125,7 +130,7 @@ function stormBox(s) {
   (s.past || []).slice(-3).forEach(p => pts.push(p));
   let w = Infinity, e = -Infinity, so = Infinity, n = -Infinity;
   pts.forEach(p => { const x = unwrapNear(p[0], s.lon); w = Math.min(w, x); e = Math.max(e, x); so = Math.min(so, p[1]); n = Math.max(n, p[1]); });
-  const gx = Math.max(0, 14 - (e - w)) / 2 + (e - w) * 0.15, gy = Math.max(0, 9 - (n - so)) / 2 + (n - so) * 0.15;
+  const gx = Math.max(0, 18 - (e - w)) / 2 + (e - w) * 0.18, gy = Math.max(0, 11 - (n - so)) / 2 + (n - so) * 0.18;   // room for the labels; never closer than ~18° x 11°
   return [w - gx, Math.max(-80, so - gy), e + gx, Math.min(80, n + gy)];
 }
 function fitStorms() {
@@ -148,7 +153,7 @@ const prevTime = {};                                   // layer -> the time show
 function tileRec(layer, time, z, x, y, mayLoad) {
   const key = layer + '|' + time + '|' + z + '|' + x + '|' + y;
   let r = tiles.get(key);
-  if (r && r.failAt && Date.now() - r.failAt > 45000 && mayLoad) { tiles.delete(key); r = null; }     // a tile that failed is asked again after 45 s
+  if (r && r.failAt && Date.now() - r.failAt > 120000 && mayLoad) { tiles.delete(key); r = null; }    // a tile that failed is asked again after two minutes
   if (!r) {
     if (!mayLoad) return null;
     r = { img: new Image(), ok: false, failAt: 0, used: V.frame };
@@ -166,7 +171,7 @@ const tilePeek = (layer, time, z, x, y) => { const r = time ? tiles.get(layer + 
 function lonOverlap(a0, a1, b0, b1) { for (let s = -720; s <= 720; s += 360) { if (a0 < b1 + s && a1 > b0 + s) return true; } return false; }
 
 function drawImagery(m, x) {
-  const prod = product(), st = { need: 0, ok: 0, wait: 0, fail: 0 };
+  const prod = product(), st = { need: 0, ok: 0, wait: 0, fail: 0, old: 0 };
   if (!prod) return st;
   const W = m.width, H = m.height, k = m.scale, cx = m.center[0], cy = mercY(m.center[1]), dpr = x.getTransform().a || 1;
   const mayLoad = performance.now() - V.viewAt > 140;                                   // not while the view is still moving
@@ -182,6 +187,10 @@ function drawImagery(m, x) {
     if (y1 <= y0) continue;
     while (z > 0 && ((x1 - x0) * (1 << z) / 360 + 1) * ((y1 - y0) * (1 << z) / 360 + 1) > 90) z--;   // never more than ~90 tiles of a layer in view
     const n = 1 << z, span = 360 / n;
+    x.save();                                             // only inside the layer's own box: two satellites are never drawn over each other
+    x.beginPath();
+    for (let o = -720; o <= 720; o += 360) { const a = (L.bbox[0] + o - cx) * k + W / 2, b = (L.bbox[2] + o - cx) * k + W / 2; if (b > 0 && a < W) x.rect(snap(a), 0, snap(b) - snap(a), H); }
+    x.clip();
     const r0 = Math.max(0, Math.floor((y0 + 180) / span)), r1 = Math.min(n - 1, Math.floor((y1 + 180) / span - 1e-9));
     for (let c = Math.floor((x0 + 180) / span); c <= Math.floor((x1 + 180) / span - 1e-9); c++) {
       const wx = -180 + c * span;
@@ -190,7 +199,10 @@ function drawImagery(m, x) {
       for (let ty = r0; ty <= r1; ty++) {
         const wy = -180 + ty * span, sy0 = snap((wy - cy) * k + H / 2), sy1 = snap((wy + span - cy) * k + H / 2);
         st.need++;
-        const rec = tileRec(id, L.time, z, tx, ty, mayLoad);
+        let rec = tileRec(id, L.time, z, tx, ty, mayLoad);
+        if (rec && rec.failAt) {                                                         // GIBS lacks this tile of the frame: the frame before has it
+          for (const t of L.older || []) { const r2 = tileRec(id, t, z, tx, ty, mayLoad); if (!r2 || !r2.failAt) { rec = r2 || { ok: false, failAt: 0 }; if (r2 && r2.ok) st.old++; break; } }
+        }
         if (rec && rec.ok) { x.drawImage(rec.img, sx0, sy0, sx1 - sx0, sy1 - sy0); st.ok++; continue; }
         if (rec && rec.failAt) st.fail++; else st.wait++;
         let sub = tilePeek(id, prevTime[id], z, tx, ty);                                 // the frame shown before, same tile
@@ -204,6 +216,7 @@ function drawImagery(m, x) {
         }
       }
     }
+    x.restore();
   }
   x.restore();
   return st;
@@ -271,7 +284,7 @@ function plate(x, text, px, py, o) {
 function graticule(m, x) {
   const W = m.width, H = m.height, k = m.scale, cx = m.center[0], cy = mercY(m.center[1]), span = W / k;
   const step = [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60].find(s => span / s <= 10) || 60;
-  const lab = (v, pos, neg) => (step < 1 ? Math.abs(v).toFixed(step < 0.1 ? 2 : 1) : String(Math.round(Math.abs(v)))) + '°' + (v < -1e-9 ? neg : v > 1e-9 ? pos : '');
+  const lab = (v, pos, neg) => (step < 1 ? Math.abs(v).toFixed(step < 0.1 ? 2 : 1) : String(Math.round(Math.abs(v)))) + '°' + (Math.abs(v) === 180 && pos === 'E' ? '' : v < -1e-9 ? neg : v > 1e-9 ? pos : '');
   x.strokeStyle = OT.rgba(T.text3, 0.22); x.lineWidth = 1;
   x.beginPath();
   const lons = [], lats = [];
@@ -343,11 +356,13 @@ function drawStormMarks(m, x, s) {
     if (!on(q)) return;
     const d = (s.forecast_detail || [])[i] || {};
     symbol(x, q[0], q[1], 8, kindOf(d.cls || 'TC', p[3]));
+    placed.push([q[0] - 9, q[1] - 9, 18, 18]);
     V.hits.push({ x: q[0], y: q[1], r: 10, pri: 3, type: 'fc', s, i });
   });
   const c = m.pt(s.lon, s.lat);
   if (on(c)) {
     symbol(x, c[0], c[1], 11, kindOf(s.cls, s.wind_kt), { sel: s.id === V.sel });
+    placed.push([c[0] - 13, c[1] - 13, 26, 26]);
     V.hits.push({ x: c[0], y: c[1], r: 14, pri: 4, type: 'storm', s });
   }
 }
@@ -356,15 +371,17 @@ function drawStormLabels(m, x, s) {
   plate(x, s.name.toUpperCase() + ' · ' + (s.cls || '?') + ' · ' + kt(s.wind_kt), c[0] + 16, c[1] - 16, { bold: true, size: 13, line: (KIND[kindOf(s.cls, s.wind_kt)] || KIND.LO).c }) ||
     plate(x, s.name.toUpperCase(), c[0] + 16, c[1] + 16, { bold: true, size: 13 });
   (s.forecast || []).forEach(p => {
-    const q = m.pt(p[0], p[1]);
-    plate(x, wkHm(p[2]) + (isNum(p[3]) ? ' · ' + fmt.num(p[3], 0) + ' kt' : ''), q[0] + 12, q[1] + 14, { color: T.text2 }) ||
-      plate(x, wkHm(p[2]), q[0] + 12, q[1] - 14, { color: T.text2 });
+    const q = m.pt(p[0], p[1]), o = { color: T.text2 }, oc = { color: T.text2, align: 'center' }, or = { color: T.text2, align: 'right' };
+    const spots = [[q[0], q[1] + 22, oc], [q[0], q[1] - 22, oc], [q[0] + 13, q[1] + 16, o], [q[0] + 13, q[1] - 16, o], [q[0] - 13, q[1] + 16, or], [q[0] - 13, q[1] - 16, or], [q[0], q[1] + 42, oc], [q[0], q[1] - 42, oc]];
+    const full = wkHm(p[2]) + (isNum(p[3]) ? ' · ' + fmt.num(p[3], 0) + ' kt' : '');
+    spots.some(a => plate(x, full, a[0], a[1], a[2])) || spots.some(a => plate(x, wkHm(p[2]), a[0], a[1], a[2]));
   });
 }
 function diamond(x, px, py, r) { x.beginPath(); x.moveTo(px, py - r); x.lineTo(px + r, py); x.lineTo(px, py + r); x.lineTo(px - r, py); x.closePath(); }
 
 function overlay(m, x) {
   V.frame++; V.hits = []; placed.length = 0;
+  if (E.ctl) placed.push([E.ctl.offsetLeft - 6, 0, E.ctl.offsetWidth + 12, E.ctl.offsetTop + E.ctl.offsetHeight + 6]);   // the buttons: no label under them
   const W = m.width, H = m.height, k = m.scale;
   const img = drawImagery(m, x);
   if (product()) drawCoast(m, x);
@@ -474,12 +491,12 @@ function tipFor(hit) {
       isNum(r.pressure_mb) ? ['Pressure', fmt.num(r.pressure_mb, 0) + ' hPa'] : null,
       isNum(r.wave_m) ? ['Waves', fmt.num(r.wave_m, 1) + ' m'] : null,
       r.storm ? ['Nearest track', r.storm + ' · ' + km(r.storm_km) + ' (derived)'] : null,
-    ], hb.what);
+    ], hb.what + (hb.check ? ' — position checked: ' + hb.check : ''));
   }
   return null;
 }
 function onHover(lon, lat, px, py) {
-  setText(E.cursor, ll(lat, lon, map.scale > 40 ? 2 : 1));
+  setText(E.cursor, ll(lat, lon, map.scale > 40 ? 2 : 1)); E.cursor.hidden = false;
   const hit = hitAt(px, py);
   return hit ? tipFor(hit) : null;
 }
@@ -562,7 +579,7 @@ function paintStorms() {
 
 function paintDetail() {
   const s = V.sel ? stormById(V.sel) : null;
-  E.detail.hidden = !s;
+  applySide();
   if (!s) return;
   setText(E.dTitle, (s.title || s.name).toUpperCase());
   setText(E.dSub, s.id.toUpperCase() + ' · ' + s.basin_name + (isNum(s.category) ? ' · Saffir-Simpson category ' + s.category + ' (derived from the wind)' : ''));
@@ -603,7 +620,7 @@ function hubRow(hb) {
     const p = D.model && (D.model.points || []).find(q => q.id === hb.id);
     if (p && (isNum(p.wind_kt) || isNum(p.wave_m))) Object.assign(out, { src: 'model', wind_kt: p.wind_kt, wind_dir: p.wind_dir, pressure_mb: p.pressure_mb, wave_m: p.wave_m, t: p.t });
     else if (hb.kind === 'chokepoint') {
-      const bad = D.model ? (D.model.parts || []).filter(q => !q.ok).map(q => q.what + ': ' + ((q.error && q.error.message) || 'failed').slice(0, 90)) : [];
+      const bad = D.model ? (D.model.parts || []).filter(q => !q.ok).map(q => q.what + ': ' + why(q.error)) : [];
       out.why += D.model ? ' · Open-Meteo model unavailable (' + (bad.join(' · ') || 'no values') + ')' : err.model ? ' · model route: ' + err.model.message : ' · model not loaded yet';
     } else if (hb.kind === 'storage') out.why = 'inland: no marine observation';
   } else if (err.obs) out.why = 'NDBC: ' + err.obs.message;
@@ -619,8 +636,8 @@ function paintHubs() {
   let note = '';
   if (m) {
     const bad = (m.parts || []).filter(p => !p.ok);
-    note = bad.length === (m.parts || []).length ? 'Open-Meteo MODEL values unavailable: ' + ((bad[0].error && bad[0].error.message) || '').slice(0, 110)
-      : bad.length ? 'Open-Meteo: ' + bad.map(p => p.what).join(', ') + ' unavailable (' + ((bad[0].error && bad[0].error.message) || '').slice(0, 80) + ')' : '';
+    note = bad.length === (m.parts || []).length ? 'Open-Meteo MODEL values unavailable: ' + why(bad[0].error) + '.'
+      : bad.length ? 'Open-Meteo: ' + bad.map(p => p.what).join(', ') + ' unavailable (' + why(bad[0].error) + ').' : '';
   } else if (err.model) note = 'Model route: ' + err.model.message;
   setText(E.hubNote, 'Reference points (static, coordinates checked ' + ((D.hubs && D.hubs.checked) || '') + '). Weather: the nearest NDBC station within 150 km; MODEL only where none exists.' + (note ? ' ' + note : ''));
   setText(E.cntHubs, hubs().length ? String(hubs().length) : DASH);
@@ -661,35 +678,49 @@ function paintLayers() {
 function paintImageryNote(st) {
   V.img = st || V.img;
   const d = D.layers, prod = product();
-  let text, tip = '', cls = '';
+  let text, tip = '', cls = '', tail = '';
   if (pref.product === 'off') text = 'Imagery off';
   else if (!d) { text = err.layers ? 'Imagery unavailable — ' + err.layers.message : 'Asking NASA GIBS which imagery exists…'; cls = err.layers ? 'bad' : ''; }
   else if (!prod) text = 'Imagery off';
   else {
     const parts = prod.parts.map(id => d.layers[id]).filter(Boolean);
-    const one = L => L.label + ' ' + (L.ok && L.time ? (L.step === 'day' ? L.time : L.time.slice(11, 16) + 'Z ' + Number(L.time.slice(8, 10)) + ' ' + MONTHS[Number(L.time.slice(5, 7)) - 1]) : 'unavailable');
+    const today = new Date().toISOString().slice(0, 10);
+    const one = L => L.label + ' ' + (L.ok && L.time ? (L.step === 'day' ? L.time : L.time.slice(11, 16) + 'Z' + (L.time.slice(0, 10) === today ? '' : ' ' + Number(L.time.slice(8, 10)) + ' ' + MONTHS[Number(L.time.slice(5, 7)) - 1])) : 'unavailable');
     text = prod.label + ' · ' + parts.map(one).join(' · ') + ' · NASA GIBS';
     const s = V.img;
-    if (s && s.need) text += s.wait ? ' · loading ' + s.wait + ' of ' + s.need + ' tiles' : s.fail ? ' · ' + s.fail + ' of ' + s.need + ' tiles not available' : '';
+    if (s && s.need) tail = s.wait ? ' · loading ' + s.wait + '/' + s.need + ' tiles' : s.fail ? ' · no imagery for ' + s.fail + '/' + s.need + ' tiles' : s.old ? ' · ' + s.old + '/' + s.need + ' tiles from the frame before' : '';
     if (d.stale || err.layers) { text += ' · list not refreshed since ' + fmt.hm(d.as_of); cls = 'bad'; }
     tip = prod.what + '\n' + parts.map(L => L.gibs + ': ' + (L.ok ? L.time + (L.note ? ' — ' + L.note : '') : (L.error && L.error.message) || 'unavailable')).join('\n') + '\nUpdated every ' + prod.cadence + ' by GIBS; the gateway re-checks every 5 minutes.';
   }
-  setText(E.imgText, text);
+  setText(E.imgText, text); setText(E.imgTail, tail);
   if (E.img.getAttribute('data-tip') !== tip) { if (tip) E.img.setAttribute('data-tip', tip); else E.img.removeAttribute('data-tip'); }
   E.img.className = 'wx-img ' + cls;
   const newest = prod && d ? Math.max.apply(null, prod.parts.map(id => (d.layers[id] && d.layers[id].t) || 0)) : 0;
   V.imgT = newest || null;
+  E.imgAge.hidden = !V.imgT;
+  if (V.imgT) E.imgAge.refresh();
 }
 
 /* ---------- selection ---------- */
 function selectStorm(id, fly) {
   V.sel = id; V.autoSel = false;
   const s = stormById(id);
+  pref.side = 'adv'; savePref();
   paintSystems(); paintDetail();
   if (s && fly) map.fit(stormBox(s), { pad: 0.06 });
   map.invalidate();
 }
-function showSide(which) { pref.side = which; savePref(); sideTabs.set(which, false); E.obsPane.hidden = which !== 'obs'; E.hubPane.hidden = which !== 'hubs'; }
+/* One panel, three panes: the selected system's advisory, the observations, the reference points. The advisory
+   tab exists only while a system is selected; without one the panel falls back to the observations. */
+function applySide() {
+  const has = !!(V.sel && stormById(V.sel));
+  const which = pref.side === 'adv' && !has ? 'obs' : pref.side;
+  E.advTab.hidden = !has;
+  sideTabs.set(which, false);
+  E.detail.hidden = which !== 'adv'; E.obsPane.hidden = which !== 'obs'; E.hubPane.hidden = which !== 'hubs';
+  E.obsMeta.hidden = which === 'adv';
+}
+function showSide(which) { pref.side = which; savePref(); applySide(); }
 function selectStation(id, fly) {
   const o = stations().find(q => q.id === id);
   if (!o) return;
@@ -719,10 +750,11 @@ const REGION_LABEL = { gulf: 'Gulf', east: 'East Coast', carib: 'Caribbean', wes
 /* ════════════════════════════════ module ════════════════════════════════ */
 function build(root) {
   cv = h('canvas', { class: 'ot-canvas', 'aria-label': 'Weather map: tropical cyclones, cloud imagery, marine observations and energy reference points. Drag to pan, wheel to zoom, arrow keys and + / - when focused, 0 for the first view.' });
-  E.cursor = h('span', { class: 'wx-cursor' }, 'move over the map for coordinates');
+  E.cursor = h('span', { class: 'wx-cursor', hidden: true, 'aria-label': 'Position under the pointer' });
   E.imgText = h('span', {});
   E.imgAge = OT.ui.ageLabel(() => V.imgT, { prefix: ' · ', suffix: ' old' });
-  E.img = h('div', { class: 'wx-img' }, E.imgText, E.imgAge);
+  E.imgTail = h('span', {});
+  E.img = h('div', { class: 'wx-img' }, E.imgText, E.imgAge, E.imgTail);
   const dot = (c, hollow) => h('i', { class: 'wx-dot' + (hollow ? ' hollow' : ''), style: 'background:' + (hollow ? 'transparent' : c) + ';border-color:' + c });
   const sym = k2 => h('i', { class: 'wx-sym sm k-' + k2 }, KIND[k2].l);
   const lg = (el, label, tip) => h('span', { class: 'wx-lg', tip: tip || null }, el, label);
@@ -733,10 +765,11 @@ function build(root) {
       lg(h('i', { class: 'wx-dia' }), 'energy hub'), lg(h('i', { class: 'wx-dia hollow' }), 'chokepoint')));
   const btn = (label, tip, fn, id) => h('button', { class: 'btn', type: 'button', tip, 'data-view': id, onclick: fn }, label);
   E.fitBtn = btn('Storms', 'Fit the map to the active systems', () => fitStorms(), 'storms');
-  E.ctl = h('div', { class: 'wx-ctl' }, E.fitBtn, btn('US Gulf / East', 'The US Gulf and East Coast energy infrastructure', () => map.fit(VIEWS.gulf, { pad: 0.02 }), 'gulf'),
+  E.ctl = h('div', { class: 'wx-ctl' }, E.cursor, E.fitBtn, btn('US Gulf / East', 'The US Gulf and East Coast energy infrastructure', () => map.fit(VIEWS.gulf, { pad: 0.02 }), 'gulf'),
     btn('World', 'The whole map', () => map.setView({ lon: -60, lat: 20, zoom: 1 }), 'world'),
     btn('+', 'Zoom in', () => map.setView({ zoom: map.zoom * 1.6 }), 'in'), btn('−', 'Zoom out', () => map.setView({ zoom: map.zoom / 1.6 }), 'out'));
-  E.map = h('div', { class: 'wx-map' }, cv, E.ctl, h('div', { class: 'wx-foot' }, E.legend, h('div', { class: 'wx-foot-r' }, E.cursor, E.img)));
+  E.legend.hidden = !pref.legend;
+  E.map = h('div', { class: 'wx-map' }, h('div', { class: 'wx-cv' }, cv, E.ctl), h('div', { class: 'wx-foot' }, E.img, E.legend));
 
   /* systems */
   E.sysCount = h('span', { class: 'wx-count val' }, DASH);
@@ -772,9 +805,9 @@ function build(root) {
   ] });
   E.dErr = h('div', { class: 'wx-d-err', hidden: true });
   E.dLink = h('a', { class: 'wx-d-link', target: '_blank', rel: 'noopener noreferrer', hidden: true }, 'Advisory text at nhc.noaa.gov (opens a new tab)');
-  E.detail = h('section', { class: 'panel wx-detail', hidden: true },
-    h('div', { class: 'panel-head wx-d-headrow' }, E.dTitle, E.dBadge),
-    h('div', { class: 'panel-body wx-d-body' }, E.dSub, E.dHead, kvs, E.fcBox, E.fcNone,
+  E.detail = h('div', { class: 'wx-pane wx-detail', hidden: true },
+    h('div', { class: 'wx-d-headrow' }, E.dTitle, E.dBadge),
+    h('div', { class: 'wx-d-body' }, E.dSub, E.dHead, kvs, E.fcBox, E.fcNone,
       h('div', { class: 'wx-near-head' }, OT.ui.badge('DERIVED', null, { note: 'Computed here: shortest great-circle distance (mean Earth radius 6371 km) from the forecast track — the advisory position and the forecast points joined by great-circle segments — to each reference point.' }), E.nearBasis),
       E.nearBox, E.dErr, E.dLink));
 
@@ -784,8 +817,10 @@ function build(root) {
   E.obsAge = OT.ui.ageLabel(() => (D.obs ? D.obs.as_of : null), { format: fmt.asof, prefix: 'file read ' });
   E.obsAge.classList.add('wx-obs-age');
   const dataHead = h('div', { class: 'panel-head wx-data-head' });
-  sideTabs = OT.ui.tabs(dataHead, { label: 'Tables', value: pref.side, items: [{ id: 'obs', label: 'Marine observations' }, { id: 'hubs', label: 'Energy hubs' }], onChange: showSide });
-  dataHead.append(E.obsBadge, E.obsAge);
+  sideTabs = OT.ui.tabs(dataHead, { label: 'Side panel', value: 'obs', items: [{ id: 'adv', label: 'Advisory' }, { id: 'obs', label: 'Marine observations' }, { id: 'hubs', label: 'Energy hubs' }], onChange: showSide });
+  E.advTab = sideTabs.el.querySelector('[data-id="adv"]');
+  E.obsMeta = h('span', { class: 'wx-obs-meta' }, E.obsBadge, E.obsAge);
+  dataHead.append(E.obsMeta);
   const regionBar = h('div', { class: 'wx-regions' });
   regionTabs = OT.ui.tabs(regionBar, { label: 'Region', value: REGION_IDS.includes(pref.region) ? pref.region : 'gulf', items: REGION_IDS.map(id => ({ id, label: REGION_LABEL[id] })),
     onChange: id => { pref.region = id; savePref(); paintObs(); const b = id !== 'all' && D.obs ? (D.obs.regions || []).find(r => r.id === id) : null; if (b) map.fit(b.bbox, { pad: 0.03 }); } });
@@ -822,10 +857,10 @@ function build(root) {
     { id: 'storm_km', label: 'Storm track', num: true, fmt: (v, r) => (isNum(v) ? r.storm + ' ' + fmt.num(v, 0) + ' km' : DASH), title: 'DERIVED: great-circle distance to the nearest active system\'s forecast track' },
   ] });
   E.hubPane = h('div', { class: 'wx-pane', hidden: true }, E.hubNote, E.hubBody);
-  const data = h('section', { class: 'panel wx-data' }, dataHead, h('div', { class: 'panel-body wx-data-body' }, E.obsPane, E.hubPane));
+  const data = h('section', { class: 'panel wx-data' }, dataHead, h('div', { class: 'panel-body wx-data-body' }, E.detail, E.obsPane, E.hubPane));
 
   E.strip = h('div', { class: 'wx-strip' });
-  root.appendChild(h('div', { class: 'wx' }, E.strip, h('div', { class: 'wx-grid' }, E.map, h('div', { class: 'wx-side' }, systems, E.detail, data))));
+  root.appendChild(h('div', { class: 'wx' }, E.strip, h('div', { class: 'wx-grid' }, E.map, h('div', { class: 'wx-side' }, systems, data))));
 
   /* header controls: imagery product, its opacity, what is drawn on top */
   productSel = OT.ui.select(null, { label: 'Imagery', value: pref.product, options: [{ value: pref.product, label: pref.product === 'off' ? 'No imagery' : 'loading…' }],
@@ -833,22 +868,31 @@ function build(root) {
   E.opVal = h('span', { class: 'wx-op-val' }, Math.round(pref.opacity * 100) + '%');
   E.op = h('input', { type: 'range', class: 'wx-range', min: '20', max: '100', step: '5', value: String(Math.round(pref.opacity * 100)), 'aria-label': 'Imagery opacity',
     oninput: e => { pref.opacity = Math.max(0.2, Math.min(1, e.target.value / 100)); setText(E.opVal, Math.round(pref.opacity * 100) + '%'); savePref(); map.invalidate(); } });
-  const toggle = (key, label, tip) => { const b = h('button', { class: 'btn', type: 'button', tip, 'aria-pressed': String(!!pref[key]), 'data-toggle': key }, label); b.addEventListener('click', () => { pref[key] = !pref[key]; b.setAttribute('aria-pressed', String(pref[key])); savePref(); map.invalidate(); }); return b; };
+  const toggle = (key, label, tip) => { const b = h('button', { class: 'btn', type: 'button', tip, 'aria-pressed': String(!!pref[key]), 'data-toggle': key }, label); b.addEventListener('click', () => { pref[key] = !pref[key]; b.setAttribute('aria-pressed', String(pref[key])); savePref(); if (key === 'legend') E.legend.hidden = !pref.legend; map.invalidate(); }); return b; };
   ctx.header.controls.append(productSel.el, h('label', { class: 'field' }, h('span', {}, 'Opacity'), E.op, E.opVal),
-    toggle('obs', 'Buoys', 'Show the NDBC marine observations on the map'), toggle('hubs', 'Hubs', 'Show the energy reference points on the map'));
+    toggle('obs', 'Buoys', 'Show the NDBC marine observations on the map'), toggle('hubs', 'Hubs', 'Show the energy reference points on the map'), toggle('legend', 'Legend', 'Show the legend under the map'));
 }
 
 OT.register({
   id: 'WX', title: 'Weather', group: 'WORLD', needs: null,
+  help: { shows: 'World map of the active tropical cyclones exactly as the forecasting centre last published them (advisory position, wind, pressure, motion, past track, forecast track with times, cone, wind field; issue time and next advisory), real cloud imagery underneath, measured marine observations from NOAA buoys, and energy reference points with the DERIVED great-circle distance from each forecast track. Nothing moves until a new advisory is issued.',
+    sources: ['noaa-nhc', 'esri-active-hurricanes', 'ndbc', 'nasa-gibs', 'open-meteo (MODEL)', 'reference'] },
   mount(root, c) {
     ctx = c;
     build(root);
     map = OT.GeoMap(cv, { proj: 'merc', lon: -78, lat: 28, zoom: 3.2, graticule: false, borders: true, overlay,
       colors: { coast: OT.rgba(T.text3, 0.8), border: OT.rgba(T.text3, 0.3) } });
     map.onHover(onHover).onClick(onClick);
+    /* read-only view of what is drawn, for the e2e spec (positions of the symbols, the current view, tile state) */
+    cv.__wx = {
+      view: () => ({ lon: map.center[0], lat: map.center[1], zoom: map.zoom, scale: map.scale, w: map.width, h: map.height }),
+      hits: () => V.hits.map(q => ({ type: q.type, x: q.x, y: q.y, r: q.r, i: q.i, id: q.s ? q.s.id : q.o ? q.o.id : q.hb.id })),
+      sel: () => ({ storm: V.sel, station: V.station, hub: V.hub }), tiles: () => (V.img ? Object.assign({}, V.img) : null),
+    };
     map.onView(() => { V.viewAt = performance.now(); clearTimeout(V.viewTimer); V.viewTimer = setTimeout(() => map.invalidate(), 170); });
-    cv.addEventListener('pointerleave', () => setText(E.cursor, 'move over the map for coordinates'));
-    showSide(pref.side === 'hubs' ? 'hubs' : 'obs');
+    cv.addEventListener('pointerleave', () => { E.cursor.hidden = true; });
+    if (!['adv', 'obs', 'hubs'].includes(pref.side)) pref.side = 'adv';
+    applySide();
     ctx.header.setSource({ freshness: 'ADVISORY', source: 'noaa-nhc', ts: null, note: 'Waiting for the first answer of /api/storms' });
   },
   show() {

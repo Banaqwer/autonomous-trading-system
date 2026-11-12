@@ -49,8 +49,8 @@ KM_PER_NM = 1.852
 
 # ------------------------------------------------------------------ reference points
 # Static REFERENCE data (not a feed): where the oil and LNG infrastructure is that a storm can shut.
-# lat / lon are the facility or the narrowest part of the strait. Each was checked against two independent
-# sources (see `verified`); `tol_km` is how far the two sources disagree at most.
+# lat / lon are the facility, the middle of a cluster of facilities, or the fairway of a strait. HUB_CHECK says
+# what each point was compared with on 2026-11-12 (a hub that stands for several plants is compared with each).
 HUBS = [
     {"id": "houston", "name": "Houston Ship Channel", "kind": "refining", "lat": 29.73, "lon": -95.13,
      "what": "Largest US refining and petrochemical complex (Baytown, Deer Park, Pasadena)"},
@@ -95,8 +95,33 @@ HUBS = [
 ]
 HUB_KINDS = {"refining": "Refining", "lng": "LNG export", "port": "Oil port", "storage": "Storage hub",
              "chokepoint": "Chokepoint"}
-HUB_VERIFIED = ("Coordinates compared with two independent sources per point "
-                "(see terminal/DEV_NOTES or the S4 hand-over for the table)")
+# Second sources, 2026-11-12. OSM = OpenStreetMap Nominatim search result (distance from the point to it);
+# NDBC = the NOAA station of that place (its published position); NE = Natural Earth 1:50m coastline (the file the
+# map draws): the point lies in the water of the strait; Wikipedia = the article's coordinates.
+HUB_CHECK = {
+    "houston": "OSM Deer Park 2.8 km, Baytown 14.7 km (the channel between them); NDBC NCHT2 13 km",
+    "texas_city": "OSM Texas City 2.5 km; NDBC GRRT2 9 km",
+    "port_arthur": "OSM Port Arthur 3.3 km; NDBC PORT2 4 km",
+    "sabine_pass": "OSM Sabine Pass 2.6 km; NDBC TXPT2 6 km",
+    "lake_charles": "OSM Hackberry 6.3 km, Lake Charles 23.8 km (the ship channel between them)",
+    "freeport": "OSM Freeport LNG 1.1 km, Quintana 0.8 km; NDBC FPST2 2 km",
+    "corpus_christi": "OSM Corpus Christi 6.3 km, Port of Corpus Christi (inner harbour) 12 km",
+    "loop": "Wikipedia 28.8852, -90.0251 (0 km); NE: open water 30 km off Port Fourchon (OSM 30.9 km)",
+    "mississippi_river": "OSM Garyville 1.5 km, Norco 21.1 km, Convent 20.7 km (the corridor's middle)",
+    "pascagoula": "OSM Pascagoula Refinery 0.9 km; NDBC GDXM6 7 km",
+    "cushing": "OSM Cushing 0.9 km; Wikipedia 35.9797, -96.7608 (0.1 km)",
+    "ny_harbor": "OSM Bayway Refinery 1.1 km; NDBC MHRN6 4 km",
+    "delaware_river": "OSM Trainer 1.5 km, Paulsboro 13.7 km, Delaware City 31.4 km (upstream end of the cluster)",
+    "cove_point": "OSM Cove Point 2.0 km; NDBC COVM2 3 km",
+    "elba_island": "OSM Elba Island 1.2 km; NDBC FPKG1 10 km",
+    "hormuz": "OSM Strait of Hormuz 14.2 km; NE: in the water, strait 26.23-26.94 N at this longitude",
+    "suez": "OSM Ismailia (canal mid-point) 2.8 km, Suez Canal 6.7 km",
+    "bab_el_mandeb": "OSM Bab-el-Mandeb 2.0 km; NE: in the water of the strait",
+    "malacca": "NE: in the water, strait 100.28-101.84 E at this latitude (mid-channel off Port Dickson, OSM 68 km)",
+    "panama": "OSM Gamboa (canal mid-point) 4.8 km, Panama Canal (Pacific entrance) 17.1 km",
+}
+HUB_VERIFIED = ("Reference coordinates, compared on 2026-11-12 with OpenStreetMap (every point), the NOAA station of "
+                "the same place, Wikipedia or the Natural Earth coastline; `check` on each point says with what.")
 
 # First match wins (the Caribbean box overlaps the south of the Gulf box).
 REGIONS = [
@@ -312,7 +337,7 @@ def storms():
 # ------------------------------------------------------------------ reference points
 def _hub_public(h: dict) -> dict:
     return {"id": h["id"], "name": h["name"], "kind": h["kind"], "kind_name": HUB_KINDS[h["kind"]],
-            "lat": h["lat"], "lon": h["lon"], "what": h["what"]}
+            "lat": h["lat"], "lon": h["lon"], "what": h["what"], "check": HUB_CHECK[h["id"]]}
 
 
 @router.get("/api/wx/hubs")
@@ -410,13 +435,21 @@ def wx_model():
     points = [dict(_hub_public(h), t=None, grid_lat=None, grid_lon=None, **{v: None for v in _MODEL_NAMES.values()})
               for h in MODEL_HUBS]
     parts, as_of = [], None
-    for what, key, fetch, fields in MODEL_PARTS:
-        def load(fetch=fetch, fields=fields):
+
+    def part(spec):
+        _, key, fetch, fields = spec
+
+        def load():
             return {"as_of": time.time(), "rows": openmeteo.parse_current(fetch(pts), len(pts), fields)}
         try:
-            got = cached(key, MODEL_TTL, load, stale_ttl=6 * 3600, error_ttl=MODEL_ERROR_TTL)
+            return cached(key, MODEL_TTL, load, stale_ttl=6 * 3600, error_ttl=MODEL_ERROR_TTL)
         except ApiError as e:
-            parts.append({"what": what, "ok": False, "error": describe(e), "as_of": None})
+            return e
+    with ThreadPoolExecutor(max_workers=len(MODEL_PARTS)) as pool:       # side by side: a silent upstream costs one timeout, not two
+        answers = list(pool.map(part, MODEL_PARTS))
+    for (what, _, _, fields), got in zip(MODEL_PARTS, answers):
+        if isinstance(got, ApiError):
+            parts.append({"what": what, "ok": False, "error": describe(got), "as_of": None})
             continue
         parts.append({"what": what, "ok": not got.get("stale"), "error": got.get("error"), "as_of": got["as_of"]})
         as_of = max(as_of or 0, got["as_of"])
@@ -448,6 +481,7 @@ def _resolve_layer(layer_id: str, now: float) -> dict:
             if cand != got["time"]:
                 got["note"] = f"the mosaic of {got['time']} is empty: showing {cand}"
             got["time"], got["t"] = cand, gibs.time_epoch(layer_id, cand)
+            got["older"] = [t for t in got["older"] if t < cand]
             break
     return got
 
@@ -474,6 +508,7 @@ def _load_layers() -> dict:
             "ok": err is None, "error": err,
             "time": got["time"] if got else None, "t": got["t"] if got else None,
             "newest": got["newest"] if got else None, "note": got["note"] if got else None,
+            "older": got["older"] if got else [],
         }
     return {
         "source": "nasa-gibs", "freshness": "IMAGERY", "as_of": now,

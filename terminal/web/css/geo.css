@@ -1,1 +1,119 @@
-/* geo slice styles — owned by the slice agent. Use the tokens from terminal.css; no hard-coded colours or sizes. */
+/* geo slice (S4) — the WX module. Tokens from terminal.css only: no hard-coded colours, nothing below var(--fs-min).
+   Layout: [strip] over [map | side]. The map takes what is left; the side column (systems, the selected system's
+   advisory, the observation / hub tables) scrolls inside itself when the window is short. */
+.wx{position:absolute;inset:0;display:flex;flex-direction:column;min-width:0;min-height:0}
+.wx-strip{flex:none;position:relative}
+.wx-strip .ot-state.strip{position:relative}
+.wx-grid{flex:1 1 auto;display:grid;grid-template-columns:minmax(0,1fr) clamp(430px,33vw,640px);gap:8px;padding:8px;min-height:0;min-width:0}
+
+/* ---------- map ---------- */
+.wx-map{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.wx-cv{position:relative;flex:1 1 0;min-height:120px;min-width:0;overflow:hidden}
+.wx-cv canvas{position:absolute;inset:0}   /* out of flow: the canvas's own pixel size must never feed back into the box */
+.wx-cv canvas:focus-visible{outline-offset:-2px}
+.wx-ctl{position:absolute;top:8px;right:8px;z-index:2;display:flex;gap:4px}
+.wx-ctl .btn{background:var(--panel)}
+.wx-foot{flex:none;display:flex;flex-direction:column;gap:4px;padding:5px 10px;border-top:1px solid var(--line);
+  font-size:var(--fs-min);line-height:1.5;color:var(--text-2)}
+.wx-legend{display:flex;flex-wrap:wrap;gap:2px 22px;min-width:0;padding-top:4px;border-top:1px solid var(--line)}
+.wx-legend>div{display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px}
+.wx-legend b{color:var(--text-3);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.wx-lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.wx-cursor{display:inline-flex;align-items:center;justify-content:center;height:28px;min-width:19ch;padding:0 8px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  font-size:var(--fs-sm);color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
+.wx-img{color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}   /* one line always: the map must not change height when the text does */
+.wx-img.bad{color:var(--down)}
+.wx-dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid}
+.wx-ln{display:inline-block;width:22px;height:0;border-top:2px solid var(--text-2)}
+.wx-ln.fc{border-top:2px dashed var(--text)}
+.wx-box{display:inline-block;width:16px;height:11px;border:1px solid var(--text);background:var(--line-2)}
+.wx-box.wind{border-color:var(--amber);background:var(--sel-bg)}
+.wx-dia{display:inline-block;width:9px;height:9px;margin:0 2px;transform:rotate(45deg);background:var(--eod);border:1px solid var(--bg)}
+.wx-dia.hollow{background:var(--bg);border:2px solid var(--eod)}
+
+/* class symbol: the same letter and colour as on the map */
+.wx-sym{display:inline-flex;align-items:center;justify-content:center;flex:none;width:24px;height:24px;border-radius:50%;
+  font-style:normal;font-weight:700;font-size:var(--fs-sm);line-height:1;color:var(--bg);background:var(--text-3)}
+.wx-sym.sm{width:18px;height:18px;font-size:var(--fs-min)}
+.wx-sym.k-TD{background:var(--info)} .wx-sym.k-TS{background:var(--amber)} .wx-sym.k-HU{background:var(--down)}
+.wx-sym.k-MH{background:var(--down);box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--down)}
+.wx-sym.sm.k-MH{box-shadow:0 0 0 1px var(--panel),0 0 0 3px var(--down);margin:0 2px}
+.wx-sym.k-LO{background:var(--text-3)}
+
+/* ---------- side column ---------- */
+.wx-side{display:flex;flex-direction:column;gap:8px;min-width:0;min-height:0}
+.wx-systems{flex:0 1 auto;max-height:42%}
+.wx-count{margin-left:6px;color:var(--amber);font-weight:700;font-variant-numeric:tabular-nums}
+.wx-list{display:flex;flex-direction:column}
+.wx-sys{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 10px;align-items:center;width:100%;padding:8px 10px;
+  background:none;border:0;border-bottom:1px solid var(--line);text-align:left;cursor:pointer;color:var(--text)}
+.wx-sys:hover{background:var(--panel-2)}
+.wx-sys.sel{background:var(--sel-bg);box-shadow:inset 3px 0 0 var(--amber)}
+.wx-sys:focus-visible{outline-offset:-2px}
+.wx-sys .wx-sym{grid-row:1 / span 2}
+.wx-sys-l1{display:flex;align-items:baseline;gap:8px;min-width:0;white-space:nowrap;overflow:hidden}
+.wx-sys-name{font-size:var(--fs-title);color:var(--text)}
+.wx-sys-cls{font-size:var(--fs-sm);color:var(--text-2);overflow:hidden;text-overflow:ellipsis}
+.wx-sys-wind{font-size:var(--fs-title);font-weight:700;text-align:right;white-space:nowrap}
+.wx-sys-l2{grid-column:2 / span 2;font-size:var(--fs-sm);color:var(--text-2)}
+.wx-sys-l3{grid-column:2 / span 2;font-size:var(--fs-min);color:var(--text-3)}
+.wx-checked{padding:6px 10px}
+
+.wx-detail{overflow-y:auto}
+.wx-d-headrow{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px 0}
+.wx-d-title{font-size:var(--fs-title);font-weight:700;color:var(--amber);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wx-d-body{display:flex;flex-direction:column;gap:8px;padding:8px 10px}
+.wx-d-sub{font-size:var(--fs-sm);color:var(--text-2)}
+.wx-d-head{font-size:var(--fs-sm);line-height:1.45;color:var(--text);padding:4px 8px;border-left:3px solid var(--amber);background:var(--panel-2)}
+.wx-kv{font-size:var(--fs-data)}
+.wx-kv dd{white-space:normal}
+.wx-next{color:var(--amber);font-weight:700}
+.wx-next-note{font-family:var(--sans);font-size:var(--fs-min);line-height:1.4;color:var(--text-2);font-weight:400}
+.wx-fc,.wx-near{border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto}
+.wx-near-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--text-2)}
+.wx-d-err{font-family:var(--sans);font-size:var(--fs-sm);color:var(--down)}
+.wx-d-link{font-size:var(--fs-sm)}
+
+/* ---------- tables ---------- */
+.wx-data{flex:1 1 0;min-height:200px}
+.wx-data-head{flex-wrap:wrap;gap:6px 10px;padding-top:4px;padding-bottom:4px;text-transform:none;letter-spacing:0}
+.wx-obs-meta{display:inline-flex;align-items:center;gap:8px;margin-left:auto}
+.wx-obs-age{font-size:var(--fs-min);color:var(--text-3)}
+.wx-data-body{display:flex;flex-direction:column;overflow:hidden}
+.wx-pane{display:flex;flex-direction:column;flex:1 1 0;min-height:0}
+.wx-regions{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:6px 10px;border-bottom:1px solid var(--line)}
+.wx-regions-n{margin-left:auto;font-size:var(--fs-min);color:var(--text-2);white-space:nowrap}
+.wx-regions-n .wx-count{margin:0 4px 0 0}
+.wx-tblbox{position:relative;flex:1 1 0;min-height:120px;overflow:auto}
+.wx-hub-note{flex:none;padding:6px 10px;border-bottom:1px solid var(--line);font-size:var(--fs-min)}
+.wx-tbl{font-size:var(--fs-sm)}
+.wx-tbl th,.wx-tbl td{padding:0 6px}
+.wx-tbl th{font-size:var(--fs-min)}
+.wx-st-id{color:var(--text);margin-right:6px}
+.wx-st-name{display:inline-block;max-width:15ch;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text-3);font-size:var(--fs-min)}
+.wx-hub-name{display:inline-block;max-width:26ch;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.ot-table td.wx-warn,.ot-table td.wx-old{color:var(--amber)}
+.ot-table td.wx-k-TD{color:var(--info);font-weight:700} .ot-table td.wx-k-TS{color:var(--amber);font-weight:700}
+.ot-table td.wx-k-HU,.ot-table td.wx-k-MH{color:var(--down);font-weight:700} .ot-table td.wx-k-LO{color:var(--text-3);font-weight:700}
+.wx-tag{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-right:6px;border:1px solid var(--eod);border-radius:var(--radius);
+  font-style:normal;font-size:var(--fs-min);font-weight:700;color:var(--eod)}
+.wx-tag.t-chokepoint{border-style:dashed}
+.wx-src{font-size:var(--fs-min)}
+.wx-src.s-obs{color:var(--up)} .wx-src.s-model{color:var(--amber);font-weight:700} .wx-src.s-none{color:var(--text-3)}
+
+/* ---------- header controls ---------- */
+.wx-range{width:96px;accent-color:var(--amber);cursor:pointer}
+.wx-op-val{display:inline-block;min-width:4ch;text-align:right;color:var(--text);font-variant-numeric:tabular-nums}
+
+/* ---------- map read-out ---------- */
+.wx-tip{display:flex;flex-direction:column;gap:2px;min-width:260px;white-space:normal}
+.wx-tip-row{display:flex;justify-content:space-between;gap:18px}
+.wx-tip-v{text-align:right;color:var(--text);font-variant-numeric:tabular-nums}
+.wx-tip-foot{margin-top:4px;padding-top:4px;border-top:1px solid var(--line-2);font-family:var(--sans);font-size:var(--fs-min)}
+
+@media (max-width:1500px){
+  .wx-grid{grid-template-columns:minmax(0,1fr) clamp(400px,38vw,470px)}
+  .wx-st-name{display:none}
+  .wx-hub-name{max-width:19ch}
+  .wx-tbl th,.wx-tbl td{padding:0 5px}
+}
