@@ -346,3 +346,38 @@ Start servers with `OT_FEEDS=binance,deribit` unless your slice needs another fe
 allows 3 connections per key and the owner's PC holds one: only S5 may enable `ais`, on one
 server at a time). Budgets per agent: Marketaux ≤ 3 calls, FMP ≤ 3, Tiingo ≤ 10, Alpha Vantage 0.
 Stop every server and browser you started.
+
+## 8. Amendments after the foundation review (2026-11-12)
+
+The foundation was built, integrated and adversarially reviewed (34 findings, all fixed).
+Where this section, `DEV_NOTES.md` or `CONTRACT_SAMPLES.md` differ from §1–§7, they win.
+
+- **§3.2 universe**: instruments carry `short` (≤ 12 characters, shown in the rail), `group`,
+  `quote.delays`, `candles {sources, kind, tfs}`, `options {source, symbol, delay}`.
+- **§3.3 quotes**: freshness set is `RT | D1 | D10 | D15 | EOD`. Yahoo FX is `D1` (about a
+  minute behind), not real-time. `status` is `ok | stale | none` (`error` is never emitted).
+  A value that aged only because nobody was watching stays `stale` with its `last`; `none`
+  needs a failed refresh. Day figures of a stream-fed quote (`prev_close`, `chg`, `chg_pct`,
+  `open`, `high`, `low`, `volume`) may be null while `last` is live; `note` says why.
+  Equities use the consolidated delayed tape for the official previous close and, while the
+  session is closed, for the close itself (`D15`). Fallback sources are asked only when a
+  primary is really down; HTTP 429 / `Retry-After` is obeyed.
+- **§3.4 candles**: daily / weekly `t` is 00:00 UTC of the exchange-local trading date
+  (weekly: its Monday). Treasury / Bundesbank yields are `kind:"line"`, daily only.
+- **§3.5 websocket**: after `hello` the server sends `status` and a full quote per
+  instrument; `quote` events are deltas; a `sub` acknowledgement lists accepted and rejected
+  topics with reasons; `status` may carry `warnings`, `quotes.counts`, `quotes.errors`.
+- **§3.6 status**: `session.tz_source` says whether the IANA database or the built-in DST
+  rules are in use (plain Windows Python without `tzdata`).
+- **Legacy routes**: a `routes/<slice>.py` that still says "Moved verbatim from the old
+  app.py" in its docstring answers 503 for every path until its owner rewrites it.
+- **Row-billed LSE calls** are refused inside the gateway unconditionally (no switch).
+- **§5 core**: `OT.state.stream` (`live | opening | silent | closed`); the GATEWAY lamp is
+  green only while the stream delivers. `OT.ui.quoteLag(q)` flags an `ok` quote that is
+  behind (LAG). Tooltips take **text** by default; markup needs `{html: …}` plus `OT.ui.esc`.
+  `ctx.header.setPayload(d)` / `OT.ui.badge.forPayload(d)` show STALE with the gateway's
+  reason for stale-on-error payloads. `ctx.poll()` rather than `OT.poll()` inside a module.
+- **§7 gate**: the runner itself audits every module a spec visited (bad text, 12 px,
+  contrast, canvas text as displayed, overflow, header badge) at 1920×1080, 1366×768 and
+  once at devicePixelRatio 1.25; prices are compared exactly with what the page received.
+  `e2e/selftest.js` proves the gate rejects defective pages.
